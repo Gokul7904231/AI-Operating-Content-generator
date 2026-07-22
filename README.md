@@ -1,122 +1,195 @@
-# 🎬 AI Shorts Factory: Scalable Serverless Video Pipeline
+# 🎬 AI Operating Content Generator (FactoryOS)
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?logo=fastapi)
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python)
-![Firebase](https://img.shields.io/badge/Firestore-Serverless-FFCA28?logo=firebase)
-![Cloudinary](https://img.shields.io/badge/Cloudinary-CDN-3448C5?logo=cloudinary)
-![Lightning AI](https://img.shields.io/badge/Lightning_AI-GPU_Compute-792EE5?logo=lightning)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://www.python.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?logo=redis)](https://redis.io/)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?logo=firebase)](https://firebase.google.com/)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-CDN-3448C5?logo=cloudinary)](https://cloudinary.com/)
 
-> A production-grade, decoupled microservice architecture that completely automates the generation, rendering, and cloud storage of AI-scripted short-form video content.
+> **FactoryOS** is an enterprise-grade, highly automated microservice suite designed to orchestrate heavy automated content generation, compliance vetting, and high-performance video rendering pipelines.
 
-## 📖 Overview
+---
 
-The **AI Shorts Factory** is a full-stack cloud application designed to orchestrate heavy video rendering workloads across isolated, stateless environments. By decoupling the user interface from the rendering engine, this architecture solves the traditional bottlenecks of automated video generation: heavy compute costs, localized file-locking collisions, and storage bloat.
+## 🏗️ System Architecture & Data Flow
 
-It utilizes a Next.js control plane to manage job queues via Firebase Firestore, securely dispatching heavy MoviePy/FFmpeg rendering tasks to an isolated Lightning AI GPU worker, and streaming the final massive `.mp4` assets to Cloudinary's global CDN.
-
-## 🏗️ System Architecture
-
-The project is split into two isolated environments communicating securely over HTTPS:
+FactoryOS is split into three decoupled components that communicate securely over HTTPS:
 
 ```mermaid
-graph TD
-    A[Next.js App UI] -->|Auth Token| B(Clerk Identity Layer)
-    A -->|1. Create Job| C[(Firebase Firestore)]
-    A -->|2. Secure Trigger| D(FastAPI Server :8000)
-    D -->|3. Generate Script| E[Groq / Gemini AI]
-    D -->|4. Render Video| F[MoviePy + FFmpeg]
-    F -->|5. Stream Upload| G((Cloudinary CDN))
-    D -->|6. Update Status| C
-    H[Vercel Cron Job] -->|7. Nightly Purge| C
-    H -->|8. Delete Asset| G
+flowchart TD
+    subgraph UI & Control ["Next.js Control Plane (gen-v)"]
+        UI[Next.js Dashboard]
+        Router[Intelligent AI Router]
+        Agent[Script & Quiz Agents]
+        DB_Bench[(Local SQLite Telemetry)]
+    end
+
+    subgraph Compliance ["Quality Gate (floor07)"]
+        Gate[FastAPI Compliance Gate]
+        Fact[FactWorker: Hallucination Detection]
+        Policy[PolicyWorker: Rule Vetting]
+        Risk[RiskWorker: Risk Aggregator]
+        Cert[CertificateWorker: Cryptographic Signer]
+        DB_Postgres[(PostgreSQL Storage)]
+        Cache_Redis[(Redis Caching & Idempotency)]
+    end
+
+    subgraph Renderer ["Rendering Engine (vps-rendering-engine)"]
+        VEngine[FastAPI Rendering Worker]
+        TTS[Edge TTS Integration]
+        FFmpeg[MoviePy + FFmpeg Pipeline]
+    end
+
+    Cloudinary((Cloudinary CDN))
+    Firestore[(Firebase Firestore)]
+
+    %% Orchestration Flow
+    UI -->|1. Request Content| Router
+    Router -->|2. Generate Drafts| Agent
+    UI -->|3. Validate Request| Gate
+    Gate --> Fact
+    Gate --> Policy
+    Gate --> Risk
+    Gate --> Cert
+    Cert -->|Store Cert| DB_Postgres
+    Gate -->|Cache Result| Cache_Redis
+    
+    UI -->|4. If Valid, Trigger Render| VEngine
+    VEngine --> TTS
+    VEngine --> FFmpeg
+    FFmpeg -->|5. Stream Video & Subtitles| Cloudinary
+    UI -->|6. Telemetry & Log Jobs| Firestore
+    UI -->|7. Performance Profiling| DB_Bench
 ```
 
-## ✨ Key Engineering Achievements
+---
 
-*   **Stateless Microservice Decoupling:** Separated the Next.js frontend from the Python rendering engine. The FastAPI worker is stateless; it pulls configurations, compiles the video, pushes to the cloud, and wipes its local execution context immediately.
-*   **Cost-Optimized Asset Lifecycle:** Implemented an automated Vercel Cron route (`/api/cron/cleanup`) that executes a nightly database scan, permanently purging heavy video files from Cloudinary (video, thumbnail, subtitles) older than 48 hours to protect free-tier bandwidth, while retaining the telemetry metadata in Firestore.
-*   **Zero-Trust Security:** The FastAPI rendering endpoint is protected by an internal `HTTPBearer` authorization lock, rejecting unauthenticated execution triggers to prevent malicious compute drain.
-*   **FFmpeg Pipeline Optimization:** Bypassed MoviePy's standard high-latency audio array compilation by utilizing multithreaded raw FFmpeg stream muxing, dropping compilation times significantly.
-*   **Build-Time Safeguards:** Engineered self-healing Firebase Admin stubs to prevent Next.js static compilation crashes in Vercel environments lacking runtime credentials.
+## 📦 Core Architecture Modules
 
-## 💻 Tech Stack
+### 1. 🛡️ Compliance Gate (`floor07`)
+A Python FastAPI microservice serving as the **FactoryOS Quality Gate**. No content can exit the pipeline without receiving a signed compliance certificate from Floor 07.
+* **Hexagonal Clean Architecture:** Completely decouples HTTP concerns, use cases, domain entities, and infrastructure layers.
+* **Workers Pipeline:**
+  * `FactWorker`: Analyzes scripts for factual correctness and hallucination ratings.
+  * `PolicyWorker`: Assesses compliance against platform-specific policies (YouTube, TikTok, etc.).
+  * `RiskWorker`: Aggregates safety profiles into weighted scores (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+  * `CertificateWorker`: Cryptographically signs approved content using SHA-256 hashes and issues certificates.
+* **Infrastructure Layer:** Uses PostgreSQL for certificate persistence, Alembic for migrations, and Redis for rate-limiting, policy caching, and API request idempotency.
 
-### Frontend / Control Plane
-*   **Framework:** Next.js 16 (App Router)
-*   **Auth:** Clerk
-*   **Styling:** Tailwind CSS
+### 2. 🎬 Control Plane (`gen-v`)
+A Next.js 16 application running with Tailwind CSS v4 and Framer Motion that functions as the orchestrator dashboard.
+* **Agent Network:** Out-of-the-box agents for automatic scriptwriting, scene composition, and quiz refinement.
+* **Intelligent AI Capability Router:** Dynamically binds capabilities (e.g. `SCRIPT v1`, `QUIZ v2`) to optimal models across providers (Google Gemini, Groq, OpenRouter, and local instances).
+* **Local-First & Offline Support:** Built-in capability resolver that detects local runtimes (Ollama, LM Studio) and operates in offline-first modes.
+* **Telemetry & Benchmarks:** Integrates `better-sqlite3` to track and profile execution latency, model cost metrics, and quality ratings.
 
-### Backend / Database
-*   **Database:** Firebase Firestore (Admin SDK / NoSQL)
-*   **Media Storage:** Cloudinary (Python & Node.js SDKs)
-*   **Automation:** Vercel Cron Jobs
+### 3. ⚙️ Rendering Engine (`vps-rendering-engine`)
+An isolated FastAPI worker designed for heavy compute compilation.
+* **Video Compilation:** Utilizes MoviePy and raw FFmpeg command chains to construct video timelines, overlay dynamic components, and render subtitles.
+* **Fast Audio Muxing:** Custom FFmpeg multi-threaded stream muxing that reduces standard MoviePy audio-array generation times.
+* **Audio Synthesis:** Integrates `edge-tts` to generate high-fidelity voice tracks from scripts.
+* **Asset Upload:** Automatically streams output MP4 files and SRT subtitles directly to the Cloudinary CDN.
 
-### Rendering Engine (Worker Node)
-*   **Server:** FastAPI / Uvicorn (Hosted on Lightning AI)
-*   **Video/Audio Processing:** MoviePy, FFmpeg, Pillow, edge-tts
-*   **AI Providers:** Groq, Google Gemini
+### 4. 📐 Architecture Knowledge Base (`factoryos-akb`)
+Contains enterprise architectural documentation, decisions (ADRs), and guidelines mapping out requirements and evolution blueprints.
+
+---
 
 ## 🚀 Getting Started
 
-### 1. Clone the Repository
+### Prerequisites
+* **Python 3.11+** (with Poetry installed for `floor07` dependency management)
+* **Node.js 20+** & **npm 10+**
+* **Docker & Docker Compose** (for PostgreSQL and Redis runtimes)
+* **System-level FFmpeg** installed and configured on the path
+
+---
+
+### Step-by-Step Setup
+
+#### 1. Setup the Compliance Gate (`floor07`)
+Navigate to the compliance directory, build/run the containers, and run migrations:
 ```bash
-git clone https://github.com/yourusername/ai-shorts-factory.git
-cd ai-shorts-factory
+cd floor07
+# Spin up PostgreSQL and Redis
+docker compose up -d
+
+# Install dependencies and run migrations
+poetry install
+poetry run alembic upgrade head
+
+# Start the API service
+poetry run uvicorn main:app --reload --port 8000
+```
+API Documentation will be available at: `http://localhost:8000/docs`.
+
+#### 2. Setup the Rendering Engine (`vps-rendering-engine`)
+Install Python dependencies and start the rendering worker:
+```bash
+cd vps-rendering-engine
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Start the rendering API
+python -m uvicorn main:app --reload --port 8080
 ```
 
-### 2. Environment Variables
-You must configure two separate `.env` files.
+#### 3. Setup the Control Plane (`gen-v`)
+Install Node packages and run the Next.js development server:
+```bash
+cd gen-v
+npm install
+npm run dev
+```
+Open `http://localhost:3000` to access the Control Plane Dashboard.
 
-**Frontend (`gen-v/.env`):**
+---
+
+## ⚙️ Environment Variables
+
+Each component has specific configuration keys. Create a `.env` file in the root of the respective module.
+
+### `floor07/.env` (Compliance Engine)
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/floor07
+REDIS_URL=redis://localhost:6379/0
+API_KEY_SECRET=secure-factory-auth-token
+LOG_LEVEL=info
+```
+
+### `vps-rendering-engine/.env` (Rendering Engine)
+```env
+CLOUDINARY_CLOUD_NAME=your_name
+CLOUDINARY_API_KEY=your_key
+CLOUDINARY_API_SECRET=your_secret
+INTERNAL_API_SECRET_KEY=secure-factory-auth-token
+```
+
+### `gen-v/.env` (Next.js Control Plane)
 ```env
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
-FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
 CLOUDINARY_CLOUD_NAME=your_name
 CLOUDINARY_API_KEY=your_key
 CLOUDINARY_API_SECRET=your_secret
-INTERNAL_API_SECRET_KEY=secure_token
-NEXT_PUBLIC_RENDER_ENGINE_URL=http://localhost:8000
+INTERNAL_API_SECRET_KEY=secure-factory-auth-token
+NEXT_PUBLIC_RENDER_ENGINE_URL=http://localhost:8080
+NEXT_PUBLIC_COMPLIANCE_GATE_URL=http://localhost:8000
 ```
-
-**Rendering Engine (`vps-rendering-engine/.env`):**
-```env
-CLOUDINARY_CLOUD_NAME=your_name
-CLOUDINARY_API_KEY=your_key
-CLOUDINARY_API_SECRET=your_secret
-INTERNAL_API_SECRET_KEY=secure_token
-```
-
-### 3. Run the Microservices Locally
-
-**Terminal 1 (Next.js):**
-```bash
-cd gen-v
-npm install
-npm run dev
-```
-
-**Terminal 2 (FastAPI Rendering Engine):**
-*(Requires Python 3.10+ and system-level FFmpeg)*
-```bash
-cd vps-rendering-engine
-python -m pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
-```
-
-## 📊 Telemetry & Admin Dashboard
-
-The system tracks execution duration and storage capacity dynamically. Access the internal metrics layer via `/recent-renders` to view active cloud processing states and historical computational spend.
 
 ---
 
----
-### 👨‍💻 Let's Connect
-**Architected by Gokul A.** *Open to Software Engineering and Cloud Architecture opportunities.*
+## 👨‍💻 Repository & Contributing
+This repository is configured to push to its primary mirror on GitHub:
+* **Target Repository:** `https://github.com/Gokul7904231/AI-Operating-Content-generator`
 
-[![Portfolio](https://img.shields.io/badge/Portfolio-gokul.software-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://www.gokul.software/)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/gokul1234/)
+To configure additional git remote mirrors manually:
+```bash
+git remote add target https://github.com/Gokul7904231/AI-Operating-Content-generator.git
+git push -u target main
+```
