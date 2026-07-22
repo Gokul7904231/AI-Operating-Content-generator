@@ -1,0 +1,55 @@
+{
+  "gemini-2.5-flash": {
+    "script": 96,
+    "speed": 99,
+    "cost": 95,
+    "reasoning": 90
+  },
+  "glm-4.5": {
+    "script": 98,
+    "scene": 99,
+    "reasoning": 99
+  },
+  "llama-3.3-70b-versatile": {
+    "critic": 99,
+    "reasoning": 97
+  },
+  "qwen3-coder": {
+    "coding": 99,
+    "reasoning": 94,
+    "speed": 92
+  },
+  "meta-llama/llama-3.1-8b-instruct": {
+    "script": 88,
+    "critic": 85,
+    "speed": 47,
+    "reasoning": 82
+  },
+  "flux": {
+    "image": 98,
+    "speed": 3,
+    "cost": 100
+  },
+  "qwen-2.5-coder-32b": {
+    "coding": 97,
+    "reasoning": 92,
+    "speed": 82,
+    "cost": 100
+  },
+  "llama-3.3-70b-instruct": {
+    "script": 95,
+    "critic": 94,
+    "speed": 80,
+    "reasoning": 93,
+    "cost": 100
+  },
+  "glm-4.7-flash": {
+    "script": 97,
+    "critic": 96,
+    "coding": 98,
+    "reasoning": 95,
+    "json": 99,
+    "speed": 2,
+    "cost": 100
+  }
+}

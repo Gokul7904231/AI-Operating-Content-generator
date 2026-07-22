@@ -11,6 +11,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react/no-unescaped-entities": "off",
+      "@next/next/google-font-display": "off",
+      "@next/next/no-page-custom-font": "off",
+    }
+  }
 ]);
 
 export default eslintConfig;

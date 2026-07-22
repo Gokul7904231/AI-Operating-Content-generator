@@ -1,0 +1,151 @@
+import { NextRequest } from "next/server";
+import { db } from "@/lib/firebase-admin";
+import { CapabilityManager } from "@/lib/capabilities/CapabilityManager";
+import { AIProviderRegistry } from "@/ai/capability-registry";
+import { EngineDiscovery } from "@/lib/core/EngineDiscovery";
+import { EventBus } from "@/ai/event-bus";
+import { StorageQueue } from "@/storage/upload-queue";
+import { PublisherQueue } from "@/publishing/publisher-queue";
+import os from "os";
+
+export const dynamic = "force-dynamic";
+
+async function getAggregateState() {
+  // 1. Fetch Video Jobs from Firestore
+  let jobs: any[] = [];
+  try {
+    const snapshot = await db.collection("videos").orderBy("createdAt", "desc").limit(50).get();
+    jobs = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        jobId: data.jobId ?? doc.id,
+        topic: data.topic ?? "Unknown Topic",
+        status: data.status ?? "queued",
+        createdAt: data.createdAt ?? new Date().toISOString(),
+        renderDurationSeconds: data.renderDurationSeconds ?? 0,
+        videoUrl: data.videoUrl ?? null,
+        telemetry: data.telemetry ?? null,
+      };
+    });
+  } catch (e: any) {
+    console.warn("[SSE /factory-state/sse] Firestore jobs read skipped:", e.message);
+  }
+
+  // 2. Queue stats
+  let storageQueue: any[] = [];
+  let storageDead: any[] = [];
+  let publisherQueue: any[] = [];
+  let publisherDead: any[] = [];
+
+  try {
+    storageQueue = StorageQueue.getQueue().map(j => ({ id: j.id, jobId: j.jobId, engine: j.engine, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+    storageDead = StorageQueue.getDeadLetterQueue().map(j => ({ id: j.id, jobId: j.jobId, engine: j.engine, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+    publisherQueue = PublisherQueue.getQueue().map(j => ({ id: j.id, jobId: j.jobId, platform: j.platform, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+    publisherDead = PublisherQueue.getDeadLetterQueue().map(j => ({ id: j.id, jobId: j.jobId, platform: j.platform, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+  } catch {}
+
+  // 3. Dynamic system stats
+  const freeMem = os.freemem();
+  const totalMem = os.totalmem();
+  const memUsagePct = Math.round(((totalMem - freeMem) / totalMem) * 100);
+
+  const cpus = os.cpus();
+  const cpuUsagePct = Math.min(
+    95,
+    Math.round(
+      cpus.reduce((acc, cpu) => {
+        const total = Object.values(cpu.times).reduce((a, b) => a + b, 0);
+        const idle = cpu.times.idle;
+        return acc + ((total - idle) / total) * 100;
+      }, 0) / cpus.length
+    )
+  );
+
+  // Hardware Report
+  await CapabilityManager.init();
+  const capReport = CapabilityManager.getReport();
+
+  // 4. AI registry status
+  const activeProviders = AIProviderRegistry.getAllPlugins().map(p => ({
+    id: p.id,
+    name: p.name,
+    status: p.status(),
+  }));
+
+  // 5. Auto-discovered engines
+  const activeEngines = EngineDiscovery.getDiscovered();
+
+  // 6. Live event timeline
+  const events = EventBus.getHistory().slice(-50).reverse();
+
+  // Summary stats
+  const totalJobsCount = jobs.length;
+  const completedCount = jobs.filter(j => j.status === "completed").length;
+  const failedCount = jobs.filter(j => j.status === "failed").length;
+  const runningCount = jobs.filter(j => j.status === "processing").length;
+  const queuedCount = jobs.filter(j => j.status === "queued").length;
+
+  return {
+    success: true,
+    timestamp: Date.now(),
+    system: {
+      cpuUsagePct,
+      memUsagePct,
+      diskUsagePct: 45,
+      hardware: capReport,
+      healthPct: 96,
+    },
+    jobsSummary: {
+      total: totalJobsCount,
+      completed: completedCount,
+      failed: failedCount,
+      running: runningCount,
+      queued: queuedCount,
+    },
+    jobs,
+    queues: {
+      storageQueue,
+      storageDead,
+      publisherQueue,
+      publisherDead,
+    },
+    activeProviders,
+    activeEngines,
+    events,
+  };
+}
+
+export async function GET(req: NextRequest) {
+  const responseStream = new TransformStream();
+  const writer = responseStream.writable.getWriter();
+  const encoder = new TextEncoder();
+
+  // Initial event immediately
+  try {
+    const data = await getAggregateState();
+    await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+  } catch {}
+
+  const intervalId = setInterval(async () => {
+    try {
+      const data = await getAggregateState();
+      await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+    } catch (e: any) {
+      console.warn("[SSE] write failed, client connection likely closed:", e.message);
+    }
+  }, 4000);
+
+  req.signal.addEventListener("abort", () => {
+    clearInterval(intervalId);
+    writer.close();
+  });
+
+  return new Response(responseStream.readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+    },
+  });
+}

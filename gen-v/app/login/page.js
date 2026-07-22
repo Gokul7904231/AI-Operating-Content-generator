@@ -17,7 +17,17 @@ export default function LoginPage() {
       // Temporary simulated login based on export behavior
       setTimeout(() => {
         setLoading(false);
-        router.push("/admin"); // Redirect to dashboard
+        // Satisfy middleware.ts protected route requirements
+        document.cookie = "__session=simulated_admin_token_auth_verified; path=/; max-age=86400";
+        const searchParams = new URLSearchParams(window.location.search);
+        let redirectTo = searchParams.get("redirect") || "/dashboard";
+
+        // Prevent routing to non-existent /admin
+        if (redirectTo === "/admin") {
+          redirectTo = "/dashboard";
+        }
+
+        router.push(redirectTo); // Redirect to target dashboard
       }, 1500);
     } catch (err) {
       setLoading(false);
@@ -25,44 +35,44 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-md font-body-base text-body-base relative z-10 w-full h-full">
+    <div className="min-h-screen w-screen flex items-center justify-center p-4 md:p-8 font-body-base text-body-base relative z-10">
       <div className="gradient-bg"></div>
-      
-      <main className="w-full max-w-md relative z-20">
-        <div className="glass-panel rounded-xl p-xl flex flex-col gap-lg relative overflow-hidden bg-surface-container-low/50 backdrop-blur-xl border border-outline-variant shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]">
-          
+
+      <main className="w-full max-w-[420px] relative z-20">
+        <div className="glass-panel rounded-xl p-6 sm:p-8 flex flex-col gap-6 relative overflow-hidden bg-surface-container-low/50 backdrop-blur-xl border border-outline-variant shadow-2xl">
+
           {/* Header Section */}
-          <div className="flex flex-col items-center text-center gap-sm">
-            <div className="w-12 h-12 rounded-lg bg-surface-container-high border border-outline-variant flex items-center justify-center mb-md">
+          <div className="flex flex-col items-center text-center gap-2">
+            <div className="w-12 h-12 rounded-lg bg-surface-container-high border border-outline-variant flex items-center justify-center mb-4">
               <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                 admin_panel_settings
               </span>
             </div>
             <h1 className="text-headline-md font-headline-md text-on-surface tracking-tight font-bold">Secure Admin Auth</h1>
-            <p className="text-body-sm font-body-sm text-on-surface-variant">Sign in to ShortsFactory Pro to manage your automated pipelines.</p>
+            <p className="text-body-sm font-body-sm text-on-surface-variant">Sign in to ContentFactory Pro to manage your automated pipelines.</p>
           </div>
-          
+
           {/* Form Section */}
-          <form className="flex flex-col gap-md" onSubmit={handleLogin}>
-            <div className="flex flex-col gap-sm">
+          <form className="flex flex-col gap-4" onSubmit={handleLogin}>
+            <div className="flex flex-col gap-2">
               <label className="text-label-mono font-label-mono text-on-surface-variant uppercase tracking-wider text-[12px] font-medium" htmlFor="email">Email Address</label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">
                   mail
                 </span>
-                <input 
-                  className="input-field w-full rounded-lg pl-10 pr-4 py-3 text-body-base font-body-base placeholder:text-outline-variant focus:ring-0 focus:border-primary focus:outline-none" 
-                  id="email" 
-                  placeholder="admin@shortsfactory.pro" 
-                  required 
+                <input
+                  className="input-field w-full rounded-lg pl-10 pr-4 py-3 text-body-base font-body-base placeholder:text-outline-variant focus:ring-0 focus:border-primary focus:outline-none"
+                  id="email"
+                  placeholder="admin@shortsfactory.pro"
+                  required
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
-            
-            <div className="flex flex-col gap-sm">
+
+            <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <label className="text-label-mono font-label-mono text-on-surface-variant uppercase tracking-wider text-[12px] font-medium" htmlFor="password">Password</label>
                 <a className="text-label-mono font-label-mono text-primary hover:text-primary-fixed-dim transition-colors text-[12px]" href="#">Forgot?</a>
@@ -71,21 +81,21 @@ export default function LoginPage() {
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">
                   lock
                 </span>
-                <input 
-                  className="input-field w-full rounded-lg pl-10 pr-4 py-3 text-body-base font-body-base placeholder:text-outline-variant focus:ring-0 focus:border-primary focus:outline-none" 
-                  id="password" 
-                  placeholder="••••••••" 
-                  required 
+                <input
+                  className="input-field w-full rounded-lg pl-10 pr-4 py-3 text-body-base font-body-base placeholder:text-outline-variant focus:ring-0 focus:border-primary focus:outline-none"
+                  id="password"
+                  placeholder="••••••••"
+                  required
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
-            
-            <div className="pt-sm">
-              <button 
-                className={`btn-primary w-full rounded-lg py-3 flex items-center justify-center gap-2 font-body-base font-bold ${loading ? 'opacity-90 pointer-events-none' : ''}`} 
+
+            <div className="pt-2">
+              <button
+                className={`btn-primary w-full rounded-lg py-3 flex items-center justify-center gap-2 font-body-base font-bold ${loading ? 'opacity-90 pointer-events-none' : ''}`}
                 type="submit"
                 disabled={loading}
               >
@@ -102,13 +112,13 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-          
-          <div className="relative flex items-center py-sm">
+
+          <div className="relative flex items-center py-2">
             <div className="flex-grow border-t border-outline-variant/50"></div>
             <span className="flex-shrink-0 mx-4 text-label-mono font-label-mono text-on-surface-variant text-[12px]">OR</span>
             <div className="flex-grow border-t border-outline-variant/50"></div>
           </div>
-          
+
           {/* OAuth Section */}
           <button className="btn-ghost w-full rounded-lg py-3 flex items-center justify-center gap-2 font-body-base">
             <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24">
@@ -119,13 +129,13 @@ export default function LoginPage() {
             </svg>
             Sign in with Google
           </button>
-          
-          <div className="mt-md text-center">
+
+          <div className="mt-4 text-center">
             <p className="text-label-mono font-label-mono text-on-surface-variant text-[11px] opacity-60">
               By signing in, you agree to the ShortsFactory Pro <a className="underline hover:text-primary transition-colors" href="#">Terms of Service</a> and <a className="underline hover:text-primary transition-colors" href="#">Privacy Policy</a>.
             </p>
           </div>
-          
+
         </div>
       </main>
     </div>

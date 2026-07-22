@@ -2,40 +2,61 @@
 @import "tailwindcss";
 
 @theme {
+  --color-zinc-950: var(--background);
+  --color-zinc-900: var(--surface);
+  --color-zinc-850: var(--surface-hover);
+  --color-zinc-800: var(--border);
+  --color-zinc-50: var(--text);
+  --color-zinc-100: var(--text);
+  --color-zinc-150: var(--text);
+  --color-zinc-200: var(--text);
+  --color-zinc-300: var(--text);
+  --color-zinc-400: var(--muted);
+  --color-zinc-500: var(--muted);
+  --color-zinc-550: var(--muted);
+  --color-zinc-600: var(--muted);
+  --color-zinc-650: var(--muted);
+  --color-zinc-700: var(--muted);
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+
   --color-on-surface-variant: #bbcabf;
-  --color-outline-variant: #3c4a42;
+  --color-outline-variant: var(--border);
   --color-on-tertiary: #313032;
-  --color-on-background: #e4e1e5;
+  --color-on-background: var(--text);
   --color-primary-fixed-dim: #4edea3;
   --color-on-primary-fixed-variant: #005236;
   --color-on-primary-fixed: #002113;
-  --color-surface-dim: #131316;
-  --color-surface-tint: #4edea3;
-  --color-surface-container-high: #2a2a2d;
+  --color-surface-dim: var(--background);
+  --color-surface-tint: var(--primary);
+  --color-surface-container-high: var(--surface-hover);
   --color-secondary: #c0c1ff;
   --color-on-secondary: #1000a9;
   --color-on-tertiary-container: #39393b;
   --color-on-error: #690005;
   --color-tertiary: #c8c6c8;
-  --color-surface-container-highest: #353437;
+  --color-surface-container-highest: var(--surface-hover);
   --color-inverse-primary: #006c49;
   --color-on-tertiary-fixed: #1c1b1d;
   --color-secondary-fixed: #e1e0ff;
   --color-error-container: #93000a;
-  --color-on-surface: #e4e1e5;
+  --color-on-surface: var(--text);
   --color-on-primary-container: #00422b;
   --color-tertiary-fixed-dim: #c8c6c8;
   --color-on-primary: #003824;
   --color-tertiary-container: #a4a2a5;
   --color-on-tertiary-fixed-variant: #474649;
   --color-error: #ffb4ab;
-  --color-surface-container: #1f1f22;
-  --color-background: #131316;
-  --color-outline: #86948a;
-  --color-surface-container-low: #1b1b1e;
-  --color-surface-container-lowest: #0e0e11;
+  --color-surface-container: var(--surface);
+  --color-outline: var(--border);
+  --color-surface-container-low: var(--surface);
+  --color-surface-container-lowest: var(--background);
   --color-secondary-fixed-dim: #c0c1ff;
-  --color-surface: #131316;
   --color-secondary-container: #3131c0;
   --color-on-secondary-container: #b0b2ff;
   --color-on-secondary-fixed: #07006c;
@@ -44,11 +65,10 @@
   --color-tertiary-fixed: #e5e1e4;
   --color-inverse-on-surface: #303033;
   --color-primary-fixed: #6ffbbe;
-  --color-primary-container: #10b981;
-  --color-surface-variant: #353437;
-  --color-primary: #4edea3;
-  --color-surface-bright: #39393c;
-  --color-inverse-surface: #e4e1e5;
+  --color-primary-container: var(--primary);
+  --color-surface-variant: var(--surface-hover);
+  --color-surface-bright: var(--surface);
+  --color-inverse-surface: var(--text);
 
   --font-body-base: "Geist", sans-serif;
   --font-headline-md: "Geist", sans-serif;
@@ -92,14 +112,26 @@
   --radius-xl: 0.5rem;
   --radius-full: 0.75rem;
 
-  --spacing-sm: 8px;
-  --spacing-base: 4px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 40px;
-  --spacing-container-max: 1440px;
-  --spacing-gutter: 20px;
-  --spacing-xs: 4px;
+  /* Custom spacing tokens renamed to avoid overriding Tailwind v4 default spacing scale (which squishes max-w-lg/xl/md utilities) */
+  --custom-spacing-sm: 8px;
+  --custom-spacing-base: 4px;
+  --custom-spacing-md: 16px;
+  --custom-spacing-lg: 24px;
+  --custom-spacing-xl: 40px;
+  --custom-spacing-gutter: 20px;
+  --custom-spacing-xs: 4px;
+
+  --animate-fade-in: fade-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-modal-scale-in: modal-scale-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes modal-scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
 }
 
 body {
@@ -170,6 +202,15 @@ body {
   outline: none;
 }
 
+.input-field:-webkit-autofill,
+.input-field:-webkit-autofill:hover, 
+.input-field:-webkit-autofill:focus, 
+.input-field:-webkit-autofill:active{
+    -webkit-box-shadow: 0 0 0 30px #131316 inset !important;
+    -webkit-text-fill-color: #e4e1e5 !important;
+    caret-color: #e4e1e5 !important;
+}
+
 .btn-primary {
   background-color: var(--color-primary-container);
   color: var(--color-on-primary-container);
@@ -191,3 +232,48 @@ body {
 .btn-ghost:hover {
   background-color: rgba(255, 255, 255, 0.05);
 }
+
+/* Root Semantic Design Tokens */
+:root {
+  --background: #09090b;
+  --surface: #18181b;
+  --surface-hover: #27272a;
+  --border: #27272a;
+  --primary: #10b981;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --text: #f4f4f5;
+  --muted: #71717a;
+  --card: #18181b;
+  --input: #09090b;
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+:root.light, [data-theme="light"] {
+  --background: #f4f4f5;
+  --surface: #ffffff;
+  --surface-hover: #e4e4e7;
+  --border: #e4e4e7;
+  --primary: #059669;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --text: #09090b;
+  --muted: #71717a;
+  --card: #ffffff;
+  --input: #ffffff;
+  --shadow: rgba(0, 0, 0, 0.05);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text);
+}
+
+.glass-panel {
+  background-color: var(--surface);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+}
+

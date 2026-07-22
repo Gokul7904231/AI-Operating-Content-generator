@@ -1,0 +1,125 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/firebase-admin";
+import { CapabilityManager } from "@/lib/capabilities/CapabilityManager";
+import { AIProviderRegistry } from "@/ai/capability-registry";
+import { EngineDiscovery } from "@/lib/core/EngineDiscovery";
+import { EventBus } from "@/ai/event-bus";
+import { MetricsDB } from "@/lib/queue-db";
+import { StorageQueue } from "@/storage/upload-queue";
+import { PublisherQueue } from "@/publishing/publisher-queue";
+import os from "os";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    // 1. Fetch Video Jobs from Firestore
+    let jobs: any[] = [];
+    try {
+      const snapshot = await db.collection("videos").orderBy("createdAt", "desc").limit(50).get();
+      jobs = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          jobId: data.jobId ?? doc.id,
+          topic: data.topic ?? "Unknown Topic",
+          status: data.status ?? "queued",
+          createdAt: data.createdAt ?? new Date().toISOString(),
+          renderDurationSeconds: data.renderDurationSeconds ?? 0,
+          videoUrl: data.videoUrl ?? null,
+          telemetry: data.telemetry ?? null,
+        };
+      });
+    } catch (e: any) {
+      console.warn("[API /factory-state] Firestore jobs read skipped:", e.message);
+    }
+
+    // 2. Queue stats
+    let storageQueue: any[] = [];
+    let storageDead: any[] = [];
+    let publisherQueue: any[] = [];
+    let publisherDead: any[] = [];
+
+    try {
+      storageQueue = StorageQueue.getQueue().map(j => ({ id: j.id, jobId: j.jobId, engine: j.engine, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+      storageDead = StorageQueue.getDeadLetterQueue().map(j => ({ id: j.id, jobId: j.jobId, engine: j.engine, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+      publisherQueue = PublisherQueue.getQueue().map(j => ({ id: j.id, jobId: j.jobId, platform: j.platform, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+      publisherDead = PublisherQueue.getDeadLetterQueue().map(j => ({ id: j.id, jobId: j.jobId, platform: j.platform, status: j.status, attempts: j.attempts, createdAt: j.createdAt }));
+    } catch {}
+
+    // 3. Dynamic system stats (mock SRE/Grafana metrics blended with real OS load)
+    const freeMem = os.freemem();
+    const totalMem = os.totalmem();
+    const memUsagePct = Math.round(((totalMem - freeMem) / totalMem) * 100);
+
+    const cpus = os.cpus();
+    const cpuUsagePct = Math.min(
+      95,
+      Math.round(
+        cpus.reduce((acc, cpu) => {
+          const total = Object.values(cpu.times).reduce((a, b) => a + b, 0);
+          const idle = cpu.times.idle;
+          return acc + ((total - idle) / total) * 100;
+        }, 0) / cpus.length
+      )
+    );
+
+    // Hardware Report & Provider Discovery
+    await CapabilityManager.init();
+    const { ProviderDiscovery } = require("@/lib/core/ProviderDiscovery");
+    await ProviderDiscovery.init();
+    const capReport = CapabilityManager.getReport();
+
+    // 4. AI registry status
+    const activeProviders = AIProviderRegistry.getAllPlugins().map(p => ({
+      id: p.id,
+      name: p.name,
+      status: p.status(),
+    }));
+
+    // 5. Auto-discovered engines
+    const activeEngines = EngineDiscovery.getDiscovered();
+
+    // 6. Live event timeline
+    const events = EventBus.getHistory().slice(-50).reverse();
+
+    // Summary stats
+    const totalJobsCount = jobs.length;
+    const completedCount = jobs.filter(j => j.status === "completed").length;
+    const failedCount = jobs.filter(j => j.status === "failed").length;
+    const runningCount = jobs.filter(j => j.status === "processing").length;
+    const queuedCount = jobs.filter(j => j.status === "queued").length;
+
+    return NextResponse.json({
+      success: true,
+      timestamp: Date.now(),
+      system: {
+        cpuUsagePct,
+        memUsagePct,
+        diskUsagePct: 45, // default
+        hardware: capReport,
+        healthPct: 96,
+      },
+      jobsSummary: {
+        total: totalJobsCount,
+        completed: completedCount,
+        failed: failedCount,
+        running: runningCount,
+        queued: queuedCount,
+      },
+      jobs,
+      queues: {
+        storageQueue,
+        storageDead,
+        publisherQueue,
+        publisherDead,
+      },
+      activeProviders,
+      activeEngines,
+      events,
+    });
+  } catch (err: any) {
+    console.error("[API /factory-state] Error gathering state:", err.message);
+    return NextResponse.json({ success: false, error: err.message }, { status: 550 });
+  }
+}

@@ -1,0 +1,8 @@
+export const VOICE_CAPABILITIES = {
+  VOICE_NARRATION: "VOICE_NARRATION",
+  VOICE_SHORTS: "VOICE_SHORTS",
+  VOICE_STORY: "VOICE_STORY",
+  VOICE_DIALOGUE: "VOICE_DIALOGUE"
+} as const;
+
+export type VoiceCapabilityName = keyof typeof VOICE_CAPABILITIES;

@@ -4,7 +4,16 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE_NAME = "__session";
 
 // Routes that require authentication
-const PROTECTED_PATHS = ["/dashboard", "/admin", "/library", "/analytics"];
+const PROTECTED_PATHS = [
+  "/dashboard",
+  "/admin",
+  "/analytics",
+  "/media",
+  "/factory",
+  "/engines",
+  "/publishing",
+  "/settings",
+];
 // Routes that should redirect to dashboard if already authenticated
 const AUTH_PATHS = ["/login"];
 
@@ -23,7 +32,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (isAuthPage && isAuthenticated) {
-    return NextResponse.redirect(new URL("/dashboard/quiz", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
@@ -33,8 +42,12 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/admin/:path*",
-    "/library/:path*",
     "/analytics/:path*",
+    "/media/:path*",
+    "/factory/:path*",
+    "/engines/:path*",
+    "/publishing/:path*",
+    "/settings/:path*",
     "/login",
   ],
 };

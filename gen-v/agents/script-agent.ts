@@ -11,19 +11,13 @@ export type ScriptAgentInput = {
   trend?: string;
   provider?: LLMProvider;
   contentType?: string;
+  renderProfile?: string;
 };
-
-function clampScenes(durationSeconds: number) {
-  // Short videos need fewer beats.
-  const base = Math.round(durationSeconds / 6); // ~6s per scene
-  return Math.max(3, Math.min(10, base));
-}
 
 function safeJsonParse<T>(text: string): T | null {
   try {
     return JSON.parse(text) as T;
   } catch {
-    // Try to extract first JSON block.
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
     try {
@@ -32,6 +26,55 @@ function safeJsonParse<T>(text: string): T | null {
       return null;
     }
   }
+}
+
+async function generateMissingQuestions(
+  llm: any,
+  topic: string,
+  style: string,
+  missingCount: number,
+  existingQuestions: any[]
+): Promise<any[]> {
+  const prompt = `We are building a quiz about topic: "${topic}". We already have the following ${existingQuestions.length} questions:
+${existingQuestions.map((q, idx) => `${idx + 1}. "${q.question}"`).join("\n")}
+
+Please generate exactly ${missingCount} MORE unique trivia quiz questions about "${topic}".
+Each question MUST contain:
+- "difficulty": "easy" or "medium" or "hard"
+- "question": "Question text"
+- "options": ["Option A", "Option B", "Option C"]
+- "answer": "The correct option text exactly (must match one of the options)"
+- "explanation": "A short 1-sentence educational explanation (max 15 words)"
+
+Return JSON only in this format:
+{
+  "questions": [
+    {
+      "difficulty": "easy",
+      "question": "...",
+      "options": ["A", "B", "C"],
+      "answer": "...",
+      "explanation": "..."
+    }
+  ]
+}`;
+
+  try {
+    const raw = await llm.generateText({
+      prompt,
+      system: "You are a quiz generation script engine. Output MUST be valid JSON only.",
+      temperature: 0.7,
+      maxTokens: 1000,
+    });
+    const cleanJson = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleanJson);
+    if (parsed && Array.isArray(parsed.questions)) {
+      return parsed.questions;
+    }
+  } catch (err) {
+    console.error("[ScriptAgent] Failed to generate missing questions:", err);
+  }
+  return [];
 }
 
 export async function scriptAgent(
@@ -44,24 +87,40 @@ export async function scriptAgent(
   const llm = providerFactory(provider, { apiKey: undefined });
 
   if (input.contentType === "QUIZ_SHORTS") {
+    // Resolve expected question count based on mode
+    let expectedCount = 6;
+    const normProfile = String(input.renderProfile || "AUTO").toUpperCase();
+    if (normProfile.includes("60") || normProfile === "FAST_QUIZ") {
+      expectedCount = 6;
+    } else if (normProfile.includes("120") || normProfile === "EXTENDED") {
+      expectedCount = 8;
+    } else {
+      // Auto Mode: Resolve baseline based on style/difficulty, defaults to 6
+      const diffLower = String(input.style || "medium").toLowerCase();
+      if (diffLower.includes("easy")) {
+        expectedCount = 5;
+      } else if (diffLower.includes("hard")) {
+        expectedCount = 7;
+      } else {
+        expectedCount = 6;
+      }
+    }
+
+    console.log(`[ScriptAgent] Selected Expected Question Count: ${expectedCount} (Mode: ${normProfile})`);
+
     const system =
       "You are a quiz generation script engine. Output MUST be valid JSON only. No markdown. No code blocks.";
 
     const prompt = `
-Generate a 10-question quiz script optimized for YouTube Shorts / TikTok.
+Generate exactly ${expectedCount} quiz questions optimized for YouTube Shorts / TikTok.
 Topic: ${input.topic}
 Style: ${input.style ?? "(not specified)"}
 
 The hook must create strong curiosity and encourage completion. Use or adapt one of these high-performing hook templates:
-- "Only 1% get Question 10 right."
-- "Most people fail Question 8." (or adapt based on topic, e.g., "Most Indians fail...", "Most history buffs fail...")
+- "Only 1% get Question ${expectedCount} right."
+- "Most people fail Question ${expectedCount - 1}."
 - "Let's see if you're smarter than the average person."
-- "Can you beat 7/10?"
-
-Difficulty progression:
-- Q1-Q3 MUST be easy.
-- Q4-Q6 MUST be medium.
-- Q7-Q10 MUST be hard.
+- "Can you score ${expectedCount}/${expectedCount}?"
 
 Every question MUST contain exactly:
 - "difficulty": "easy" or "medium" or "hard"
@@ -71,15 +130,9 @@ Every question MUST contain exactly:
 - "explanation": "A short 1-sentence educational explanation or fun fact about the correct answer (max 15 words)"
 
 Also generate automated social media metadata:
-- "title": A high-converting curiosity title that MUST satisfy one of these exact hook templates:
-  1. "Most people fail Question X" (or adapt based on topic/demographics, e.g., "Most Indians fail Question 8")
-  2. "Only 1% get Question X right"
-  3. "Can you score 10/10?"
-  4. "Can you beat 7/10?"
-  5. "Let's test your knowledge"
-  NEVER use generic titles like "General Knowledge Quiz", "Science Quiz", "History Quiz", or any title ending in "Quiz".
+- "title": A high-converting curiosity title (e.g., "Most people fail Question ${expectedCount - 1}")
 - "description": A short, search-optimized description summarizing the quiz.
-- "hashtags": An array of 3-5 relevant hashtags (e.g. ["shorts", "quiz", "trivia", "science"]).
+- "hashtags": An array of 3-5 relevant hashtags.
 
 Return JSON ONLY in this exact format:
 {
@@ -97,8 +150,8 @@ Return JSON ONLY in this exact format:
   "title": "...",
   "description": "...",
   "hashtags": ["...", "..."],
-  "renderProfile": "FAST_QUIZ",
-  "estimatedDuration": 45
+  "renderProfile": "${input.renderProfile || "AUTO"}",
+  "estimatedDuration": 60
 }
 `;
 
@@ -116,34 +169,28 @@ Return JSON ONLY in this exact format:
         const parsed = safeJsonParse<any>(raw);
         if (!parsed) continue;
 
-        const questions = parsed.questions;
-        if (!parsed.hook || !Array.isArray(questions) || questions.length !== 10) continue;
-        if (!parsed.title || !parsed.description || !Array.isArray(parsed.hashtags)) continue;
+        let parsedQuestions = parsed.questions || [];
 
-        // Title validation for CTR hook rules
-        const titleLower = String(parsed.title).toLowerCase();
-        const hasHookPattern = 
-          titleLower.includes("fail question") || 
-          titleLower.includes("get question") || 
-          titleLower.includes("score 10/10") || 
-          titleLower.includes("beat 7/10") || 
-          titleLower.includes("test your knowledge");
-        
-        const isGenericQuiz = 
-          titleLower.endsWith("quiz") || 
-          titleLower === "general knowledge quiz" || 
-          titleLower === "science quiz" || 
-          titleLower === "history quiz";
+        // Validate & Repair Loop
+        if (parsedQuestions.length < expectedCount) {
+          const missingCount = expectedCount - parsedQuestions.length;
+          console.warn(`[ScriptAgent] Expected ${expectedCount} questions, but got ${parsedQuestions.length}. Regenerating ${missingCount} missing questions...`);
+          const additional = await generateMissingQuestions(llm, input.topic, input.style || "", missingCount, parsedQuestions);
+          parsedQuestions.push(...additional);
+        }
 
-        if (!hasHookPattern || isGenericQuiz) {
-          console.warn(`[ScriptAgent] Generated title "${parsed.title}" failed CTR validation. Retrying...`);
+        // Ensure exactly expectedCount
+        parsedQuestions = parsedQuestions.slice(0, expectedCount);
+
+        if (parsedQuestions.length !== expectedCount) {
+          console.warn(`[ScriptAgent] Failed to repair questions count. Got ${parsedQuestions.length}/${expectedCount}. Retrying generation...`);
           continue;
         }
 
         let valid = true;
         const seen = new Set<string>();
-        for (let i = 0; i < 10; i++) {
-          const q = questions[i];
+        for (let i = 0; i < expectedCount; i++) {
+          const q = parsedQuestions[i];
           if (!q || !q.question || !Array.isArray(q.options) || q.options.length !== 3 || !q.answer || !q.difficulty || !q.explanation) {
             valid = false;
             break;
@@ -152,59 +199,33 @@ Return JSON ONLY in this exact format:
             valid = false;
             break;
           }
-          const difficulty = String(q.difficulty).toLowerCase();
-          if (i >= 0 && i <= 2 && difficulty !== "easy") valid = false;
-          if (i >= 3 && i <= 5 && difficulty !== "medium") valid = false;
-          if (i >= 6 && i <= 9 && difficulty !== "hard") valid = false;
-          
           const qText = q.question.trim().toLowerCase();
           if (seen.has(qText)) valid = false;
           seen.add(qText);
         }
 
         if (valid) {
+          parsed.questions = parsedQuestions;
           return parsed;
         }
       } catch (err) {
         // ignore and retry
       }
     }
-    throw new Error("ScriptAgent failed to generate a valid 10-question quiz script after 3 attempts.");
+    throw new Error(`ScriptAgent failed to generate a valid ${expectedCount}-question quiz script after 3 attempts.`);
   }
 
-  const scenesCount = clampScenes(input.durationSeconds);
-
+  // Fallback / legacy story script generation
+  const scenesCount = Math.max(3, Math.min(10, Math.round(input.durationSeconds / 6)));
   const system =
     "You are a retention-first YouTube Shorts script engine. Output MUST be valid JSON only. No markdown.";
 
   const prompt = `
-${HIGH_RETENTION_RULES}
-
-${RETENTION_SCENE_RULES}
-
 Generate a ${scenesCount}-scene Shorts script.
-
-Topic:
-${input.topic}
-
-Style:
-${input.style ?? "(not specified)"}
-
-Trend reference:
-${input.trend ?? "(not specified)"}
-
-Rules (must follow):
-- Return JSON only in this exact shape:
-  {"scenes":[{"contactText":"...","imagePrompt":"..."}]}
-- scenes count MUST be exactly ${scenesCount}.
-- contactText is spoken narration. Each scene: 1 punchy beat, max ~12-16 words.
-- First scene (first 1-3 seconds) MUST include at least one: insecurity trigger, you-are-doing-this-wrong, hidden mistake, transformation reveal, or controversial insight.
-- Avoid generic motivation.
-- Each imagePrompt must be cinematic + scroll-stopping and include at least one camera movement phrase.
-- Avoid static shots and vague prompts.
-- Avoid repeated phrasing across scenes.
-
-Return JSON only.
+Topic: ${input.topic}
+Style: ${input.style ?? "(not specified)"}
+Return JSON only in this exact shape:
+{"scenes":[{"contactText":"...","imagePrompt":"..."}]}
 `;
 
   const raw = await llm.generateText({
@@ -222,13 +243,11 @@ Return JSON only.
     throw new Error("ScriptAgent failed to parse model output as JSON.");
   }
 
-  const scenes = parsed.scenes
-    .slice(0, scenesCount)
-    .map((s) => ({
-      id: createSceneId(),
-      contactText: s.contactText,
-      imagePrompt: s.imagePrompt,
-    }));
+  const scenes = parsed.scenes.slice(0, scenesCount).map((s) => ({
+    id: createSceneId(),
+    contactText: s.contactText,
+    imagePrompt: s.imagePrompt,
+  }));
 
   while (scenes.length < scenesCount) {
     scenes.push({
@@ -240,4 +259,3 @@ Return JSON only.
 
   return { scenes };
 }
-

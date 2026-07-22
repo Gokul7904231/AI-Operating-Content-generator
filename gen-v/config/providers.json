@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "providers": [
+    {
+      "id": "google-ai",
+      "name": "Google AI Studio",
+      "enabled": false,
+      "type": "native",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "apiKey": "",
+      "priority": 1,
+      "health": {
+        "status": "unknown",
+        "latency": 0,
+        "successRate": 1.0
+      },
+      "rateLimits": {
+        "rpm": 15,
+        "rpd": 1500
+      },
+      "supportedModels": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro"
+      ]
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "enabled": true,
+      "type": "native",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKey": "",
+      "priority": 2,
+      "supportedModels": [
+        "llama-3.3-70b-versatile",
+        "deepseek-r1-distill-llama-70b"
+      ]
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA NIM",
+      "enabled": true,
+      "type": "openai-compatible",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKey": "",
+      "priority": 3,
+      "supportedModels": [
+        "glm-4.5",
+        "llama-3.3-70b",
+        "nemotron-4"
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "enabled": true,
+      "type": "openai-compatible",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKey": "",
+      "priority": 99,
+      "supportedModels": [
+        "meta-llama/llama-3.1-8b-instruct",
+        "qwen/qwen3-coder"
+      ]
+    },
+    {
+      "id": "pollinations",
+      "name": "Pollinations AI",
+      "enabled": true,
+      "type": "openai-compatible",
+      "baseUrl": "https://gen.pollinations.ai",
+      "apiKey": "",
+      "priority": 4,
+      "supportedModels": [
+        "flux",
+        "qwen-2.5-coder-32b",
+        "llama-3.3-70b-instruct"
+      ]
+    },
+    {
+      "id": "zai",
+      "name": "Z.AI",
+      "enabled": true,
+      "type": "openai-compatible",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "apiKey": "",
+      "priority": 80,
+      "supportedModels": [
+        "glm-4.7-flash"
+      ]
+    }
+  ]
+}

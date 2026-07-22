@@ -1,0 +1,65 @@
+[tool.poetry]
+name = "floor07"
+version = "0.1.0"
+description = "FactoryOS Floor 07 — Content Integrity & Compliance"
+authors = ["FactoryOS Team <team@factoryos.io>"]
+readme = "README.md"
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115.0"
+uvicorn = { extras = ["standard"], version = "^0.32.0" }
+pydantic = "^2.9.0"
+pydantic-settings = "^2.6.0"
+sqlalchemy = { extras = ["asyncio"], version = "^2.0.36" }
+asyncpg = "^0.30.0"
+alembic = "^1.14.0"
+redis = { extras = ["asyncio"], version = "^5.2.0" }
+structlog = "^24.4.0"
+python-dotenv = "^1.0.1"
+orjson = "^3.10.11"
+prometheus-client = "^0.21.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+black = "^24.10.0"
+ruff = "^0.8.2"
+mypy = "^1.13.0"
+httpx = "^0.28.0"
+fakeredis = { extras = ["asyncio"], version = "^2.26.2" }
+anyio = { extras = ["asyncio"], version = "^4.6.0" }
+aiosqlite = "^0.20.0"
+pytest-mock = "^3.14.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT"]
+ignore = ["E501", "B008"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=95 -v"
+
+[tool.coverage.run]
+omit = ["tests/*", "migrations/*", "scripts/*"]

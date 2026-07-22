@@ -35,7 +35,10 @@ export default function RootLayout({ children }) {
       lang="en"
       className={`dark ${inter.variable} ${geistSans.variable} ${geistMono.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="bg-zinc-950 text-zinc-50 font-body-base antialiased flex h-screen w-full overflow-hidden selection:bg-emerald-500/30" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+      </head>
+      <body className="bg-zinc-950 text-zinc-50 font-body-base antialiased h-screen w-full selection:bg-emerald-500/30" suppressHydrationWarning>
         {children}
       </body>
     </html>

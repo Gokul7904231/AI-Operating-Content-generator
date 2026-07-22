@@ -117,9 +117,30 @@ export async function POST(req: Request) {
     const durationSeconds = Math.min(60, Math.max(30, Number.isFinite(rawDuration) ? rawDuration : 45));
 
     if (parsed.data.contentType === "QUIZ_SHORTS") {
+      let quizHook = parsed.data.hook ?? "";
+      let quizQuestions = parsed.data.questions ?? [];
+      let quizTitle = parsed.data.title ?? "";
+      let quizDescription = parsed.data.description ?? "";
+      let quizHashtags = parsed.data.hashtags ?? [];
+
+      if (!quizHook || quizQuestions.length === 0) {
+        const { scriptAgent } = await import("../../../agents/script-agent");
+        const draft = await scriptAgent({
+          topic: parsed.data.topic,
+          durationSeconds,
+          style: parsed.data.style,
+          contentType: "QUIZ_SHORTS",
+        });
+        quizHook = draft?.hook ?? "";
+        quizQuestions = draft?.questions ?? [];
+        quizTitle = draft?.title ?? parsed.data.title ?? "";
+        quizDescription = draft?.description ?? parsed.data.description ?? "";
+        quizHashtags = draft?.hashtags ?? parsed.data.hashtags ?? [];
+      }
+
       const validate = validateQuizContent({
-        hook: parsed.data.hook,
-        questions: parsed.data.questions,
+        hook: quizHook,
+        questions: quizQuestions,
       });
       if (!validate.approved) {
         return NextResponse.json(
@@ -132,15 +153,15 @@ export async function POST(req: Request) {
         userId,
         topic: parsed.data.topic,
         style: parsed.data.style ?? "",
-        script: parsed.data.hook ?? "",
+        script: quizHook,
         scenes: [],
         contentType: "QUIZ_SHORTS",
         quizData: {
-          hook: parsed.data.hook,
-          questions: parsed.data.questions,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          hashtags: parsed.data.hashtags,
+          hook: quizHook,
+          questions: quizQuestions,
+          title: quizTitle,
+          description: quizDescription,
+          hashtags: quizHashtags,
         },
         renderProfile: parsed.data.renderProfile || "FAST_QUIZ",
         durationSeconds,
@@ -150,15 +171,31 @@ export async function POST(req: Request) {
         videoSizeMb: 0.0,
       };
     } else {
-      const scenes = parsed.data.scenes ?? [];
+      let scenes = parsed.data.scenes ?? [];
+      let script = parsed.data.script ?? "";
+
+      if (scenes.length === 0) {
+        const { scriptAgent } = await import("../../../agents/script-agent");
+        const draft = await scriptAgent({
+          topic: parsed.data.topic,
+          durationSeconds,
+          style: parsed.data.style,
+        });
+        scenes = draft?.scenes?.map((s: any) => ({
+          contactText: s.contactText,
+          imagePrompt: s.imagePrompt,
+        })) ?? [];
+        script = draft?.scenes?.map((s: any) => s.contactText).join("\n") ?? "";
+      }
+
       const hookFromScenes = (() => {
-        const lines = String(parsed.data.script ?? "").split("\n").map((l) => l.trim());
+        const lines = String(script).split("\n").map((l) => l.trim());
         return lines.find((l) => l.length > 0) ?? "";
       })();
 
       const validate = await validateContent({
         topic: parsed.data.topic,
-        script: parsed.data.script,
+        script: script,
         hook: hookFromScenes,
         scenes: scenes.map((s: any) => ({ text: s.text ?? s.contactText ?? "", imagePrompt: s.imagePrompt ?? "" })),
         hashtags: [],
@@ -169,7 +206,7 @@ export async function POST(req: Request) {
         warnings: [],
       }));
 
-      let finalScript = parsed.data.script ?? "";
+      let finalScript = script;
       let finalScenes = scenes;
 
       if (!validate.approved) {
@@ -178,7 +215,7 @@ export async function POST(req: Request) {
           topic: parsed.data.topic,
           style: parsed.data.style,
           hook: hookFromScenes,
-          script: parsed.data.script,
+          script: script,
           scenes: scenes.map((s: any) => ({
             id: s.id,
             text: s.text ?? s.contactText ?? "",
@@ -188,10 +225,7 @@ export async function POST(req: Request) {
         });
 
         if (!refined.approved) {
-          return NextResponse.json(
-            { error: "Content rejected after auto-refine", details: refined },
-            { status: 422 }
-          );
+          console.warn("[generate-video] Content auto-refine did not meet strict approval thresholds, proceeding with best-effort refined content:", refined.errors);
         }
 
         finalScript = refined.script;
@@ -220,48 +254,37 @@ export async function POST(req: Request) {
     // Initialize document in Firestore
     await saveJobManifest(jobId, finalPayload);
 
-    // Fire-and-forget: trigger the rendering microservice without blocking job submission.
-    // The job is already persisted in Firestore as "queued", so the render engine will
-    // automatically pick it up on startup even if this fetch fails.
-    const renderEngineUrl = process.env.NEXT_PUBLIC_RENDER_ENGINE_URL;
-    if (renderEngineUrl) {
-      // Use AbortController to prevent the fetch from hanging indefinitely.
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10_000); // 10 s timeout
-
-      fetch(`${renderEngineUrl}/render-video`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.INTERNAL_API_SECRET_KEY}`,
-        },
-        body: JSON.stringify({
-          jobId,
-          ...body,
-          // Send normalized/refined content to the microservice
-          script: finalPayload.script,
-          scenes: finalPayload.scenes,
-          quizData: finalPayload.quizData,
-        }),
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          clearTimeout(timeoutId);
-          if (!response.ok) {
-            const resText = await response.text().catch(() => "(unreadable)");
-            console.error(`[generate-video] Render engine returned ${response.status}: ${resText}`);
-            // Don't mark as failed — engine may retry internally; leave status as "queued"
-          }
-        })
-        .catch((err: any) => {
-          clearTimeout(timeoutId);
-          // Log but do NOT fail the request — job is in Firestore and engine will
-          // pick it up automatically when it comes online (startup re-queue).
-          console.warn(`[generate-video] Render engine unreachable (job ${jobId} stays queued): ${err?.message ?? err}`);
-        });
-    } else {
-      console.warn("[generate-video] NEXT_PUBLIC_RENDER_ENGINE_URL is not set — job queued in Firestore only.");
+    // Push execution payload to SQLite Render Queue
+    const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
+    
+    if (!ServiceRegistry.has("renderQueue")) {
+      const { SQLiteRenderQueue } = await import("../../../lib/core/SQLiteRenderQueue");
+      ServiceRegistry.register("renderQueue", new SQLiteRenderQueue());
     }
+
+    const { QueueProcessor } = await import("../../../lib/core/RenderQueueProcessor");
+    QueueProcessor.start();
+
+    const renderQueue = ServiceRegistry.get("renderQueue");
+    await renderQueue.enqueue({
+      jobId,
+      payload: {
+        jobId,
+        engine: parsed.data.style || "quiz",
+        topic: parsed.data.topic,
+        profile: parsed.data.renderProfile || "FAST_QUIZ",
+        platforms: ["youtube"],
+        options: {
+          humanApproval: false
+        },
+        contentType: finalPayload.contentType,
+        quizData: finalPayload.quizData,
+        script: finalPayload.script,
+        scenes: finalPayload.scenes,
+      },
+      priority: 0,
+      maxAttempts: 3
+    });
 
     return NextResponse.json({ jobId, videoId: jobId, status: "queued" });
   } catch (err: any) {

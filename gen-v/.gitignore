@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SQLite queue database (generated at runtime)
+/data/
+
+# Secrets & Credentials
+client_secret*.json
+*firebase-adminsdk*.json
+credentials/
+*.pem
+*.key
+

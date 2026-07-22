@@ -68,7 +68,12 @@ The output must match this exact JSON format:
       // 2. ATTEMPT 2: Gemini 1.5 Flash
       try {
         console.log("[LLM] Attempt 2: Gemini 1.5 Flash...");
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ 
+          apiKey: process.env.GEMINI_API_KEY,
+          httpOptions: {
+            timeout: 120000, // 120 seconds (120,000 ms)
+          }
+        });
         const response = await ai.models.generateContent({
           model: "gemini-1.5-flash",
           contents: `${system}\n\n${prompt}`,

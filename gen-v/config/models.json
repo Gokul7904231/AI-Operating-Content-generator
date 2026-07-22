@@ -1,0 +1,106 @@
+{
+  "models": [
+    {
+      "id": "gemini-2.5-flash",
+      "type": "text",
+      "capabilities": [
+        "script",
+        "rewrite",
+        "metadata"
+      ],
+      "providers": [
+        "google-ai"
+      ]
+    },
+    {
+      "id": "glm-4.5",
+      "type": "text",
+      "capabilities": [
+        "script",
+        "scene",
+        "reasoning"
+      ],
+      "providers": [
+        "nvidia"
+      ]
+    },
+    {
+      "id": "llama-3.3-70b-versatile",
+      "type": "text",
+      "capabilities": [
+        "critic",
+        "reasoning"
+      ],
+      "providers": [
+        "groq"
+      ]
+    },
+    {
+      "id": "qwen3-coder",
+      "type": "code",
+      "capabilities": [
+        "coding"
+      ],
+      "providers": [
+        "openrouter"
+      ]
+    },
+    {
+      "id": "meta-llama/llama-3.1-8b-instruct",
+      "type": "text",
+      "capabilities": [
+        "script",
+        "critic"
+      ],
+      "providers": [
+        "openrouter"
+      ]
+    },
+    {
+      "id": "flux",
+      "type": "image",
+      "capabilities": [
+        "image",
+        "thumbnail"
+      ],
+      "providers": [
+        "pollinations"
+      ]
+    },
+    {
+      "id": "qwen-2.5-coder-32b",
+      "type": "code",
+      "capabilities": [
+        "coding"
+      ],
+      "providers": [
+        "pollinations"
+      ]
+    },
+    {
+      "id": "llama-3.3-70b-instruct",
+      "type": "text",
+      "capabilities": [
+        "script",
+        "critic"
+      ],
+      "providers": [
+        "pollinations"
+      ]
+    },
+    {
+      "id": "glm-4.7-flash",
+      "type": "text",
+      "capabilities": [
+        "script",
+        "critic",
+        "reasoning",
+        "coding",
+        "json"
+      ],
+      "providers": [
+        "zai"
+      ]
+    }
+  ]
+}

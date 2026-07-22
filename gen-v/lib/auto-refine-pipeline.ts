@@ -90,6 +90,16 @@ export async function autoRefinePipeline(input: AutoRefineInput): Promise<AutoRe
   let script = input.script;
   let scenes = normalizeScenes(input.scenes);
 
+  if (scenes.length === 0) {
+    scenes = [{
+      id: "default-1",
+      text: `Opening scene for ${input.topic}`,
+      imagePrompt: `Cinematic visualization of ${input.topic}`,
+    }];
+    if (!hook) hook = scenes[0].text;
+    if (!script) script = scenes[0].text;
+  }
+
   if (faster) {
     console.log("[autoRefinePipeline] Fast mode enabled, bypassing refinement and evaluations.");
     return {

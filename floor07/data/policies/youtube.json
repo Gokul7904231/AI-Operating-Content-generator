@@ -1,0 +1,33 @@
+"""YouTube platform policy profile."""
+
+{
+  "platform": "youtube",
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "RULE-YT-001",
+      "strategy": "MAX_LENGTH",
+      "field": "title",
+      "max_length": 100,
+      "severity": "HIGH"
+    },
+    {
+      "id": "RULE-YT-002",
+      "strategy": "MIN_LENGTH",
+      "field": "script",
+      "min_length": 30,
+      "severity": "HIGH"
+    },
+    {
+      "id": "RULE-YT-003",
+      "strategy": "PROHIBITED_WORDS",
+      "field": "script",
+      "words": ["violence", "offensive_slur"],
+      "severity": "CRITICAL"
+    }
+  ],
+  "recommendations": [
+    "YouTube short form content should stay under 60 seconds script runtime equivalents.",
+    "Avoid sensitive/prohibited vocabulary to preserve advertiser safety."
+  ]
+}

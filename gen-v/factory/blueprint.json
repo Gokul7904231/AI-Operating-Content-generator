@@ -1,0 +1,32 @@
+{
+  "profile": "simulation",
+  "workflows": {
+    "quiz": {
+      "enabled": true,
+      "storage": "google-drive",
+      "publish": "youtube",
+      "learning": true,
+      "approval": false,
+      "retry": 3,
+      "retention": "48h"
+    },
+    "story": {
+      "enabled": true,
+      "storage": "google-drive",
+      "publish": "youtube",
+      "learning": true,
+      "approval": true,
+      "retry": 2,
+      "retention": "72h"
+    },
+    "news": {
+      "enabled": true,
+      "storage": "google-drive",
+      "publish": "youtube",
+      "learning": true,
+      "approval": false,
+      "retry": 3,
+      "retention": "24h"
+    }
+  }
+}

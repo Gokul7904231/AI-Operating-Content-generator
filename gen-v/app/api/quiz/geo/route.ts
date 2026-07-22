@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
-import { Groq } from "groq-sdk";
+import Groq from "groq-sdk";
 
 const COUNTRY_MAP: Record<string, { name: string; voice: string }> = {
   US: { name: "United States", voice: "en-US-AriaNeural" },

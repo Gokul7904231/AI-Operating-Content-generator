@@ -1,77 +1,105 @@
+// GET /api/cron/cleanup
+//
+// Scheduled cleanup endpoint - runs every 6 hours via Vercel Cron
+// or any external cron scheduler (e.g. GitHub Actions, Cloud Scheduler).
+//
+// Protected by INTERNAL_API_SECRET_KEY.
+// Algorithm:
+//   1. Query Firestore for jobs with deleteAt <= now and cleanupStatus = "pending"
+//   2. Trash each Drive file (never permanent delete)
+//   3. Mark as cleaned in Firestore
+//   4. Publish storage.cleanup.completed event
+//   5. Return report JSON
+//
+// Vercel cron schedule: "0 0-23/6 * * *" (every 6 hours)
+
 import { NextResponse } from "next/server";
-import { db } from "../../../../lib/firebase-admin";
-import { v2 as cloudinary } from "cloudinary";
+import "../../../../storage/index";
+import { StorageRegistry } from "../../../../storage/storage-registry";
+import { getPendingCleanup, markCleaned } from "../../../../lib/drive-store";
+import { EventBus } from "../../../../ai/event-bus";
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  try {
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+export async function GET(req: Request) {
+  // Security gate
+  const authHeader = req.headers.get("authorization");
+  const expectedKey = process.env.INTERNAL_API_SECRET_KEY;
 
-    const snapshot = await db
-      .collection("videos")
-      .where("status", "==", "completed")
-      .where("createdAt", "<=", fortyEightHoursAgo)
-      .get();
-
-    if (snapshot.empty) {
-      return NextResponse.json({ message: "No expiring media elements located." });
-    }
-
-    const batch = db.batch();
-    const targets: string[] = [];
-
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-
-      // Delete Video
-      if (data.cloudinaryPublicId) {
-        try {
-          await cloudinary.uploader.destroy(data.cloudinaryPublicId, { resource_type: "video" });
-        } catch (cloudinaryError: any) {
-          console.error(`Failed to wipe video asset ${data.cloudinaryPublicId}:`, cloudinaryError.message);
-        }
-      }
-
-      // Delete Thumbnail
-      if (data.cloudinaryThumbnailPublicId) {
-        try {
-          await cloudinary.uploader.destroy(data.cloudinaryThumbnailPublicId, { resource_type: "image" });
-        } catch (cloudinaryError: any) {
-          console.error(`Failed to wipe thumbnail asset ${data.cloudinaryThumbnailPublicId}:`, cloudinaryError.message);
-        }
-      }
-
-      // Delete Subtitles
-      if (data.cloudinarySubtitlesPublicId) {
-        try {
-          await cloudinary.uploader.destroy(data.cloudinarySubtitlesPublicId, { resource_type: "raw" });
-        } catch (cloudinaryError: any) {
-          console.error(`Failed to wipe subtitles asset ${data.cloudinarySubtitlesPublicId}:`, cloudinaryError.message);
-        }
-      }
-
-      // Pivot structural record to 'purged' without breaking baseline tracking matrices
-      const docRef = db.collection("videos").doc(doc.id);
-      batch.update(docRef, {
-        status: "purged",
-        videoUrl: null,
-        thumbnailUrl: null,
-        subtitlesUrl: null,
-        cloudinaryPublicId: null,
-        cloudinaryThumbnailPublicId: null,
-        cloudinarySubtitlesPublicId: null,
-      });
-      targets.push(doc.id);
-    }
-
-    await batch.commit();
-    return NextResponse.json({ message: "Cleanup execution complete.", processed: targets });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (
+    expectedKey &&
+    authHeader !== `Bearer ${expectedKey}` &&
+    new URL(req.url).searchParams.get("key") !== expectedKey
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const traceId = `cron_cleanup_${Date.now()}`;
+  const startTime = Date.now();
+
+  console.log(`[CronCleanup] Starting cleanup pass at ${new Date().toISOString()}`);
+
+  const report = {
+    ranAt: new Date().toISOString(),
+    deleted: 0,
+    failed: 0,
+    skipped: 0,
+    durationMs: 0,
+    jobs: [] as Array<{ jobId: string; fileId: string; status: string; error?: string }>,
+  };
+
+  try {
+    const provider = StorageRegistry.getProvider("google-drive");
+    const pending = await getPendingCleanup();
+
+    console.log(`[CronCleanup] Found ${pending.length} jobs pending cleanup.`);
+
+    for (const job of pending) {
+      if (!job.driveFileId) {
+        report.skipped++;
+        continue;
+      }
+
+      try {
+        await provider.delete(job.driveFileId);
+        await markCleaned(job.jobId);
+        report.deleted++;
+        report.jobs.push({
+          jobId: job.jobId,
+          fileId: job.driveFileId,
+          status: "trashed",
+        });
+        console.log(
+          `[CronCleanup] Trashed job ${job.jobId} | fileId: ${job.driveFileId}`
+        );
+      } catch (err: any) {
+        report.failed++;
+        report.jobs.push({
+          jobId: job.jobId,
+          fileId: job.driveFileId,
+          status: "failed",
+          error: err.message,
+        });
+        console.error(
+          `[CronCleanup] Failed to trash ${job.driveFileId}: ${err.message}`
+        );
+      }
+    }
+  } catch (err: any) {
+    console.error("[CronCleanup] Fatal error:", err.message);
+    return NextResponse.json(
+      { error: err.message, partial: report },
+      { status: 500 }
+    );
+  }
+
+  report.durationMs = Date.now() - startTime;
+
+  EventBus.publish("storage.cleanup.completed", report, traceId);
+
+  console.log(
+    `[CronCleanup] Done. Deleted: ${report.deleted}, Failed: ${report.failed}, Skipped: ${report.skipped} | ${report.durationMs}ms`
+  );
+
+  return NextResponse.json({ success: true, ...report });
 }

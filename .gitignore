@@ -39,6 +39,10 @@ next-env.d.ts
 **/*firebase-adminsdk*.json
 firebase-credentials.json
 **/firebase-credentials.json
+client_secret*.json
+**/client_secret*.json
+credentials/
+**/credentials/
 
 # misc / logs
 .DS_Store

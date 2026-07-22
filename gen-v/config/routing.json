@@ -1,0 +1,12 @@
+{
+  "routing": {
+    "strategy": "best",
+    "fallback": true,
+    "retry": 2,
+    "healthThreshold": 0.8,
+    "latencyWeight": 0.30,
+    "qualityWeight": 0.45,
+    "costWeight": 0.15,
+    "availabilityWeight": 0.10
+  }
+}

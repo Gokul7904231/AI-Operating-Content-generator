@@ -1,0 +1,6 @@
+{
+  "hookScore": { "min": 7.0, "retryMax": 3 },
+  "sceneScore": { "min": 6.5, "retryMax": 2 },
+  "retentionScore": { "min": 7.0 },
+  "seoScore": { "min": 6.0 }
+}

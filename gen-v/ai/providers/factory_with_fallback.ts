@@ -1,39 +1,22 @@
-import { LLMProviderAdapter, LLMProvider } from "../provider";
-import { createGeminiProvider } from "./gemini";
-import { createGroqProvider } from "./groq";
-import { createOpenRouterProvider } from "./openrouter";
+/**
+ * @deprecated This factory file is superseded by the AIProviderRegistry plugin system.
+ * Use AIProviderRegistry.getPlugin(providerId) instead.
+ *
+ * Retained for backward-compatibility during the Phase 2B transition.
+ * Will be removed in Phase 3 cleanup.
+ */
+import { AIProviderRegistry } from "../capability-registry";
+import { googleProvider } from "./google";
+import { groqProvider } from "./groq";
+import { openRouterProvider } from "./openrouter";
+import { pollinationsProvider } from "./pollinations/index";
+import { zaiProvider } from "./zai";
 
-export function providerFactoryWithOpenRouterFallback(
-  provider: LLMProvider,
-  ctx: { apiKey?: string }
-): LLMProviderAdapter {
-  // Simple: try requested provider; if it fails, try OpenRouter.
-  // This keeps OpenRouter as a consistent last-resort for agent reliability.
-  const primary = (() => {
-    switch (provider) {
-      case "gemini":
-        return createGeminiProvider(ctx);
-      case "groq":
-        return createGroqProvider(ctx);
-      case "openrouter":
-        return createOpenRouterProvider(ctx);
-      case "huggingface":
-      default:
-        return createOpenRouterProvider(ctx);
+export { googleProvider, groqProvider, openRouterProvider, pollinationsProvider, zaiProvider };
 
-    }
-  })();
-
-  const fallback = createOpenRouterProvider(ctx);
-
-  return {
-    async generateText(params) {
-      try {
-        return await primary.generateText(params);
-      } catch (err) {
-        return await fallback.generateText(params);
-      }
-    },
-  };
+export function getProviderWithFallback(providerId: string) {
+  const plugin = AIProviderRegistry.getPlugin(providerId);
+  if (plugin) return plugin;
+  // Fallback to OpenRouter
+  return AIProviderRegistry.getPlugin("openrouter");
 }
-

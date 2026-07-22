@@ -1,0 +1,46 @@
+/**
+ * GET /api/jobs/list
+ *
+ * Returns a list of recent job runs from Firestore with their telemetry data
+ * for the Render Profiler Dashboard.
+ *
+ * Query params:
+ *   limit (default: 20) — number of jobs to fetch
+ *   status — filter by status (completed, failed, processing)
+ */
+
+import { NextResponse } from "next/server";
+import { db } from "@/lib/firebase-admin";
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 50);
+    const status = searchParams.get("status");
+
+    let query = db.collection("videos").orderBy("createdAt", "desc").limit(limit);
+
+    if (status) {
+      query = query.where("status", "==", status) as any;
+    }
+
+    const snapshot = await query.get();
+    const jobs = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        jobId: data.jobId ?? doc.id,
+        topic: data.topic ?? "Unknown",
+        status: data.status ?? "unknown",
+        renderDurationSeconds: data.renderDurationSeconds ?? 0,
+        telemetry: data.telemetry ?? {},
+        createdAt: data.createdAt ?? new Date().toISOString(),
+        capabilities: data.capabilities ?? null,
+      };
+    });
+
+    return NextResponse.json({ success: true, jobs, total: jobs.length });
+  } catch (err: any) {
+    console.error("[API /jobs/list] Error fetching jobs:", err.message);
+    return NextResponse.json({ success: false, jobs: [], error: err.message }, { status: 500 });
+  }
+}

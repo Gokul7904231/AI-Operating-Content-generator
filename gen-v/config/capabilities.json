@@ -1,0 +1,48 @@
+{
+  "script": [
+    "gemini-2.5-flash",
+    "glm-4.7-flash",
+    "glm-4.5",
+    "llama-3.3-70b-instruct",
+    "meta-llama/llama-3.1-8b-instruct"
+  ],
+  "critic": [
+    "llama-3.3-70b-versatile",
+    "glm-4.5",
+    "llama-3.3-70b-instruct",
+    "meta-llama/llama-3.1-8b-instruct",
+    "glm-4.7-flash"
+  ],
+  "scene": [
+    "glm-4.5",
+    "gemini-2.5-flash"
+  ],
+  "coding": [
+    "glm-4.7-flash",
+    "qwen-2.5-coder-32b",
+    "qwen3-coder"
+  ],
+  "voice": [
+    "elevenlabs"
+  ],
+  "image": [
+    "flux",
+    "flux-schnell",
+    "sdxl"
+  ],
+  "metadata": [
+    "gemini-2.5-flash"
+  ],
+  "reasoning": [
+    "glm-4.7-flash",
+    "gemini-2.5-flash",
+    "llama-3.3-70b-versatile",
+    "qwen3-coder"
+  ],
+  "json": [
+    "meta-llama/llama-3.1-8b-instruct",
+    "glm-4.7-flash",
+    "gemini-2.5-flash",
+    "llama-3.3-70b-instruct"
+  ]
+}
