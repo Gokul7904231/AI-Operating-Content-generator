@@ -1,0 +1,278 @@
+{
+  "version": "1.0",
+  "createdAt": "2026-08-05T12:15:00Z",
+  "questionCount": 32,
+  "distribution": {
+    "vector": 10,
+    "graph": 8,
+    "hybrid": 8,
+    "multi-hop": 6
+  },
+  "sourceDocuments": [
+    "factoryos/README.md",
+    "factoryos/STATUS.md",
+    "factoryos/BACKLOG.md",
+    "factoryos/reports/STEP-01-FINAL.md",
+    "factoryos/reports/STEP-02-FINAL.md",
+    "factoryos/reports/STEP-08-FINAL.md",
+    "factoryos/reports/STEP-09-FINAL.md"
+  ],
+  "questions": [
+    {
+      "id": "rag-001",
+      "question": "How does the runtime system continue after a crash without redoing completed steps?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-002",
+      "question": "Does FactoryOS depend on ShortsFactory database or network services?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos"],
+      "type": "vector",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-003",
+      "question": "What happens to the running worker if a user pauses or cancels mid-step?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-004",
+      "question": "Can FactoryOS run steps in parallel or is it sequential only?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-005",
+      "question": "What information is stored inside a workflow step checkpoint?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-006",
+      "question": "What causes an InvalidStateTransitionError inside the state machine?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-007",
+      "question": "How is concurrent execution of the same run prevented?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-008",
+      "question": "What components are supervised by the Overseer?",
+      "expectedSourceIds": ["doc-overseer-report"],
+      "expectedEntities": ["overseer", "workflow_runtime"],
+      "type": "graph",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-009",
+      "question": "What does the Evaluation Guardian evaluate?",
+      "expectedSourceIds": ["doc-guardian-report"],
+      "expectedEntities": ["guardian", "workflow_runtime"],
+      "type": "graph",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-010",
+      "question": "What does the workflow runtime use to call capabilities?",
+      "expectedSourceIds": ["doc-runtime-readme", "doc-tools-report"],
+      "expectedEntities": ["workflow_runtime", "tool_registry"],
+      "type": "graph",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-011",
+      "question": "How does the Repair Engine relate to the Evaluation Guardian?",
+      "expectedSourceIds": ["doc-repair-report"],
+      "expectedEntities": ["repair_engine", "guardian"],
+      "type": "graph",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-012",
+      "question": "What components does the central FactoryOS kernel contain?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "overseer", "guardian", "workflow_runtime", "tool_registry"],
+      "type": "graph",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-013",
+      "question": "Does the Overseer directly inspect the step state machine?",
+      "expectedSourceIds": ["doc-overseer-report"],
+      "expectedEntities": ["overseer", "workflow_runtime"],
+      "type": "graph",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-014",
+      "question": "Who validates the state transitions of a running step?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "graph",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-015",
+      "question": "What component is used by the workflow runtime that is indirectly supervised by the Overseer?",
+      "expectedSourceIds": ["doc-runtime-readme", "doc-overseer-report"],
+      "expectedEntities": ["overseer", "workflow_runtime", "tool_registry"],
+      "type": "multi-hop",
+      "difficulty": "hard"
+    },
+    {
+      "id": "rag-016",
+      "question": "Does the evaluation guardian directly supervise the tool registry or does it evaluate runtime outputs?",
+      "expectedSourceIds": ["doc-guardian-report"],
+      "expectedEntities": ["guardian", "workflow_runtime", "tool_registry"],
+      "type": "multi-hop",
+      "difficulty": "hard"
+    },
+    {
+      "id": "rag-017",
+      "question": "Which retrieval component is a part of FactoryOS and maps text to multi-dimensional continuous vectors?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "vector_rag"],
+      "type": "hybrid",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-018",
+      "question": "Which retrieval component of FactoryOS handles explicit relationship traversal and multi-hop entity queries?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "graph_rag"],
+      "type": "hybrid",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-019",
+      "question": "Does the Repair Engine perform updates on the workflow runtime or evaluating outputs?",
+      "expectedSourceIds": ["doc-repair-report"],
+      "expectedEntities": ["repair_engine", "guardian", "workflow_runtime"],
+      "type": "multi-hop",
+      "difficulty": "hard"
+    },
+    {
+      "id": "rag-020",
+      "question": "How are telemetry events collected across executing steps?",
+      "expectedSourceIds": ["doc-observability-report"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "vector",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-021",
+      "question": "Does the observability manager collect log messages and metric counters?",
+      "expectedSourceIds": ["doc-observability-report"],
+      "expectedEntities": ["factoryos"],
+      "type": "vector",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-022",
+      "question": "How is parent-child correlation preserved in observability traces?",
+      "expectedSourceIds": ["doc-observability-report"],
+      "expectedEntities": ["factoryos"],
+      "type": "vector",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-023",
+      "question": "What is the relation between the FactoryOS kernel and the Vector RAG system?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "vector_rag"],
+      "type": "graph",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-024",
+      "question": "Does the local repair engine run infinitely or does it have an upper limit of attempts?",
+      "expectedSourceIds": ["doc-repair-report"],
+      "expectedEntities": ["repair_engine", "guardian"],
+      "type": "hybrid",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-025",
+      "question": "What component evaluates output and is connected to the repair engine that corrects validation faults?",
+      "expectedSourceIds": ["doc-repair-report", "doc-guardian-report"],
+      "expectedEntities": ["repair_engine", "guardian"],
+      "type": "multi-hop",
+      "difficulty": "hard"
+    },
+    {
+      "id": "rag-026",
+      "question": "Where does the workflow run state list live within the runtime lifecycle?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "hybrid",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-027",
+      "question": "How do we execute a run of a workflow with input variables?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "hybrid",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-028",
+      "question": "Are there any durable checkpoint storage backends in v0.1?",
+      "expectedSourceIds": ["doc-runtime-readme"],
+      "expectedEntities": ["factoryos", "workflow_runtime"],
+      "type": "hybrid",
+      "difficulty": "easy"
+    },
+    {
+      "id": "rag-029",
+      "question": "Which supervisory component is a part of FactoryOS and supervises the workflow runtime?",
+      "expectedSourceIds": ["doc-runtime-readme", "doc-overseer-report"],
+      "expectedEntities": ["factoryos", "overseer", "workflow_runtime"],
+      "type": "multi-hop",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-030",
+      "question": "How are step validation results monitored by the overseer control plane?",
+      "expectedSourceIds": ["doc-overseer-report", "doc-guardian-report"],
+      "expectedEntities": ["overseer", "guardian", "workflow_runtime"],
+      "type": "multi-hop",
+      "difficulty": "hard"
+    },
+    {
+      "id": "rag-031",
+      "question": "How does the tool registry structure type checking for capability inputs?",
+      "expectedSourceIds": ["doc-tools-report"],
+      "expectedEntities": ["factoryos", "tool_registry"],
+      "type": "hybrid",
+      "difficulty": "medium"
+    },
+    {
+      "id": "rag-032",
+      "question": "Are the telemetry spans arranged in a parent-child span hierarchy?",
+      "expectedSourceIds": ["doc-observability-report"],
+      "expectedEntities": ["factoryos"],
+      "type": "hybrid",
+      "difficulty": "easy"
+    }
+  ]
+}

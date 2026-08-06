@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "factoryos/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

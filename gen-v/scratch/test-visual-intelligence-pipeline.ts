@@ -26,6 +26,9 @@ async function testVisualPipeline() {
       recentProviders: [],
       recentLayouts: [],
       recentTopics: [],
+      recentTags: [],
+      recentDhashes: [],
+      recentAuthors: [],
     },
     metrics: {},
     config: {

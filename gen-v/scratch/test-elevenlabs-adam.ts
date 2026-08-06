@@ -31,3 +31,5 @@ async function testElevenLabsAdam() {
 }
 
 testElevenLabsAdam();
+
+export {};

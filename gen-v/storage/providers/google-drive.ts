@@ -139,6 +139,9 @@ export class GoogleDriveStorageProvider implements StorageProvider {
 
   private getDrive(): drive_v3.Drive {
     if (!this.drive) {
+      this.initDriveClient();
+    }
+    if (!this.drive) {
       throw new Error(
         `[GoogleDrive] Drive client not initialized. Auth error: ${this.initError}`
       );
@@ -159,7 +162,10 @@ export class GoogleDriveStorageProvider implements StorageProvider {
       return this.folderCache.get(cacheKey)!;
     }
 
-    const rootId = DEFAULT_ROOT_FOLDER_ID;
+    const rootId =
+      process.env.GOOGLE_DRIVE_FOLDER_ID ||
+      process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ||
+      DEFAULT_ROOT_FOLDER_ID;
     if (!rootId) {
       throw new Error(
         "[GoogleDrive] GOOGLE_DRIVE_FOLDER_ID is not set. Cannot create folder path."

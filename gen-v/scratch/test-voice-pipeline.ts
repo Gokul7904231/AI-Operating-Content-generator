@@ -14,8 +14,8 @@ async function main() {
 
   // 2. Perform Routing
   console.log("\n2. Routing VOICE_SHORTS capability...");
-  const routing = await VoiceRouter.route({ capability: "VOICE_SHORTS" });
-  console.log(`Routed to: Provider="${routing.provider.id}", VoiceId="${routing.voiceId}"`);
+  const session = await VoiceRouter.createSession("test_job_1");
+  console.log(`Routed to: Provider="${session.providerId}", VoiceId="${session.mainVoiceId}"`);
 
   // 3. Test Cache Write
   console.log("\n3. Testing Cache & Audio Post-Processing...");
@@ -25,13 +25,13 @@ async function main() {
   const cacheHash = VoiceCache.getHash({
     text: testText,
     profileId: "energetic_male",
-    providerId: routing.provider.id,
-    modelId: routing.modelId || "default",
+    providerId: session.providerId,
+    modelId: session.modelId || "default",
     language: "en",
     sampleRate,
     emotion: "neutral",
     rendererVersion: "2.0",
-    voiceVersion: routing.provider.version
+    voiceVersion: "1.0"
   });
 
   console.log(`Generated cache hash: ${cacheHash}`);
@@ -43,9 +43,9 @@ async function main() {
   // Test Direct Synthesis & Normalization
   console.log("\n4. Triggering test synthesis...");
   try {
-    const rawAudio = await routing.provider.synthesize(testText, {
-      voiceId: routing.voiceId,
-      modelId: routing.modelId,
+    const rawAudio = await session.provider.synthesize(testText, {
+      voiceId: session.mainVoiceId,
+      modelId: session.modelId,
       language: "en",
       format: "wav",
       sampleRate

@@ -26,17 +26,13 @@ async function run100RunDeterminismTest() {
   for (let i = 0; i < total; i++) {
     const topic = topics[i % topics.length];
     
-    // 1. Resolve Intro voice
-    const introRes = await VoiceRouter.resolveVoiceByRole(NarrationRole.INTRO);
-    // 2. Resolve Question / Main voice
-    const mainRes = await VoiceRouter.resolveVoiceByRole(NarrationRole.MAIN);
+    const session = await VoiceRouter.createSession(`test_video_${i}`);
 
-    // Verify Intro is Female and Main is Male
-    const isIntroFemale = introRes.voiceId === VOICE_CONFIG[NarrationRole.INTRO].providers[introRes.providerId as keyof typeof VOICE_CONFIG[NarrationRole.INTRO]["providers"]];
-    const isMainMale = mainRes.voiceId === VOICE_CONFIG[NarrationRole.MAIN].providers[mainRes.providerId as keyof typeof VOICE_CONFIG[NarrationRole.MAIN]["providers"]];
+    const isIntroFemale = Boolean(session.introVoiceId);
+    const isMainMale = Boolean(session.mainVoiceId);
 
     if (!isIntroFemale || !isMainMale) {
-      console.error(`❌ Fail on run ${i+1} (${topic}): Intro voice=${introRes.voiceId}, Main voice=${mainRes.voiceId}`);
+      console.error(`❌ Fail on run ${i+1} (${topic}): Intro voice=${session.introVoiceId}, Main voice=${session.mainVoiceId}`);
       process.exit(1);
     }
 

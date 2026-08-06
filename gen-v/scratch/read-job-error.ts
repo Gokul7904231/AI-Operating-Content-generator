@@ -5,3 +5,5 @@ async function main() {
   console.log("Job Error Details:", JSON.stringify(json, null, 2));
 }
 main();
+
+export {};

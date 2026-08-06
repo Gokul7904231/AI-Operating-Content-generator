@@ -31,6 +31,13 @@ export interface SceneInput {
   subtitleStyle?: string;
   fps?: number;
   resolution?: string;
+  // Scene-type discriminators set by RenderPlanner
+  isHook?: boolean;
+  isOutro?: boolean;
+  isQuestion?: boolean;
+  isQuestionRead?: boolean;
+  isQuestionReveal?: boolean;
+  isQuestionCountdown?: boolean;
 }
 
 export interface SceneRenderResult {

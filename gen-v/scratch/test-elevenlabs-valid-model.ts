@@ -31,3 +31,5 @@ async function testElevenLabsValidModel() {
 }
 
 testElevenLabsValidModel();
+
+export {};

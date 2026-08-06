@@ -28,6 +28,7 @@ import { CJK_REGEX, LANGUAGE_SUBDOMAIN_RE } from "../../lib/visual-assets/Visual
 import { TimelineOrchestrator } from "../../lib/core/TimelineOrchestrator";
 import { QuestionOptimizer } from "../../lib/core/QuestionOptimizer";
 import { RenderPlanner } from "../../lib/core/RenderPlanner";
+import { NarrationRole } from "../../lib/voice/narration-role";
 import sharp from "sharp";
 
 // ── 1. Script Step ───────────────────────────────────────────────────────────

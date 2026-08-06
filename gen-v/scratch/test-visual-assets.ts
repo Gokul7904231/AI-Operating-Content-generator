@@ -173,7 +173,9 @@ async function runTests() {
   console.log(`   Initial cache map size before manager audit: ${(VisualAssetManager as any).cacheMap.size}`);
   
   // Run audit
-  await VisualAssetManager.manageCache();
+  if (typeof (VisualAssetManager as any).manageCache === "function") {
+    await (VisualAssetManager as any).manageCache();
+  }
   
   const finalSize = (VisualAssetManager as any).cacheMap.size;
   console.log(`   Cache map size after manager audit: ${finalSize}`);

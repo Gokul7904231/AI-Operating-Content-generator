@@ -21,3 +21,5 @@ async function testElevenLabs() {
 }
 
 testElevenLabs();
+
+export {};

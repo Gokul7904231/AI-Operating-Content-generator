@@ -55,8 +55,8 @@ export class GoogleProviderPlugin extends BaseProviderPlugin {
         return {
           text,
           usage: {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
+            inputTokens: usage.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? 0,
           },
         };
       },

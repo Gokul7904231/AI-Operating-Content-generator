@@ -31,3 +31,5 @@ async function testElevenLabsSynth() {
 }
 
 testElevenLabsSynth();
+
+export {};

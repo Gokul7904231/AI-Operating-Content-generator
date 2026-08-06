@@ -141,7 +141,7 @@ export class BackblazeB2StorageProvider implements StorageProvider {
           "Content-Length": String(data.length),
           "X-Bz-Content-Sha1": sha1,
         },
-        body: data,
+        body: new Blob([new Uint8Array(data)]),
       });
 
       if (!uploadRes.ok) {

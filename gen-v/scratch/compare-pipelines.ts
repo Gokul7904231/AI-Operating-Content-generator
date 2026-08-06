@@ -86,6 +86,9 @@ async function runBenchmarkComparison() {
       recentProviders: [],
       recentLayouts: [],
       recentTopics: [],
+      recentTags: [],
+      recentDhashes: [],
+      recentAuthors: [],
     },
     metrics: {},
     config: {

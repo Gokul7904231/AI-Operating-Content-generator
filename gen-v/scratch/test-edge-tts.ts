@@ -19,3 +19,5 @@ async function testEdgeTTS() {
 }
 
 testEdgeTTS();
+
+export {};

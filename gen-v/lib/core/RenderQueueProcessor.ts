@@ -59,7 +59,7 @@ export class RenderQueueProcessor {
 
   private setupEventSubscriptions() {
     // Listen to step completions to update progress percentage
-    EventBus.subscribe("step.completed", async (event) => {
+    EventBus.subscribe<{ jobId: string; stepId: string; duration: number }>("step.completed", async (event) => {
       const { jobId, stepId } = event.payload;
       const qJob = await this.queue.getJob(jobId);
       if (!qJob) return;

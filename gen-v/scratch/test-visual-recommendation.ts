@@ -81,6 +81,9 @@ async function testRecommendationAndCritic() {
       recentProviders: [],
       recentLayouts: [],
       recentTopics: [],
+      recentTags: [],
+      recentDhashes: [],
+      recentAuthors: [],
     },
     metrics: {},
     config: {

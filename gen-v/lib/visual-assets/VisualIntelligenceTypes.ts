@@ -43,7 +43,7 @@ export interface CandidateAsset {
   width: number;
   height: number;
   tags: string[];
-  source: "wikimedia" | "openverse" | "ai_fallback" | "pexels" | "pixabay" | "internal";
+  source: "wikimedia" | "openverse" | "ai_fallback" | "pexels" | "pixabay" | "internal" | "cdn_fallback";
   usageCount: number;
   lastUsed?: string | null;
   dominantColors?: string[];
@@ -100,7 +100,7 @@ export interface SceneComposition {
     durationSeconds: number;
   };
   transition: {
-    in: styleNameMatchesType; // keep dynamic matching types
+    in: string; // dynamic transition style name
     out: "fade" | "slide" | "zoom" | "none";
   } | any;
 }
