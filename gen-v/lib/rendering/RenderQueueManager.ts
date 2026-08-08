@@ -1,3 +1,5 @@
+import { RenderJobValidator } from "./RenderJobValidator";
+
 export type UserTier = "FREE" | "PRO" | "ENTERPRISE" | "ADMIN";
 export type RenderJobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
 export type ContentEngineType = "quiz" | "facts" | "narration" | "education" | "stories" | "v2_custom";
@@ -31,6 +33,7 @@ export interface UniversalRenderJob {
   tier: UserTier;
   aiExecutionMode: AIExecutionMode;
   topic: string;
+  aspectRatio?: "9:16" | "16:9" | "1:1";
   status: RenderJobStatus;
   attempts: number;
   maxAttempts: number;
@@ -48,6 +51,8 @@ export interface UniversalRenderJob {
   outputArtifact?: RenderArtifactMeta;
   error?: string;
 }
+
+export type RenderJob = UniversalRenderJob;
 
 export interface WorkerHeartbeat {
   workerId: string;
@@ -78,6 +83,11 @@ export class RenderQueueManager {
   ];
 
   static enqueue(jobData: Partial<UniversalRenderJob> & { jobId: string; topic: string; tenantId: string; userId: string }): UniversalRenderJob {
+    const validation = RenderJobValidator.validate(jobData);
+    if (!validation.valid) {
+      throw new Error(`INVALID_RENDER_JOB: ${validation.errors.join(", ")}`);
+    }
+
     const job: UniversalRenderJob = {
       id: jobData.id || `render_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       jobId: jobData.jobId,
@@ -88,6 +98,7 @@ export class RenderQueueManager {
       tier: jobData.tier || "FREE",
       aiExecutionMode: jobData.aiExecutionMode || "CLOUD",
       topic: jobData.topic,
+      aspectRatio: jobData.aspectRatio || "9:16",
       status: "QUEUED",
       attempts: 0,
       maxAttempts: 3,
