@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { verifySession } from "../../../../lib/auth/auth";
-import { EventCenter } from "../../../../lib/observability/event-center";
+import { EventCenter, EventSeverity, EventSource } from "../../../../lib/observability/event-center";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/observability/events
- * Returns GitHub/Vercel style mission event logs and SRE telemetry.
+ * Returns GitHub/Vercel style mission event logs and SRE runtime telemetry.
+ * Server-enforces tenant authorization: normal users receive ONLY their own tenant events.
  */
 export async function GET(req: Request) {
   try {
@@ -15,17 +16,13 @@ export async function GET(req: Request) {
     const jobId = searchParams.get("jobId") || undefined;
     const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    const events = EventCenter.getEvents({
-      tenantId: user.uid,
-      jobId,
-      limit,
-    });
-
+    const events = EventCenter.getEvents(user, { jobId, limit });
     const sreMetrics = EventCenter.getSREMetrics();
 
     return NextResponse.json({
       success: true,
       tenantId: user.uid,
+      role: user.role,
       sreMetrics,
       events,
       count: events.length,
@@ -48,21 +45,22 @@ export async function POST(req: Request) {
   try {
     const { user } = await verifySession(req);
     const body = await req.json();
-    const { eventType = "INFO", status = "INFO", source = "CONTROL_PLANE", message, jobId, requestId, details } = body;
+    const { type = "JOB_STARTED", severity = "INFO", source = "SYSTEM", message, jobId, requestId, metadata } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Missing event message" }, { status: 400 });
     }
 
     const event = EventCenter.recordEvent({
+      type,
+      severity: severity as EventSeverity,
+      source: source as EventSource,
       tenantId: user.uid,
+      userId: user.uid,
       jobId,
-      eventType,
-      status,
-      source,
       requestId,
       message,
-      details,
+      metadata,
     });
 
     return NextResponse.json({ success: true, event });

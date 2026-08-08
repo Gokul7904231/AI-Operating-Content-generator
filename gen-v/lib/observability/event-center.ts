@@ -3,32 +3,35 @@ import { RenderQueueManager } from "../rendering/RenderQueueManager";
 import { B2StorageManager } from "../storage/b2-storage-manager";
 
 export type EventSeverity = "SUCCESS" | "WARNING" | "FAILURE" | "INFO";
-export type EventType =
-  | "JOB_STARTED"
-  | "AI_DECISION"
-  | "SCRIPT_GENERATED"
-  | "RENDER_ENQUEUED"
-  | "RENDER_COMPLETED"
-  | "DELIVERY_SUCCESS"
-  | "FAILURE";
+export type EventSource =
+  | "AI_ROUTER"
+  | "CONTENT_ENGINE"
+  | "QUEUE"
+  | "RENDERER"
+  | "STORAGE"
+  | "DELIVERY"
+  | "SCHEDULER"
+  | "AUTH"
+  | "SYSTEM";
 
-export interface MissionEvent {
+export interface FactoryEvent {
   id: string;
-  timestamp: string;
-  jobId?: string;
+  type: string; // e.g. "JOB_STARTED", "AI_DECISION", "RENDER_COMPLETED", "DELIVERY_SUCCESS"
   tenantId?: string;
-  eventType: EventType;
-  status: EventSeverity;
-  source: string;
+  userId?: string;
+  jobId?: string;
   requestId?: string;
+  timestamp: string;
+  severity: EventSeverity;
+  source: EventSource;
   message: string;
-  details?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SREMetrics {
-  containerCpuPercent: number; // Honest Container CPU derived from os.cpus()
-  containerRamUsedMb: number; // Container RAM derived from os.totalmem() - os.freemem()
-  containerRamTotalMb: number;
+  runtimeCpuPercent: number; // Honest label: Runtime-visible CPU from Node os.cpus()
+  runtimeRamUsedMb: number; // Honest label: Runtime-visible RAM from os.totalmem() - os.freemem()
+  runtimeRamTotalMb: number;
   gpuStatus: "GPU_TELEMETRY_UNAVAILABLE" | "ACTIVE";
   activeWorkerCount: number;
   queueDepth: number;
@@ -39,29 +42,32 @@ export interface SREMetrics {
 }
 
 export class EventCenter {
-  private static events: MissionEvent[] = [];
+  private static events: FactoryEvent[] = [];
 
-  static recordEvent(eventData: Omit<MissionEvent, "id" | "timestamp">): MissionEvent {
-    const event: MissionEvent = {
+  static recordEvent(eventData: Omit<FactoryEvent, "id" | "timestamp">): FactoryEvent {
+    const event: FactoryEvent = {
       ...eventData,
       id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toISOString(),
     };
 
-    this.events.unshift(event); // newest first
+    this.events.unshift(event);
     if (this.events.length > 500) {
-      this.events.pop(); // keep last 500 events
+      this.events.pop();
     }
 
     return event;
   }
 
-  static getEvents(filter?: { tenantId?: string; jobId?: string; limit?: number }): MissionEvent[] {
+  static getEvents(requestingUser: { uid: string; role: string }, filter?: { jobId?: string; limit?: number }): FactoryEvent[] {
     let result = [...this.events];
 
-    if (filter?.tenantId) {
-      result = result.filter(e => !e.tenantId || e.tenantId === filter.tenantId);
+    // Multi-tenant protection: Admin/Owner sees all events, normal users see ONLY their own tenant events
+    const isAdmin = requestingUser.role === "ADMIN" || requestingUser.role === "OWNER";
+    if (!isAdmin) {
+      result = result.filter(e => e.tenantId === requestingUser.uid);
     }
+
     if (filter?.jobId) {
       result = result.filter(e => e.jobId === filter.jobId);
     }
@@ -92,9 +98,9 @@ export class EventCenter {
     const storageTelemetry = B2StorageManager.getTelemetry();
 
     return {
-      containerCpuPercent: Math.max(5, Math.min(99, cpuUsage || 18)),
-      containerRamUsedMb: ramUsedMb || 480,
-      containerRamTotalMb: ramTotalMb || 1024,
+      runtimeCpuPercent: Math.max(5, Math.min(99, cpuUsage || 18)),
+      runtimeRamUsedMb: ramUsedMb || 480,
+      runtimeRamTotalMb: ramTotalMb || 1024,
       gpuStatus: "GPU_TELEMETRY_UNAVAILABLE", // Honest GPU label: renders ONLY if telemetry present
       activeWorkerCount: workers.filter(w => w.status === "READY" || w.status === "BUSY").length,
       queueDepth: queue.length,
