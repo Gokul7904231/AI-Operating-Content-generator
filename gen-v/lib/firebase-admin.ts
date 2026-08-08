@@ -95,21 +95,21 @@ class MockQuery {
 
   async get() {
     const map = getMockCollectionMap(this.collName);
-    let docs = Array.from(map.entries()).map(([id, val]) => ({
-      id,
-      data: val as any,
+    let docs: Array<{ id: string; data: any }> = Array.from(map.entries()).map((entry: any) => ({
+      id: String(entry[0]),
+      data: entry[1] as any,
     }));
 
     // Apply filters
     for (const filter of this.filters) {
-      docs = docs.filter((d) => filter(d.data));
+      docs = docs.filter((d: { id: string; data: any }) => filter(d.data));
     }
 
     // Apply sort
     if (this.sortField) {
       const field = this.sortField;
       const dir = this.sortDir === "desc" ? -1 : 1;
-      docs.sort((a, b) => {
+      docs.sort((a: { id: string; data: any }, b: { id: string; data: any }) => {
         const valA = a.data[field];
         const valB = b.data[field];
         if (valA === undefined) return 1;
@@ -125,7 +125,7 @@ class MockQuery {
       docs = docs.slice(0, this.limitCount);
     }
 
-    const queryDocs = docs.map((d) => ({
+    const queryDocs = docs.map((d: { id: string; data: any }) => ({
       id: d.id,
       data: () => d.data,
     }));

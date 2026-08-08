@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { UserMenu } from "@/components/UserMenu";
 import LiveEventFeed from "@/components/LiveEventFeed";
+import AIDecisionInspector from "@/components/AIDecisionInspector";
 
 export default function MissionControlDashboard() {
   const { 
@@ -162,41 +163,8 @@ export default function MissionControlDashboard() {
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* 🧠 Model-Agnostic AI Decision Center */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 space-y-3 font-mono">
-            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2.5 flex items-center justify-between">
-              <span>AI Decision Center</span>
-              <span className="text-[9px] text-emerald-400 font-normal">PROVENANCE VERIFIED</span>
-            </h3>
-            <div className="text-xs space-y-2 text-zinc-400">
-              <div className="flex justify-between">
-                <span>Provider:</span>
-                <span className="text-zinc-200">google</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Model:</span>
-                <span className="text-emerald-400 font-bold">gemini-1.5-flash</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Latency:</span>
-                <span className="text-zinc-200">186 ms</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Grounding Score:</span>
-                <span className="text-emerald-400 font-bold">100% (PASS)</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Reason Codes:</span>
-                <span className="text-zinc-300">TRENDING, LOW_COMP</span>
-              </div>
-              <div className="bg-zinc-950 border border-zinc-850 p-2.5 rounded-lg text-[10px] text-zinc-400 mt-2">
-                <div className="text-zinc-500 font-bold mb-1">DECISION EVIDENCE OBJECT</div>
-                <div>Topic: "Germany Geography"</div>
-                <div>Trend Score: 0.87 | Competition: 0.21</div>
-                <div>Originality: 0.98 | Tokens: 4,210 in / 832 out</div>
-              </div>
-            </div>
-          </div>
+          {/* 🧠 Model-Agnostic AI Decision Center Component */}
+          <AIDecisionInspector />
 
           {/* ⚠️ Attention Required Section */}
           <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 space-y-3 font-mono">

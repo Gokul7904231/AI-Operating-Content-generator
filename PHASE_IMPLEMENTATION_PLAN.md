@@ -23,9 +23,9 @@
 - [x] **Phase 3: API Contract Generation** — Establish widget data contracts and page-to-API mapping (`API_CONNECTION_MATRIX.md`).
 - [x] **Phase 4: Authentication & RBAC** — Production Firebase Auth + HTTP-Only Session Cookie + Firestore Admin RBAC (`docs/architecture/AUTHENTICATION.md`, 16/16 Vitest tests passing).
 - [x] **Phase 5: Live Data Integration** — Synchronized `useFactoryStore` with `/api/factory-state` & SSE streams with `WidgetContract` provenance metadata & fallback polling (`factoryos/tests/widget-contracts.test.ts`).
-- [x] **Phase 6: Mission Control Redesign** — Redesigned Mission Control with 9-subsystem Live Status Layer, 9-stage pipeline (`Topic → Script → Guardian → Voice → Assets → Renderer → Validation → Upload → Publish`), Model-Agnostic AI Decision Center (`gemini-1.5-flash`), Attention Required panel, and `LiveEventFeed`.
-- [ ] **Phase 7: AI Decision Center** — Expand AI Explainability Inspector consuming structured evidence objects (`decision`, `reasonCodes`, `evidence`, `gemini-1.5-flash`).
-- [ ] **Phase 8: Production Pipeline Visualization** — Deep visual 9-stage progress tracker.
+- [x] **Phase 6: Mission Control Redesign** — Redesigned Mission Control with 9-subsystem Live Status Layer, 9-stage pipeline, Model-Agnostic AI Decision Center (`gemini-1.5-flash`), Attention Required panel, and `LiveEventFeed`.
+- [x] **Phase 7: AI Decision Center** — Built model-agnostic `AIDecisionInspector` consuming structured evidence objects (`reasonCodes`, `evidence`, `gemini-1.5-flash`) via `/api/admin/ai-decision` without LLM self-explanation or invented reasons (`factoryos/tests/ai-decision-center.test.ts`).
+- [ ] **Phase 8: Production Pipeline Visualization** — Visual 9-stage progress tracker.
 - [ ] **Phase 9: Event Center & Activity Timeline** — GitHub/Vercel style Mission Timeline with real-time event logs and failure reason breakdowns.
 - [ ] **Phase 10: Observability & Health Monitoring** — Honest Container CPU/Mem load, SRE telemetry, and SQLite metrics inspection.
 - [ ] **Phase 11: Analytics & Reporting** — Real provider latency, token usage accounting (`gemini-1.5-flash`), and render speed metrics.
