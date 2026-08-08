@@ -24,12 +24,12 @@
 - [x] **Phase 4: Authentication & RBAC** — Production Firebase Auth + HTTP-Only Session Cookie + Firestore Admin RBAC (`docs/architecture/AUTHENTICATION.md`, 16/16 Vitest tests passing).
 - [x] **Phase 5: Live Data Integration** — Synchronized `useFactoryStore` with `/api/factory-state` & SSE streams with `WidgetContract` provenance metadata & fallback polling (`factoryos/tests/widget-contracts.test.ts`).
 - [x] **Phase 6: Mission Control Redesign** — Redesigned Mission Control with 9-subsystem Live Status Layer, 9-stage pipeline, Model-Agnostic AI Decision Center (`gemini-1.5-flash`), Attention Required panel, and `LiveEventFeed`.
-- [x] **Phase 7: AI Decision Center & BYOLM Integration** — Built model-agnostic `AIDecisionInspector` consuming structured evidence objects (`reasonCodes`, `evidence`, `gemini-1.5-flash`) via `/api/admin/ai-decision` + **Bring Your Own Local Model (BYOLM)** provider abstraction (`Ollama`, `LM Studio`) with dynamic model discovery, connection testing, SSRF protection, and zero fake cost (`factoryos/tests/byolm.test.ts`, 7/7 tests passed).
-- [ ] **Phase 8: Production Pipeline Visualization** — Visual 9-stage progress tracker.
-- [ ] **Phase 9: Event Center & Activity Timeline** — GitHub/Vercel style Mission Timeline with real-time event logs and failure reason breakdowns.
-- [ ] **Phase 10: Observability & Health Monitoring** — Honest Container CPU/Mem load, SRE telemetry, and SQLite metrics inspection.
-- [ ] **Phase 11: Analytics & Reporting** — Real provider latency, cloud vs local AI token usage accounting, and render speed metrics.
-- [ ] **Phase 12: Performance Optimization** — Client/Server component separation; decoupled Node.js modules from client bundles.
-- [ ] **Phase 13: Accessibility & Responsive UX** — WCAG 2.1 AA color contrast, ARIA labels, and keyboard tab navigation.
+- [x] **Phase 7: AI Decision Center & BYOLM Integration** — Model-agnostic decision telemetry, BYOLM local AI provider abstraction (Ollama, LM Studio), dynamic discovery, SSRF protection (`factoryos/tests/byolm.test.ts`, 7/7 tests passed).
+- [ ] **Phase 8: Production Execution & Rendering Fabric** — Persistent job queue, FFmpeg render worker pool abstraction, tier priorities (Free/Pro/Enterprise), and worker crash recovery.
+- [ ] **Phase 9: Multi-Tenant User Execution** — Multi-tenant job isolation, BYOK credential storage, user ownership, and quota enforcement.
+- [ ] **Phase 10: Asset & Temporary Storage Fabric** — Backblaze B2 storage fabric (`permanent/` vs `temp-renders/`), 30-minute server-authoritative video retention, and storage pressure states (Normal/Warning/Cleanup/Capacity Reached).
+- [ ] **Phase 11: Delivery & Publishing Fabric** — Direct browser download, optional Google Drive exporter, signed URL access, and post-delivery cleanup.
+- [ ] **Phase 12: Event Center & Observability** — GitHub/Vercel style Mission Timeline, SRE telemetry, queue depth, and render speed metrics.
+- [ ] **Phase 13: Analytics & Performance** — Cloud vs BYOK vs BYOLM latency comparison, real token usage accounting, and storage utilization profiling.
 - [ ] **Phase 14: End-to-End QA & Chaos Testing** — Auth, Pipeline, Network, Process, local connection timeout, and Data failure recovery.
 - [ ] **Phase 15: Release Hardening & Production Deployment** — Final verification (`typecheck`, `test`, `build`).
