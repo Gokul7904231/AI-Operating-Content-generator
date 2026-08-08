@@ -1,66 +1,63 @@
-import { NextResponse } from "next/server";
-import * as admin from "firebase-admin";
-import { db } from "../../../../lib/firebase-admin";
+import { NextRequest, NextResponse } from "next/server";
+import { createSessionFromIdToken, destroySession } from "@/lib/auth/session";
+import { verifySession } from "@/lib/auth/auth";
 
-const SESSION_COOKIE_NAME = "__session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 5; // 5 days in seconds
-
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { idToken } = await req.json();
-    if (!idToken) {
-      return NextResponse.json({ error: "idToken is required" }, { status: 400 });
+    const body = await request.json();
+    const { idToken, isGoogleLogin } = body;
+
+    if (!idToken || typeof idToken !== "string") {
+      return NextResponse.json({ success: false, error: "idToken is required" }, { status: 400 });
     }
 
-    if (!admin.apps.length) {
-      return NextResponse.json(
-        { error: "Firebase Admin not initialized — check server env vars." },
-        { status: 500 }
-      );
-    }
+    const ipAddress = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    const userAgent = request.headers.get("user-agent") || "Unknown";
 
-    // Verify the ID token and create a session cookie
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const sessionCookie = await admin.auth().createSessionCookie(idToken, {
-      expiresIn: SESSION_MAX_AGE * 1000, // milliseconds
-    });
+    const { cookieHeader, user } = await createSessionFromIdToken(idToken, !!isGoogleLogin, ipAddress, userAgent);
 
-    // Log the sign-in event
-    try {
-      await db.collection("admin_sessions").doc(decodedToken.uid).set({
-        email: decodedToken.email,
-        lastLogin: new Date().toISOString(),
-        uid: decodedToken.uid,
-      });
-    } catch {
-      // Non-fatal — log but continue
-      console.warn("[Auth] Could not write admin session log to Firestore");
-    }
-
-    const response = NextResponse.json({ status: "success", uid: decodedToken.uid });
-    response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: SESSION_MAX_AGE,
-      path: "/",
-    });
-
+    const response = NextResponse.json({ success: true, user });
+    response.headers.set("Set-Cookie", cookieHeader);
     return response;
-  } catch (err: any) {
-    console.error("[Auth] Session creation failed:", err.message);
-    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+  } catch (error: any) {
+    const status = error.status || 401;
+    return NextResponse.json(
+      { success: false, error: error.message || "Session establishment failed", code: error.code || "AUTH_FAILED" },
+      { status }
+    );
   }
 }
 
-export async function DELETE() {
-  const response = NextResponse.json({ status: "logged_out" });
-  response.cookies.set(SESSION_COOKIE_NAME, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
-  return response;
+export async function DELETE(request: NextRequest) {
+  try {
+    const ipAddress = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    const userAgent = request.headers.get("user-agent") || "Unknown";
+
+    let email: string | undefined;
+    let uid: string | undefined;
+
+    try {
+      const { user } = await verifySession(request);
+      email = user.email;
+      uid = user.uid;
+    } catch {
+      // Ignore session verification error on logout
+    }
+
+    const logoutCookieHeader = await destroySession(email, uid, ipAddress, userAgent);
+    const response = NextResponse.json({ success: true, message: "Logged out successfully" });
+    response.headers.set("Set-Cookie", logoutCookieHeader);
+    return response;
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { user } = await verifySession(request);
+    return NextResponse.json({ authenticated: true, user });
+  } catch {
+    return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
+  }
 }

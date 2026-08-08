@@ -3,71 +3,71 @@ import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE_NAME = "__session";
 
-// UI Routes that require authentication
-const PROTECTED_UI_PATHS = [
-  "/dashboard",
-  "/admin",
-  "/analytics",
-  "/media",
-  "/factory",
-  "/engines",
-  "/publishing",
-  "/settings",
-];
-
-// Routes that should redirect to dashboard if already authenticated
-const AUTH_PATHS = ["/login"];
-
-// Public API endpoints accessible without authentication
-const PUBLIC_API_PATHS = [
-  "/api/health",
+// Explicit Public Paths (No authentication required)
+const PUBLIC_PREFIXES = [
+  "/login",
   "/api/published-video",
+  "/api/health",
   "/api/auth/session",
-  "/api/media/thumb/",
-  "/api/engines",
-  "/api/templates",
-  "/api/tts/voices",
-  "/api/voice/registry",
-  "/api/voice-pair",
+  "/_next",
+  "/public",
+  "/favicon.ico",
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
-  const isAuthenticated = !!sessionCookie?.value;
 
-  // 1. Fail-Closed API Control Route Protection
-  if (pathname.startsWith("/api/")) {
-    const isPublicApi = PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(p));
-    if (!isPublicApi) {
-      const authHeader = request.headers.get("authorization");
-      const queryKey = request.nextUrl.searchParams.get("key");
-      const secretKey = process.env.INTERNAL_API_SECRET_KEY;
+  // 1. Allow Exact Root Public Landing Page (/)
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
 
-      const isSecretKeyValid = !!secretKey && (authHeader === `Bearer ${secretKey}` || queryKey === secretKey);
+  // 2. Check if Path is Explicitly Exempt / Public
+  const isPublic = PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix)
+  );
 
-      if (!isAuthenticated && !isSecretKeyValid) {
-        return NextResponse.json(
-          { error: "Unauthorized: FactoryOS production control endpoints require server authentication." },
-          { status: 401 }
-        );
+  if (isPublic) {
+    // If authenticated user visits /login, redirect to /dashboard
+    if (pathname === "/login") {
+      const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+      if (sessionCookie) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
       }
     }
     return NextResponse.next();
   }
 
-  // 2. UI Page Protection
-  const isProtected = PROTECTED_UI_PATHS.some((p) => pathname.startsWith(p));
-  const isAuthPage = AUTH_PATHS.some((p) => pathname.startsWith(p));
+  // 3. Extract Session Cookie & API Secret Key
+  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const authHeader = request.headers.get("authorization");
+  const queryKey = request.nextUrl.searchParams.get("key");
+  const secretKey = process.env.INTERNAL_API_SECRET_KEY;
 
-  if (isProtected && !isAuthenticated) {
+  const isSecretKeyValid =
+    !!secretKey && (authHeader === `Bearer ${secretKey}` || authHeader === secretKey || queryKey === secretKey);
+
+  const isAuthenticated = !!sessionCookie || isSecretKeyValid;
+
+  // 4. Protect API Endpoints (Fail-Closed 401)
+  if (pathname.startsWith("/api/")) {
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized: Access to FactoryOS API requires an active admin session or secret key.",
+          code: "UNAUTHORIZED",
+        },
+        { status: 401 }
+      );
+    }
+    return NextResponse.next();
+  }
+
+  // 5. Protect UI Pages (Redirect to /login)
+  if (!isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (isAuthPage && isAuthenticated) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
@@ -75,15 +75,9 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/analytics/:path*",
-    "/media/:path*",
-    "/factory/:path*",
-    "/engines/:path*",
-    "/publishing/:path*",
-    "/settings/:path*",
-    "/login",
-    "/api/:path*",
+    /*
+     * Match all request paths except static files with extensions (e.g. .css, .js, .png, .jpg, .svg)
+     */
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
   ],
 };

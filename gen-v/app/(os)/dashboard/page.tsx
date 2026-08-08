@@ -8,6 +8,7 @@ import {
   AlertTriangle, RefreshCw, Layers, Calendar, Clock, Terminal, ChevronRight
 } from "lucide-react";
 import Link from "next/link";
+import { UserMenu } from "@/components/UserMenu";
 
 export default function MissionControlDashboard() {
   const { 
@@ -27,18 +28,19 @@ export default function MissionControlDashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Banner - Factory Health */}
+// Top Banner - Factory Health & User Session
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-900/40 border border-zinc-900 rounded-xl p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full filter blur-3xl pointer-events-none" />
         <div>
           <h2 className="text-xl font-bold tracking-tight text-zinc-50">Factory Mission Control</h2>
-          <p className="text-xs text-zinc-400 mt-1">ShortFactory AI Factory OS is currently active.</p>
+          <p className="text-xs text-zinc-400 mt-1">FactoryOS Pro is currently active.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-semibold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>State: <span className="text-emerald-400 font-bold">{system.healthPct}% Healthy</span></span>
           </div>
+          <UserMenu />
         </div>
       </div>
 

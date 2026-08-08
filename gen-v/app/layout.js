@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth/providers";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,8 +26,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "ShortsFactory Pro",
-  description: "AI Geo-Quiz Content Engine - Command Center",
+  title: "FactoryOS Pro — AI Operating System",
+  description: "Enterprise Automated Content Generation & Quality Orchestration Engine",
 };
 
 export default function RootLayout({ children }) {
@@ -39,7 +40,9 @@ export default function RootLayout({ children }) {
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
       </head>
       <body className="bg-zinc-950 text-zinc-50 font-body-base antialiased h-screen w-full selection:bg-emerald-500/30" suppressHydrationWarning>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
