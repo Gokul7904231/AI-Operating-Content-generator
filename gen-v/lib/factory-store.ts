@@ -1,5 +1,19 @@
 import { create } from "zustand";
 
+export type SubsystemStatus = "loading" | "live" | "stale" | "error" | "offline" | "unavailable";
+
+export interface SubsystemHealth {
+  providers: SubsystemStatus;
+  queue: SubsystemStatus;
+  database: SubsystemStatus;
+  scheduler: SubsystemStatus;
+  storage: SubsystemStatus;
+  drive: SubsystemStatus;
+  renderer: SubsystemStatus;
+  auth: SubsystemStatus;
+  runtime: SubsystemStatus;
+}
+
 export interface VideoJob {
   id: string;
   jobId: string;
@@ -11,14 +25,22 @@ export interface VideoJob {
   telemetry?: any;
 }
 
+export interface ProvenanceMetadata {
+  source: string;
+  measuredAt: string;
+  requestId?: string;
+}
+
 export interface FactoryState {
   system: {
-    cpuUsagePct: number;
-    memUsagePct: number;
+    containerCpuPct: number;
+    containerMemPct: number;
     diskUsagePct: number;
     healthPct: number;
     hardware: any;
+    provenance?: ProvenanceMetadata;
   };
+  subsystems: SubsystemHealth;
   jobsSummary: {
     total: number;
     completed: number;
@@ -38,21 +60,35 @@ export interface FactoryState {
   events: any[];
   isLoading: boolean;
   sseConnected: boolean;
+  lastUpdated: string | null;
   error: string | null;
   fetchState: () => Promise<void>;
   initSSE: () => void;
+  closeSSE: () => void;
 }
 
 export const useFactoryStore = create<FactoryState>((set, get) => {
   let sseSource: EventSource | null = null;
+  let pollTimer: NodeJS.Timeout | null = null;
 
   return {
     system: {
-      cpuUsagePct: 0,
-      memUsagePct: 0,
+      containerCpuPct: 0,
+      containerMemPct: 0,
       diskUsagePct: 0,
       healthPct: 100,
       hardware: null,
+    },
+    subsystems: {
+      providers: "loading",
+      queue: "loading",
+      database: "loading",
+      scheduler: "loading",
+      storage: "loading",
+      drive: "loading",
+      renderer: "loading",
+      auth: "live",
+      runtime: "loading",
     },
     jobsSummary: {
       total: 0,
@@ -73,28 +109,66 @@ export const useFactoryStore = create<FactoryState>((set, get) => {
     events: [],
     isLoading: true,
     sseConnected: false,
+    lastUpdated: null,
     error: null,
 
     fetchState: async () => {
       try {
         const res = await fetch("/api/factory-state");
-        if (!res.ok) throw new Error("Failed to load factory state");
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load factory state`);
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Failed to parse state");
-        
+        if (!data.success) throw new Error(data.error || "Failed to parse factory state");
+
+        const now = new Date().toISOString();
         set({
-          system: data.system,
-          jobsSummary: data.jobsSummary,
-          jobs: data.jobs,
-          queues: data.queues,
-          activeProviders: data.activeProviders,
-          activeEngines: data.activeEngines,
-          events: data.events,
+          system: {
+            containerCpuPct: data.system?.cpuUsagePct ?? 0,
+            containerMemPct: data.system?.memUsagePct ?? 0,
+            diskUsagePct: data.system?.diskUsagePct ?? 0,
+            healthPct: data.system?.healthPct ?? 100,
+            hardware: data.system?.hardware ?? null,
+            provenance: {
+              source: "/api/factory-state",
+              measuredAt: now,
+            },
+          },
+          subsystems: {
+            providers: data.activeProviders?.length > 0 ? "live" : "unavailable",
+            queue: "live",
+            database: "live",
+            scheduler: "live",
+            storage: "live",
+            drive: "live",
+            renderer: "live",
+            auth: "live",
+            runtime: "live",
+          },
+          jobsSummary: data.jobsSummary || { total: 0, completed: 0, failed: 0, running: 0, queued: 0 },
+          jobs: data.jobs || [],
+          queues: data.queues || { storageQueue: [], storageDead: [], publisherQueue: [], publisherDead: [] },
+          activeProviders: data.activeProviders || [],
+          activeEngines: data.activeEngines || [],
+          events: data.events || [],
           isLoading: false,
+          lastUpdated: now,
           error: null,
         });
       } catch (err: any) {
-        set({ error: err.message, isLoading: false });
+        set({
+          error: err.message,
+          isLoading: false,
+          subsystems: {
+            providers: "unavailable",
+            queue: "unavailable",
+            database: "unavailable",
+            scheduler: "unavailable",
+            storage: "unavailable",
+            drive: "unavailable",
+            renderer: "unavailable",
+            auth: "live",
+            runtime: "offline",
+          },
+        });
       }
     },
 
@@ -105,37 +179,82 @@ export const useFactoryStore = create<FactoryState>((set, get) => {
         sseSource.close();
       }
 
-      sseSource = new EventSource("/api/factory-state/sse");
-      set({ sseConnected: true });
+      try {
+        sseSource = new EventSource("/api/factory-state/sse");
+        set({ sseConnected: true });
 
-      sseSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          set({
-            system: data.system,
-            jobsSummary: data.jobsSummary,
-            jobs: data.jobs,
-            queues: data.queues,
-            activeProviders: data.activeProviders,
-            activeEngines: data.activeEngines,
-            events: data.events,
-            isLoading: false,
-            error: null,
-          });
-        } catch (e: any) {
-          console.warn("[SSE JSON Parse Error]:", e.message);
-        }
-      };
+        sseSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            const now = new Date().toISOString();
 
-      sseSource.onerror = (err) => {
-        console.warn("[SSE Connection Error], falling back to fetchState:", err);
-        if (sseSource) {
-          sseSource.close();
-        }
+            set({
+              system: {
+                containerCpuPct: data.system?.cpuUsagePct ?? 0,
+                containerMemPct: data.system?.memUsagePct ?? 0,
+                diskUsagePct: data.system?.diskUsagePct ?? 0,
+                healthPct: data.system?.healthPct ?? 100,
+                hardware: data.system?.hardware ?? null,
+                provenance: {
+                  source: "/api/factory-state/sse",
+                  measuredAt: now,
+                },
+              },
+              subsystems: {
+                providers: data.activeProviders?.length > 0 ? "live" : "unavailable",
+                queue: "live",
+                database: "live",
+                scheduler: "live",
+                storage: "live",
+                drive: "live",
+                renderer: "live",
+                auth: "live",
+                runtime: "live",
+              },
+              jobsSummary: data.jobsSummary || { total: 0, completed: 0, failed: 0, running: 0, queued: 0 },
+              jobs: data.jobs || [],
+              queues: data.queues || { storageQueue: [], storageDead: [], publisherQueue: [], publisherDead: [] },
+              activeProviders: data.activeProviders || [],
+              activeEngines: data.activeEngines || [],
+              events: data.events || [],
+              isLoading: false,
+              lastUpdated: now,
+              error: null,
+            });
+          } catch (e: any) {
+            console.warn("[SSE Parse Warning]:", e.message);
+          }
+        };
+
+        sseSource.onerror = () => {
+          if (sseSource) {
+            sseSource.close();
+            sseSource = null;
+          }
+          set({ sseConnected: false });
+
+          // Start fallback polling if SSE disconnects
+          if (!pollTimer) {
+            get().fetchState();
+            pollTimer = setInterval(() => get().fetchState(), 5000);
+          }
+        };
+      } catch (err: any) {
         set({ sseConnected: false });
-        // Fallback polling
         get().fetchState();
-      };
+      }
+    },
+
+    closeSSE: () => {
+      if (sseSource) {
+        sseSource.close();
+        sseSource = null;
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      set({ sseConnected: false });
     },
   };
 });

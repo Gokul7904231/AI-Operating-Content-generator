@@ -22,7 +22,7 @@
 - [x] **Phase 2: Backend Capability Mapping** — Audit every screen against the 4 Essential OS Questions (*What is happening, Why, What needs attention, What should happen next*) (`UI_UX_FORENSIC_REPORT.md`).
 - [x] **Phase 3: API Contract Generation** — Establish widget data contracts and page-to-API mapping (`API_CONNECTION_MATRIX.md`).
 - [x] **Phase 4: Authentication & RBAC** — Production Firebase Auth + HTTP-Only Session Cookie + Firestore Admin RBAC (`docs/architecture/AUTHENTICATION.md`, 16/16 Vitest tests passing).
-- [ ] **Phase 5: Live Data Integration** — Synchronize `useFactoryStore` with `/api/factory-state` and SSE streams.
+- [x] **Phase 5: Live Data Integration** — Synchronized `useFactoryStore` with `/api/factory-state` & SSE streams with `WidgetContract` provenance metadata & fallback polling (`factoryos/tests/widget-contracts.test.ts`).
 - [ ] **Phase 6: Mission Control Redesign** — 9-subsystem Live Status Layer (`AI Providers`, `Queue`, `Database`, `Scheduler`, `Storage`, `Drive`, `Renderer`, `Auth`, `Runtime`).
 - [ ] **Phase 7: AI Decision Center** — Build AI Explainability Inspector consuming model-agnostic evidence objects (`gemini-1.5-flash`).
 - [ ] **Phase 8: Production Pipeline Visualization** — Visual 9-stage progress tracker (`Topic → Script → Guardian → Voice → Assets → Renderer → Validation → Upload → Publish`).
