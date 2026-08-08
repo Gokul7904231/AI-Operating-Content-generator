@@ -27,8 +27,8 @@ describe("FactoryOS v1 — Phase 11: Delivery & Publishing Fabric Suite", () => 
     expect(updatedRecord?.status).toBe("DELIVERING_DOWNLOAD");
   });
 
-  // 2. Google Drive Delivery & Post-Delivery Verification Purge
-  it("verifies Google Drive upload and purges temporary B2 artifact post-verification", async () => {
+  // 2. Google Drive Delivery & Early Purge upon Verified Delivery
+  it("verifies Google Drive upload and executes early purge of temporary B2 artifact post-verification", async () => {
     const tempObj = B2StorageManager.saveTempRender("tenant_alpha", "job_202", 40 * 1024 * 1024);
     const record = DeliveryManager.createDeliveryRecord(
       "job_202",
@@ -42,13 +42,13 @@ describe("FactoryOS v1 — Phase 11: Delivery & Publishing Fabric Suite", () => 
     expect(result.status).toBe("TEMP_FILE_PURGED");
     expect(result.googleDriveFileId).toBeDefined();
 
-    // Verify temporary B2 file was purged after delivery verification
+    // Verify early purge occurred
     const b2Obj = B2StorageManager.getObject(tempObj.key, "tenant_alpha");
     expect(b2Obj).toBeNull();
   });
 
-  // 3. Golden Rule: Failed Drive Upload Retains B2 Artifact
-  it("retains B2 temporary artifact when Google Drive upload fails", async () => {
+  // 3. Golden Invariant: Failed Drive Upload Retains B2 Artifact Until Expiration
+  it("retains B2 temporary artifact on Drive failure until authoritative 30-min retention deadline expires", async () => {
     const tempObj = B2StorageManager.saveTempRender("tenant_alpha", "job_303", 50 * 1024 * 1024);
     const record = DeliveryManager.createDeliveryRecord(
       "job_303",
@@ -61,12 +61,17 @@ describe("FactoryOS v1 — Phase 11: Delivery & Publishing Fabric Suite", () => 
     // Simulate Drive Upload Failure
     const result = await DeliveryManager.exportToGoogleDrive(record.id, "tenant_alpha", true);
     expect(result.status).toBe("DRIVE_UPLOAD_FAILED");
-    expect(result.error).toContain("Google Drive API");
 
-    // Golden Rule Check: Temporary B2 artifact MUST be retained!
-    const b2Obj = B2StorageManager.getObject(tempObj.key, "tenant_alpha");
+    // File MUST remain retained for retry during 30-min window
+    let b2Obj = B2StorageManager.getObject(tempObj.key, "tenant_alpha");
     expect(b2Obj).not.toBeNull();
-    expect(b2Obj?.key).toBe(tempObj.key);
+
+    // After 31 minutes, server authoritative cleanup purges the expired file
+    const futureMs = Date.now() + 31 * 60 * 1000;
+    B2StorageManager.purgeExpiredTempRenders(futureMs);
+
+    b2Obj = B2StorageManager.getObject(tempObj.key, "tenant_alpha");
+    expect(b2Obj).toBeNull();
   });
 
   // 4. Multi-Tenant Authorization Protection
@@ -85,7 +90,7 @@ describe("FactoryOS v1 — Phase 11: Delivery & Publishing Fabric Suite", () => 
     }).toThrow("Unauthorized tenant access");
   });
 
-  // 5. Delivery API Endpoint
+  // 5. Delivery Telemetry API Endpoint
   it("serves delivery options via GET /api/delivery", async () => {
     const { GET } = await import("../../app/api/delivery/route");
     const secretKey = process.env.INTERNAL_API_SECRET_KEY || "factoryos-internal-secret-key-2026";

@@ -60,7 +60,6 @@ export class DeliveryManager {
     if (!obj) throw new Error("B2 temporary render artifact expired or not found");
 
     record.status = "DELIVERING_DOWNLOAD";
-    // Generate signed download URL (valid for remaining retention window)
     record.downloadUrl = `https://f000.backblazeb2.com/file/${B2StorageManager.getTelemetry().bucketName}/${record.b2ObjectKey}?token=signed_auth_token_${Date.now()}`;
     return record.downloadUrl;
   }
@@ -80,7 +79,7 @@ export class DeliveryManager {
     record.status = "DELIVERING_DRIVE";
 
     if (simulateFailure) {
-      // Golden Rule: If Drive upload fails, retain B2 artifact!
+      // Golden Rule: If Drive upload fails, retain B2 artifact for retry until 30-min expiration reached!
       record.status = "DRIVE_UPLOAD_FAILED";
       record.error = "Google Drive API timeout or authorization error";
       return record;
@@ -91,7 +90,7 @@ export class DeliveryManager {
     record.status = "DELIVERY_VERIFIED";
     record.verifiedAt = new Date().toISOString();
 
-    // Post-delivery cleanup: delete temporary B2 artifact after delivery verification
+    // Early Purge upon verified delivery
     B2StorageManager.deleteObject(record.b2ObjectKey, tenantId);
     record.status = "TEMP_FILE_PURGED";
     record.purgedAt = new Date().toISOString();
