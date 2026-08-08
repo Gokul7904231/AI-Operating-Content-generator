@@ -1,5 +1,8 @@
 /**
- * Unified Authentication & Authorization Service Facade — FactoryOS v1
+ * Client-Side Authentication & Authorization Service Facade — FactoryOS v1
+ * 
+ * Note: This module is client-bundle safe and must NOT import Node.js/Server-only modules
+ * (such as firebase-admin or child_process).
  */
 
 import {
@@ -10,11 +13,8 @@ import {
   signOut,
   sendPasswordResetEmail,
 } from "./firebase-client";
-import { createSessionFromIdToken, destroySession as destroySessionCookie } from "./session";
-import { verifySession, verifyRole, verifyAuthAndRole } from "./auth";
-import { getAdminByUid } from "./firebase-admin";
 import { validateEmail, checkRateLimit } from "./validators";
-import { AdminUser, UserRole, AuthResponse } from "./types";
+import { AdminUser, AuthResponse } from "./types";
 import { AuthError, RateLimitExceededError } from "./errors";
 
 export class AuthService {
@@ -35,7 +35,7 @@ export class AuthService {
       const credential = await signInWithEmailAndPassword(auth, email.trim(), pass);
       const idToken = await credential.user.getIdToken();
 
-      // Create session cookie via backend API
+      // Establish HTTP-Only session cookie via server API endpoint
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,7 +61,7 @@ export class AuthService {
       const credential = await signInWithPopup(auth, googleProvider);
       const idToken = await credential.user.getIdToken();
 
-      // Create session cookie via backend API
+      // Establish HTTP-Only session cookie via server API endpoint
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,20 +107,5 @@ export class AuthService {
     } catch (err: any) {
       return { success: false, error: err.message || "Logout failed." };
     }
-  }
-
-  /**
-   * Server-Side Session Verification
-   */
-  static async verify(request: Request, requiredRole?: UserRole): Promise<AdminUser> {
-    return await verifyAuthAndRole(request, requiredRole);
-  }
-
-  /**
-   * Server-Side Get Role Helper
-   */
-  static async getRole(uid: string, email: string): Promise<UserRole | null> {
-    const admin = await getAdminByUid(uid, email);
-    return admin ? admin.role : null;
   }
 }
