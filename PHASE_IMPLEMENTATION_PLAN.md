@@ -25,7 +25,7 @@
 - [x] **Phase 5: Live Data Integration** — Synchronized `useFactoryStore` with `/api/factory-state` & SSE streams with `WidgetContract` provenance metadata & fallback polling (`factoryos/tests/widget-contracts.test.ts`).
 - [x] **Phase 6: Mission Control Redesign** — Redesigned Mission Control with 9-subsystem Live Status Layer, 9-stage pipeline, Model-Agnostic AI Decision Center (`gemini-1.5-flash`), Attention Required panel, and `LiveEventFeed`.
 - [x] **Phase 7: AI Decision Center & BYOLM Integration** — Model-agnostic decision telemetry, BYOLM local AI provider abstraction (Ollama, LM Studio), dynamic discovery, SSRF protection (`factoryos/tests/byolm.test.ts`, 7/7 tests passed).
-- [ ] **Phase 8: Production Execution & Rendering Fabric** — Persistent job queue, FFmpeg render worker pool abstraction, tier priorities (Free/Pro/Enterprise), and worker crash recovery.
+- [x] **Phase 8: Production Execution & Rendering Fabric** — Implemented `RenderQueueManager` orchestrating asynchronous FFmpeg render worker pool (`worker-vps-main`), tier priorities (ENTERPRISE > PRO > FREE), crash retries, and worker telemetry API (`factoryos/tests/rendering-fabric.test.ts`, 4/4 tests passed).
 - [ ] **Phase 9: Multi-Tenant User Execution** — Multi-tenant job isolation, BYOK credential storage, user ownership, and quota enforcement.
 - [ ] **Phase 10: Asset & Temporary Storage Fabric** — Backblaze B2 storage fabric (`permanent/` vs `temp-renders/`), 30-minute server-authoritative video retention, and storage pressure states (Normal/Warning/Cleanup/Capacity Reached).
 - [ ] **Phase 11: Delivery & Publishing Fabric** — Direct browser download, optional Google Drive exporter, signed URL access, and post-delivery cleanup.
