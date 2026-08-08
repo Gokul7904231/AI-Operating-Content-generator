@@ -1,32 +1,23 @@
 import { NextResponse } from "next/server";
 import { verifySession } from "../../../../lib/auth/auth";
+import { saveUserCredential, getUserCredentialsStatus } from "../../../../lib/auth/credentials";
 
 export const dynamic = "force-dynamic";
-
-// In-memory store for user API keys (scoped by UID)
-const userKeyStore = new Map<string, Record<string, string>>();
 
 /**
  * GET /api/user/credentials
  * Returns registered BYOK provider status for authenticated user (masks key).
+ * Enforces AES-256-GCM encryption-at-rest; raw key is NEVER returned in HTTP response or logged.
  */
 export async function GET(req: Request) {
   try {
     const { user } = await verifySession(req);
-    const keys = userKeyStore.get(user.uid) || {};
-
-    const safeProviders: Record<string, { configured: boolean; maskedKey?: string }> = {};
-    for (const [provider, key] of Object.entries(keys)) {
-      safeProviders[provider] = {
-        configured: true,
-        maskedKey: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : undefined,
-      };
-    }
+    const providers = getUserCredentialsStatus(user.uid);
 
     return NextResponse.json({
       success: true,
       userId: user.uid,
-      providers: safeProviders,
+      providers,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 401 });
@@ -35,7 +26,7 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/user/credentials
- * Saves user BYOK API key (e.g. Google Gemini key).
+ * Encrypts user BYOK API key at rest using AES-256-GCM and stores encrypted blob.
  */
 export async function POST(req: Request) {
   try {
@@ -47,15 +38,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid or missing apiKey" }, { status: 400 });
     }
 
-    const keys = userKeyStore.get(user.uid) || {};
-    keys[provider] = apiKey;
-    userKeyStore.set(user.uid, keys);
+    const maskedKey = saveUserCredential(user.uid, provider, apiKey);
 
     return NextResponse.json({
       success: true,
       userId: user.uid,
       provider,
-      maskedKey: `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`,
+      maskedKey, // Only masked key returned
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 401 });

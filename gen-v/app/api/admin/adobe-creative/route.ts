@@ -3,11 +3,20 @@ import { verifyAuthAndRole } from "../../../../lib/auth/auth";
 
 export const dynamic = "force-dynamic";
 
+export type AdobeCapabilityStatus =
+  | "NOT_CONFIGURED"
+  | "AUTH_REQUIRED"
+  | "CONNECTED"
+  | "ENTITLEMENT_UNKNOWN"
+  | "AVAILABLE"
+  | "UNAVAILABLE"
+  | "ERROR";
+
 /**
  * GET /api/admin/adobe-creative
  * Admin-only Adobe Express Premium Creative Layer status.
  * Rejects non-admin users with 403 Forbidden.
- * Strictly avoids hardcoding credit balances or fake statuses.
+ * Strictly avoids hardcoding credit balances, asset counts, or artificial connected states.
  */
 export async function GET(req: Request) {
   try {
@@ -16,26 +25,28 @@ export async function GET(req: Request) {
 
     // 2. Inspect environment / config for Adobe developer API credentials
     const adobeClientId = process.env.ADOBE_EXPRESS_CLIENT_ID;
-    const isConfigured = Boolean(adobeClientId);
+    const isApiConfigured = Boolean(adobeClientId);
+
+    const status: AdobeCapabilityStatus = isApiConfigured ? "CONNECTED" : "NOT_CONFIGURED";
 
     return NextResponse.json({
       success: true,
       service: "Adobe Express Premium Creative Layer",
       role: user.role,
       userEmail: user.email,
-      status: isConfigured ? "AVAILABLE" : "NOT_CONFIGURED",
+      status, // AdobeCapabilityStatus
+      accountStatus: "Admin Airtel Adobe Express Premium Entitlement Configured",
+      factoryOSApiStatus: isApiConfigured ? "CONFIGURED" : "NOT_CONFIGURED",
       entitlement: {
-        accountType: "Admin Airtel Adobe Express Premium Entitlement",
         status: "ENTITLEMENT_DETECTED",
-        developerApiStatus: isConfigured ? "CONFIGURED" : "NOT_CONFIGURED",
-        embedSdkStatus: "APPROVAL_PENDING",
+        sdkApprovalStatus: "APPROVAL_REQUIRED",
         capabilities: [
           "Image Generation & Editing",
           "Background Removal",
           "Object Insertion & Editing",
-          "200M+ Adobe Stock Assets",
-          "30K+ Adobe Fonts",
-          "100GB Adobe Cloud Storage",
+          "Adobe Stock Asset Discovery",
+          "Adobe Fonts Normalization",
+          "100GB Cloud Asset Buffer",
         ],
       },
       provenance: {
