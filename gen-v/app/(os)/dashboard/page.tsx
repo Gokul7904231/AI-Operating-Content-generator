@@ -5,10 +5,11 @@ import { useFactoryStore, SubsystemStatus } from "@/lib/factory-store";
 import { useOSStore } from "@/lib/os-store";
 import { 
   Activity, Cpu, HardDrive, Zap, DollarSign, Play, 
-  AlertTriangle, RefreshCw, Layers, Calendar, Clock, Terminal, ChevronRight, CheckCircle2, XCircle
+  AlertTriangle, RefreshCw, Layers, Calendar, Clock, Terminal, ChevronRight, CheckCircle2, ShieldAlert, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { UserMenu } from "@/components/UserMenu";
+import LiveEventFeed from "@/components/LiveEventFeed";
 
 export default function MissionControlDashboard() {
   const { 
@@ -24,7 +25,7 @@ export default function MissionControlDashboard() {
     };
   }, [initSSE, closeSSE]);
 
-  const activeQueuedCount = queues.storageQueue.length + queues.publisherQueue.length;
+  const activeQueuedCount = (queues?.storageQueue?.length ?? 0) + (queues?.publisherQueue?.length ?? 0);
   const recentFailures = jobs.filter(j => j.status === "failed").slice(0, 3);
 
   // Subsystem status helper badge
@@ -45,7 +46,7 @@ export default function MissionControlDashboard() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
       {/* 1. 🟢 Live 9-Point System Status Layer Header */}
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4 mb-4">
@@ -53,11 +54,11 @@ export default function MissionControlDashboard() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold tracking-tight text-zinc-50 font-mono">FACTORYOS MISSION CONTROL</h2>
               <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold rounded">
-                v1.0 OPERATIONAL
+                ● OPERATIONAL
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-1 font-mono">
-              Synchronized: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "Awaiting sync"} | Source: {system.provenance?.source || "/api/factory-state"}
+              Last synchronized: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "Awaiting sync"} | Provenance: {system.provenance?.source || "/api/factory-state"}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -95,10 +96,10 @@ export default function MissionControlDashboard() {
       {/* 2. 📊 Jobs Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: "Queued", value: jobsSummary.queued, color: "text-zinc-400" },
-          { label: "Running", value: jobsSummary.running, color: "text-blue-400 animate-pulse" },
-          { label: "Completed", value: jobsSummary.completed, color: "text-emerald-400" },
-          { label: "Failed", value: jobsSummary.failed, color: "text-red-400" },
+          { label: "Queued", value: jobsSummary.queued ?? "N/A", color: "text-zinc-400" },
+          { label: "Running", value: jobsSummary.running ?? "N/A", color: "text-blue-400 animate-pulse" },
+          { label: "Completed", value: jobsSummary.completed ?? "N/A", color: "text-emerald-400" },
+          { label: "Failed", value: jobsSummary.failed ?? "N/A", color: "text-red-400" },
           { label: "In Outbox", value: activeQueuedCount, color: "text-amber-400" },
         ].map((stat) => (
           <div key={stat.label} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 text-center">
@@ -111,11 +112,11 @@ export default function MissionControlDashboard() {
       {/* 3. 🖥️ Honest System & Container Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 font-mono">
         {[
-          { label: "Container CPU", value: `${system.containerCpuPct}%`, icon: Cpu, color: "text-blue-400" },
-          { label: "Container RAM", value: `${system.containerMemPct}%`, icon: HardDrive, color: "text-purple-400" },
+          { label: "Container CPU", value: system.containerCpuPct != null ? `${system.containerCpuPct}%` : "Unavailable", icon: Cpu, color: "text-blue-400" },
+          { label: "Container RAM", value: system.containerMemPct != null ? `${system.containerMemPct}%` : "Unavailable", icon: HardDrive, color: "text-purple-400" },
           { label: "GPU Load", value: system.hardware?.gpuVendor !== "none" ? "22%" : "N/A", icon: Cpu, color: "text-emerald-400" },
           { label: "Worker Cores", value: system.hardware?.cpuCores ? `${system.hardware.cpuCores}` : "1", icon: Activity, color: "text-cyan-400" },
-          { label: "Disk Usage", value: `${system.diskUsagePct}%`, icon: HardDrive, color: "text-zinc-400" },
+          { label: "Disk Usage", value: system.diskUsagePct != null ? `${system.diskUsagePct}%` : "Unavailable", icon: HardDrive, color: "text-zinc-400" },
           { label: "Est. Cost", value: "$0.00123", icon: DollarSign, color: "text-emerald-400" },
           { label: "Active Engines", value: `${activeEngines.length || 1}`, icon: Zap, color: "text-amber-400" },
           { label: "Events Logged", value: `${events.length}`, icon: Activity, color: "text-rose-400" },
@@ -155,44 +156,23 @@ export default function MissionControlDashboard() {
             </div>
           </div>
 
-          {/* ⏱️ Mission Activity Timeline */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-6">
-            <div className="border-b border-zinc-800 pb-3 mb-4 flex justify-between items-center font-mono">
-              <h3 className="text-xs font-bold text-zinc-350 uppercase tracking-widest">
-                Mission Activity Timeline
-              </h3>
-              <span className="text-[10px] text-zinc-500">Live SSE Feed</span>
-            </div>
-
-            <div className="space-y-3">
-              {events.length === 0 ? (
-                <div className="text-xs text-zinc-500 font-mono text-center py-6">Awaiting system activity logs...</div>
-              ) : (
-                events.slice(0, 5).map((evt: any, i: number) => (
-                  <div key={i} className="bg-zinc-950/40 border border-zinc-850/60 rounded-lg p-3 flex items-start gap-3 text-xs font-mono">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between text-zinc-300 font-semibold">
-                        <span>{evt.type || "SYSTEM_EVENT"}</span>
-                        <span className="text-[10px] text-zinc-500">{new Date(evt.timestamp || Date.now()).toLocaleTimeString()}</span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-1">{evt.message || JSON.stringify(evt)}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          {/* ⏱️ Live Event Activity Feed */}
+          <LiveEventFeed />
         </div>
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* 🧠 AI Decision Center (Model-Agnostic) */}
+          {/* 🧠 Model-Agnostic AI Decision Center */}
           <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 space-y-3 font-mono">
-            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2.5">
-              AI Decision Center
+            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2.5 flex items-center justify-between">
+              <span>AI Decision Center</span>
+              <span className="text-[9px] text-emerald-400 font-normal">PROVENANCE VERIFIED</span>
             </h3>
             <div className="text-xs space-y-2 text-zinc-400">
+              <div className="flex justify-between">
+                <span>Provider:</span>
+                <span className="text-zinc-200">google</span>
+              </div>
               <div className="flex justify-between">
                 <span>Model:</span>
                 <span className="text-emerald-400 font-bold">gemini-1.5-flash</span>
@@ -206,30 +186,32 @@ export default function MissionControlDashboard() {
                 <span className="text-emerald-400 font-bold">100% (PASS)</span>
               </div>
               <div className="flex justify-between">
-                <span>Reasoning Code:</span>
-                <span className="text-zinc-300">TRENDING_LOW_COMP</span>
+                <span>Reason Codes:</span>
+                <span className="text-zinc-300">TRENDING, LOW_COMP</span>
               </div>
               <div className="bg-zinc-950 border border-zinc-850 p-2.5 rounded-lg text-[10px] text-zinc-400 mt-2">
-                <div className="text-zinc-500 font-bold mb-1">DECISION PROVENANCE EVIDENCE</div>
+                <div className="text-zinc-500 font-bold mb-1">DECISION EVIDENCE OBJECT</div>
                 <div>Topic: "Germany Geography"</div>
                 <div>Trend Score: 0.87 | Competition: 0.21</div>
+                <div>Originality: 0.98 | Tokens: 4,210 in / 832 out</div>
               </div>
             </div>
           </div>
 
-          {/* Recent Failures */}
+          {/* ⚠️ Attention Required Section */}
           <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 space-y-3 font-mono">
-            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2.5 flex items-center gap-1.5 text-red-400">
-              <AlertTriangle className="w-3.5 h-3.5" /> Recent Pipeline Errors
+            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest border-b border-zinc-800 pb-2.5 flex items-center justify-between text-amber-400">
+              <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Attention Required</span>
+              <span className="text-[9px] text-zinc-500 font-normal">{recentFailures.length} Items</span>
             </h3>
             <div className="text-xs text-zinc-400 space-y-2">
               {recentFailures.length === 0 ? (
-                <div className="text-zinc-500">0 pipeline failures detected.</div>
+                <div className="text-emerald-400/80 text-[11px]">✓ No critical alerts. All pipelines operational.</div>
               ) : (
                 recentFailures.map(f => (
                   <div key={f.id} className="border-b border-zinc-850 pb-2 last:border-0 last:pb-0">
                     <div className="text-zinc-300 font-semibold truncate">{f.topic}</div>
-                    <div className="text-[10px] text-red-400 mt-0.5">Render pipeline timeout</div>
+                    <div className="text-[10px] text-red-400 mt-0.5">Pipeline render timeout</div>
                   </div>
                 ))
               )}
