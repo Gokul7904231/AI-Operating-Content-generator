@@ -21,7 +21,7 @@ export async function GET() {
       queue,
       provenance: {
         source: "/api/rendering/workers",
-        service: "RenderQueueManager & VPS FFmpeg Pool",
+        service: "Generic RenderJob Fabric & Oracle ARM64 Pool",
         measuredAt: new Date().toISOString(),
       },
     });
@@ -32,30 +32,32 @@ export async function GET() {
 
 /**
  * POST /api/rendering/workers
- * Enqueues or cancels a render job.
+ * Enqueues or cancels a render job using the Universal RenderJob contract.
  */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, jobId, id, topic, tier = "FREE", userId = "anon_user" } = body;
+    const { action, jobId, id, topic, tenantId = "tenant_default", userId = "user_default", tier = "FREE", contentEngine = "quiz", aiExecutionMode = "CLOUD" } = body;
 
     if (action === "cancel") {
       const targetId = jobId || id;
       if (!targetId) return NextResponse.json({ error: "Missing jobId for cancellation" }, { status: 400 });
-      const cancelled = RenderQueueManager.cancelJob(targetId);
+      const cancelled = RenderQueueManager.cancelJob(targetId, tenantId);
       return NextResponse.json({ success: true, cancelled, jobId: targetId });
     }
 
-    // Default action: enqueue render job
     if (!topic || !jobId) {
       return NextResponse.json({ error: "Missing topic or jobId" }, { status: 400 });
     }
 
     const job = RenderQueueManager.enqueue({
-      id: id || `render_job_${Date.now()}`,
+      id: id || `render_${Date.now()}`,
       jobId,
+      tenantId,
       userId,
       tier,
+      contentEngine,
+      aiExecutionMode,
       topic,
     });
 

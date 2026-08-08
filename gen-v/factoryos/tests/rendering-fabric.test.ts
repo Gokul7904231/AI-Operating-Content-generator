@@ -1,61 +1,65 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { RenderQueueManager } from "../../lib/rendering/RenderQueueManager";
 
-describe("FactoryOS v1 — Phase 8: Production Execution & Rendering Fabric Suite", () => {
-  it("enqueues render jobs and sorts queue by User Tier priority (ENTERPRISE > PRO > FREE)", () => {
-    RenderQueueManager.enqueue({ id: "j1", jobId: "job_1", userId: "u1", tier: "FREE", topic: "Free Topic" });
-    RenderQueueManager.enqueue({ id: "j2", jobId: "job_2", userId: "u2", tier: "ENTERPRISE", topic: "Enterprise Topic" });
-    RenderQueueManager.enqueue({ id: "j3", jobId: "job_3", userId: "u3", tier: "PRO", topic: "Pro Topic" });
+describe("FactoryOS v1 — Generic Production Execution & Rendering Fabric Suite", () => {
+  it("enqueues universal RenderJob contract objects and sorts by priority (ADMIN > ENTERPRISE > PRO > FREE)", () => {
+    RenderQueueManager.enqueue({ id: "j1", jobId: "job_1", tenantId: "t1", userId: "u1", tier: "FREE", topic: "Free Quiz", contentEngine: "quiz" });
+    RenderQueueManager.enqueue({ id: "j2", jobId: "job_2", tenantId: "t2", userId: "u2", tier: "ADMIN", topic: "Admin Auto 5/Day", contentEngine: "facts" });
+    RenderQueueManager.enqueue({ id: "j3", jobId: "job_3", tenantId: "t3", userId: "u3", tier: "PRO", topic: "Pro Story", contentEngine: "stories" });
 
     const queue = RenderQueueManager.getQueue();
-    expect(queue[0].tier).toBe("ENTERPRISE");
+    expect(queue[0].tier).toBe("ADMIN");
+    expect(queue[0].contentEngine).toBe("facts");
     expect(queue[1].tier).toBe("PRO");
     expect(queue[2].tier).toBe("FREE");
 
-    // Clean queue
     RenderQueueManager.cancelJob("job_1");
     RenderQueueManager.cancelJob("job_2");
     RenderQueueManager.cancelJob("job_3");
   });
 
-  it("processes next job and updates worker status to BUSY", () => {
-    const job = RenderQueueManager.enqueue({ id: "j4", jobId: "job_4", userId: "u4", tier: "PRO", topic: "Render Test" });
-    const processed = RenderQueueManager.processNextJob("worker-vps-main");
+  it("assigns render jobs to Oracle Always Free ARM64 worker (oracle-a1-01)", () => {
+    const job = RenderQueueManager.enqueue({ id: "j4", jobId: "job_4", tenantId: "t4", userId: "u4", tier: "PRO", topic: "Render Test", contentEngine: "quiz" });
+    const processed = RenderQueueManager.processNextJob("oracle-a1-01");
 
     expect(processed).not.toBeNull();
     expect(processed?.id).toBe("j4");
-    expect(processed?.status).toBe("PROCESSING");
-    expect(processed?.workerId).toBe("worker-vps-main");
+    expect(processed?.workerId).toBe("oracle-a1-01");
 
     const workers = RenderQueueManager.getWorkers();
+    expect(workers[0].architecture).toBe("arm64");
     expect(workers[0].status).toBe("BUSY");
 
     // Complete job
-    RenderQueueManager.completeJob("j4", "http://storage/output.mp4", 14.5);
-    expect(workers[0].status).toBe("ONLINE");
+    RenderQueueManager.completeJob("j4", {
+      uri: "b2://temp-renders/j4/final.mp4",
+      sizeBytes: 12345678,
+      durationMs: 38200,
+    });
+
+    expect(workers[0].status).toBe("READY");
   });
 
-  it("retries failed job up to maxAttempts before setting status to FAILED", () => {
-    const job = RenderQueueManager.enqueue({ id: "j5", jobId: "job_5", userId: "u5", tier: "FREE", topic: "Fail Test" });
-    RenderQueueManager.processNextJob("worker-vps-main");
+  it("enforces multi-tenant cancellation protection", () => {
+    RenderQueueManager.enqueue({ id: "j5", jobId: "job_5", tenantId: "tenant_alpha", userId: "u1", tier: "FREE", topic: "Isolated Job" });
+    
+    // Attempt cancellation with wrong tenantId -> fails
+    const wrongTenantCancelled = RenderQueueManager.cancelJob("job_5", "tenant_beta");
+    expect(wrongTenantCancelled).toBe(false);
 
-    // Attempt 1 failure -> re-enqueue
-    const retriedJob = RenderQueueManager.failJob("j5", "FFmpeg crash");
-    expect(retriedJob?.status).toBe("QUEUED");
-    expect(retriedJob?.attempts).toBe(1);
-
-    // Clean job
-    RenderQueueManager.cancelJob("job_5");
+    // Right tenantId -> succeeds
+    const rightTenantCancelled = RenderQueueManager.cancelJob("job_5", "tenant_alpha");
+    expect(rightTenantCancelled).toBe(true);
   });
 
-  it("exposes render worker pool telemetry via GET /api/rendering/workers", async () => {
+  it("exposes render worker telemetry via GET /api/rendering/workers", async () => {
     const { GET } = await import("../../app/api/rendering/workers/route");
     const res = await GET();
     expect(res.status).toBe(200);
 
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.workers).toBeDefined();
+    expect(body.workers[0].architecture).toBe("arm64");
     expect(body.provenance?.source).toBe("/api/rendering/workers");
   });
 });
