@@ -1,7 +1,7 @@
 # 🗺️ 15-Phase Master Control Center Blueprint — FactoryOS v1
 
 **Role:** Lead Architect & Principal Systems Integration Engineer  
-**Objective:** Transform FactoryOS Control Plane into a genuine **AI Operating System Control Center** backed by real backend subsystems, explainable AI decisions, live status layers, widget contracts, and GitHub-style mission timelines.
+**Objective:** Transform FactoryOS Control Plane into a genuine **AI Operating System Control Center** backed by real backend subsystems, explainable AI decisions, live status layers, widget contracts, generic rendering fabric, Admin-only Adobe Express Premium creative layer, and GitHub-style mission timelines.
 
 ---
 
@@ -25,8 +25,8 @@
 - [x] **Phase 5: Live Data Integration** — Synchronized `useFactoryStore` with `/api/factory-state` & SSE streams with `WidgetContract` provenance metadata & fallback polling (`factoryos/tests/widget-contracts.test.ts`).
 - [x] **Phase 6: Mission Control Redesign** — Redesigned Mission Control with 9-subsystem Live Status Layer, 9-stage pipeline, Model-Agnostic AI Decision Center (`gemini-1.5-flash`), Attention Required panel, and `LiveEventFeed`.
 - [x] **Phase 7: AI Decision Center & BYOLM Integration** — Model-agnostic decision telemetry, BYOLM local AI provider abstraction (Ollama, LM Studio), dynamic discovery, SSRF protection (`factoryos/tests/byolm.test.ts`, 7/7 tests passed).
-- [x] **Phase 8: Production Execution & Rendering Fabric** — Implemented `RenderQueueManager` orchestrating asynchronous FFmpeg render worker pool (`worker-vps-main`), tier priorities (ENTERPRISE > PRO > FREE), crash retries, and worker telemetry API (`factoryos/tests/rendering-fabric.test.ts`, 4/4 tests passed).
-- [ ] **Phase 9: Multi-Tenant User Execution** — Multi-tenant job isolation, BYOK credential storage, user ownership, and quota enforcement.
+- [x] **Phase 8: Production Execution & Generic Rendering Fabric** — Implemented `RenderQueueManager` orchestrating asynchronous FFmpeg render worker pool (`oracle-a1-01`), tier priorities (ADMIN > ENTERPRISE > PRO > FREE), crash retries, and worker telemetry API (`factoryos/tests/rendering-fabric.test.ts`, 4/4 tests passed).
+- [x] **Phase 9: Multi-Tenant User Execution + BYOK/BYOLM Quotas + Admin Adobe Layer** — Multi-tenant job isolation, BYOK credential masking (`GET/POST /api/user/credentials`), server-enforced tier quotas (`QuotaManager`), and Admin-only Adobe Express Premium entitlement status (`GET /api/admin/adobe-creative`, `factoryos/tests/multi-tenant-execution.test.ts`, 5/5 tests passed).
 - [ ] **Phase 10: Asset & Temporary Storage Fabric** — Backblaze B2 storage fabric (`permanent/` vs `temp-renders/`), 30-minute server-authoritative video retention, and storage pressure states (Normal/Warning/Cleanup/Capacity Reached).
 - [ ] **Phase 11: Delivery & Publishing Fabric** — Direct browser download, optional Google Drive exporter, signed URL access, and post-delivery cleanup.
 - [ ] **Phase 12: Event Center & Observability** — GitHub/Vercel style Mission Timeline, SRE telemetry, queue depth, and render speed metrics.
