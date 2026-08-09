@@ -1,4 +1,9 @@
 import { RenderJobValidator } from "./RenderJobValidator";
+import { WorkerPoolRegistry, RegisteredWorker } from "./WorkerPoolRegistry";
+import { AzureWorkerManager } from "./AzureWorkerManager";
+import { AzureFinOpsGuard } from "./AzureFinOpsGuard";
+import { BasicRenderingCapacityGuard } from "./BasicRenderingCapacityGuard";
+import { GitHubActionsRenderManager } from "./GitHubActionsRenderManager";
 
 export type UserTier = "FREE" | "PRO" | "ENTERPRISE" | "ADMIN";
 export type RenderJobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
@@ -64,6 +69,7 @@ export interface WorkerHeartbeat {
   endpoint: string;
   activeJobId?: string;
   lastHeartbeat: string;
+  vendor?: string;
 }
 
 export class RenderQueueManager {
@@ -79,10 +85,41 @@ export class RenderQueueManager {
       queueDepth: 0,
       endpoint: process.env.NEXT_PUBLIC_RENDER_ENGINE_URL || "http://127.0.0.1:8000",
       lastHeartbeat: new Date().toISOString(),
+      vendor: "oracle",
     },
   ];
 
-  static enqueue(jobData: Partial<UniversalRenderJob> & { jobId: string; topic: string; tenantId: string; userId: string }): UniversalRenderJob {
+  static enqueue(jobData: Partial<UniversalRenderJob> & { jobId: string; topic: string; tenantId: string; userId: string; requestedWorkerId?: string }): UniversalRenderJob {
+    const tier = jobData.tier || "FREE";
+
+    // STRICT SECURITY RULE 1: Azure is ADMIN-ONLY
+    if (jobData.requestedWorkerId?.startsWith("azure") || jobData.workerId?.startsWith("azure")) {
+      if (tier !== "ADMIN") {
+        throw new Error("RENDER_BACKEND_FORBIDDEN: Non-admin jobs cannot target Azure rendering infrastructure.");
+      }
+    }
+
+    let tierError: string | undefined = undefined;
+    if (tier === "PRO") {
+      tierError = "PRO_RENDERING_NOT_AVAILABLE: Pro rendering tier is not currently available.";
+    } else if (tier === "ENTERPRISE") {
+      tierError = "ENTERPRISE_RENDERING_NOT_AVAILABLE: Enterprise rendering tier is not currently available.";
+    }
+
+    if (tier === "ADMIN") {
+      // Layer 4 & Layer 6 FinOps Check for Admin Azure
+      const finopsCheck = AzureFinOpsGuard.canAcceptRenderJob(tier);
+      if (!finopsCheck.allowed) {
+        throw new Error(`FINOPS_GUARD_REJECTED: ${finopsCheck.reason}`);
+      }
+    } else if (tier === "FREE") {
+      // Basic Local Billing Safety Check
+      const guardCheck = BasicRenderingCapacityGuard.checkBasicDispatchAllowed(jobData.userId, jobData.tenantId);
+      if (!guardCheck.allowed) {
+        throw new Error(guardCheck.reason || "BASIC_RENDER_CAPACITY_UNAVAILABLE: Global Basic rendering capacity limit reached.");
+      }
+    }
+
     const validation = RenderJobValidator.validate(jobData);
     if (!validation.valid) {
       throw new Error(`INVALID_RENDER_JOB: ${validation.errors.join(", ")}`);
@@ -95,7 +132,7 @@ export class RenderQueueManager {
       contentEngine: jobData.contentEngine || "quiz",
       tenantId: jobData.tenantId,
       userId: jobData.userId,
-      tier: jobData.tier || "FREE",
+      tier: tier,
       aiExecutionMode: jobData.aiExecutionMode || "CLOUD",
       topic: jobData.topic,
       aspectRatio: jobData.aspectRatio || "9:16",
@@ -109,11 +146,23 @@ export class RenderQueueManager {
       output: jobData.output || { format: "mp4", width: 1080, height: 1920, fps: 30 },
       delivery: jobData.delivery || { download: true, googleDrive: true },
       createdAt: new Date().toISOString(),
+      error: tierError,
     };
 
     this.queue.push(job);
     this.sortQueue();
     this.updateWorkerQueueDepths();
+
+    if (tier === "ADMIN") {
+      // Trigger Azure scale-to-zero controller start for Admin jobs
+      AzureWorkerManager.requestStartVm();
+    } else if (tier === "FREE") {
+      // Trigger GitHub Actions workflow dispatch for Basic jobs
+      GitHubActionsRenderManager.dispatchWorkflowRun(job).catch((err) => {
+        console.error(`[RenderQueueManager] Basic GitHub Actions dispatch error: ${err.message}`);
+      });
+    }
+
     return job;
   }
 
@@ -142,15 +191,49 @@ export class RenderQueueManager {
   }
 
   static getWorkers(): WorkerHeartbeat[] {
-    return [...this.workers];
+    const registered = WorkerPoolRegistry.getAllWorkers();
+    const result = [...this.workers];
+
+    for (const rw of registered) {
+      if (!result.some(w => w.workerId === rw.workerId)) {
+        result.push({
+          workerId: rw.workerId,
+          name: rw.name,
+          status: rw.state === "READY" ? "READY" : rw.state === "BUSY" ? "BUSY" : "OFFLINE",
+          architecture: rw.capabilities.architecture,
+          ffmpegAvailable: true,
+          queueDepth: this.queue.length,
+          endpoint: rw.endpoint,
+          activeJobId: rw.assignedJobId,
+          lastHeartbeat: rw.lastHeartbeat,
+          vendor: rw.vendor,
+        });
+      }
+    }
+    return result;
   }
 
   static processNextJob(workerId: string): UniversalRenderJob | null {
     if (this.queue.length === 0) return null;
-    const worker = this.workers.find(w => w.workerId === workerId);
+    const worker = this.getWorkers().find(w => w.workerId === workerId);
     if (!worker || worker.status === "BUSY") return null;
 
-    const job = this.queue.shift()!;
+    // Search for first job matching worker's access tier security constraints
+    const isAzureWorker = workerId.startsWith("azure") || worker.vendor === "azure";
+    let targetIndex = -1;
+
+    for (let i = 0; i < this.queue.length; i++) {
+      const candidateJob = this.queue[i];
+      if (isAzureWorker && candidateJob.tier !== "ADMIN") {
+        continue; // Azure worker CANNOT process non-admin jobs
+      }
+      targetIndex = i;
+      break;
+    }
+
+    if (targetIndex === -1) return null;
+
+    const job = this.queue.splice(targetIndex, 1)[0];
     job.status = "PROCESSING";
     job.startedAt = new Date().toISOString();
     job.workerId = workerId;
@@ -158,8 +241,13 @@ export class RenderQueueManager {
 
     worker.status = "BUSY";
     worker.activeJobId = job.id;
-    this.updateWorkerQueueDepths();
+    const regWorker = WorkerPoolRegistry.getWorker(workerId);
+    if (regWorker) {
+      regWorker.state = "BUSY";
+      regWorker.assignedJobId = job.id;
+    }
 
+    this.updateWorkerQueueDepths();
     this.activeJobs.set(job.id, job);
     return job;
   }
@@ -174,14 +262,22 @@ export class RenderQueueManager {
     job.renderDurationSeconds = Math.round(artifact.durationMs / 1000);
 
     if (job.workerId) {
-      const worker = this.workers.find(w => w.workerId === job.workerId);
+      const worker = this.getWorkers().find(w => w.workerId === job.workerId);
       if (worker) {
         worker.status = "READY";
         worker.activeJobId = undefined;
       }
+      const regWorker = WorkerPoolRegistry.getWorker(job.workerId);
+      if (regWorker) {
+        regWorker.state = "READY";
+        regWorker.assignedJobId = undefined;
+      }
     }
 
     this.activeJobs.delete(jobId);
+    if (this.queue.length === 0 && this.activeJobs.size === 0) {
+      AzureWorkerManager.enterDrainingState();
+    }
     return job;
   }
 
@@ -238,5 +334,10 @@ export class RenderQueueManager {
     }
 
     return false;
+  }
+
+  static clear(): void {
+    this.queue = [];
+    this.activeJobs.clear();
   }
 }

@@ -99,18 +99,30 @@ const PLATFORM_EMOJI: Record<string, string> = {
 
 export default function WorkersDashboard() {
   const [data, setData] = useState<MetricsData | null>(null);
+  const [renderingWorkers, setRenderingWorkers] = useState<any[]>([]);
+  const [renderingQueueDepth, setRenderingQueueDepth] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"storage" | "publisher">("storage");
+  const [activeTab, setActiveTab] = useState<"rendering" | "storage" | "publisher">("rendering");
   const [retrying, setRetrying] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const res = await fetch("/api/workers/metrics");
-      const json = await res.json();
+      const [metricsRes, renderWorkersRes] = await Promise.all([
+        fetch("/api/workers/metrics"),
+        fetch("/api/rendering/workers")
+      ]);
+      const json = await metricsRes.json();
       if (!json.success) throw new Error(json.error);
       setData(json);
+
+      const renderJson = await renderWorkersRes.json();
+      if (renderJson.success) {
+        setRenderingWorkers(renderJson.workers || []);
+        setRenderingQueueDepth(renderJson.queueDepth || 0);
+      }
+
       setError(null);
     } catch (e: any) {
       setError(e.message);
@@ -213,7 +225,7 @@ export default function WorkersDashboard() {
 
       {/* Tab Switcher */}
       <div className="flex gap-2 border-b border-zinc-800 pb-0">
-        {(["storage", "publisher"] as const).map((tab) => (
+        {(["rendering", "storage", "publisher"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -223,7 +235,12 @@ export default function WorkersDashboard() {
                 : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            {tab === "storage" ? "📦 Storage Queue" : "📣 Publisher Queue"}
+            {tab === "rendering" ? "🎥 Rendering Worker Pool" : tab === "storage" ? "📦 Storage Queue" : "📣 Publisher Queue"}
+            {tab === "rendering" && renderingQueueDepth > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs">
+                {renderingQueueDepth}
+              </span>
+            )}
             {tab === "storage" && storage.pending + storage.retrying > 0 && (
               <span className="ml-2 px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs">
                 {storage.pending + storage.retrying}

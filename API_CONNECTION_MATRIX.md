@@ -28,3 +28,6 @@ This document maps every Control Center page, widget, and component in `gen-v` t
 | `/dashboard/simulation` | Chaos Engineering | `/api/simulation/control` | `POST` | Simulation state controller |
 | `/settings` | System Settings Form | `/api/admin/blueprint` | `GET/POST` | FactoryOS configuration store |
 | `/login` | Admin Authentication Form | `/api/auth/session` | `POST/DELETE` | Firebase Auth & Session Cookie Engine |
+| `/dashboard/rendering` | Basic Cloud Render Dispatch | `/api/rendering/github/dispatch` | `POST` | GitHubActionsRenderManager (`workflow_dispatch`) |
+| `/dashboard/rendering` | Basic Cloud Render Status Callback | `/api/rendering/github/status` | `POST` | GitHub Actions runner status & MP4 verification |
+
