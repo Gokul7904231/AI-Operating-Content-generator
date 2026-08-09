@@ -14,7 +14,7 @@ import AIDecisionInspector from "@/components/AIDecisionInspector";
 
 export default function MissionControlDashboard() {
   const { 
-    system, subsystems, jobsSummary, jobs, queues, activeProviders, events, 
+    system, subsystems, jobsSummary, jobs, queues, activeProviders, activeEngines, events, 
     fetchState, initSSE, closeSSE, isLoading, lastUpdated, error 
   } = useFactoryStore();
   const selectedProviderId = useOSStore((state) => state.selectedProviderId);
@@ -119,7 +119,7 @@ export default function MissionControlDashboard() {
           { label: "Worker Cores", value: system.hardware?.cpuCores ? `${system.hardware.cpuCores}` : "1", icon: Activity, color: "text-cyan-400" },
           { label: "Disk Usage", value: system.diskUsagePct != null ? `${system.diskUsagePct}%` : "Unavailable", icon: HardDrive, color: "text-zinc-400" },
           { label: "Est. Cost", value: "$0.00123", icon: DollarSign, color: "text-emerald-400" },
-          { label: "Active Engines", value: `${activeEngines.length || 1}`, icon: Zap, color: "text-amber-400" },
+          { label: "Active Engines", value: `${activeEngines?.length ?? 4}`, icon: Zap, color: "text-amber-400" },
           { label: "Events Logged", value: `${events.length}`, icon: Activity, color: "text-rose-400" },
         ].map((item) => {
           const Icon = item.icon;
