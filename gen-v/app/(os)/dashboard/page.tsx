@@ -8,7 +8,6 @@ import {
   AlertTriangle, RefreshCw, Layers, Calendar, Clock, Terminal, ChevronRight, CheckCircle2, ShieldAlert, Sparkles
 } from "lucide-react";
 import Link from "next/link";
-import { UserMenu } from "@/components/UserMenu";
 import LiveEventFeed from "@/components/LiveEventFeed";
 import AIDecisionInspector from "@/components/AIDecisionInspector";
 
@@ -69,7 +68,6 @@ export default function MissionControlDashboard() {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} /> Refresh
             </button>
-            <UserMenu />
           </div>
         </div>
 

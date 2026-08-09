@@ -5,6 +5,8 @@ import { Moon, Sun, Bell, Terminal, Sparkles, Activity, ShieldAlert, User, Mail,
 import { useOSStore, AIProfile } from "@/lib/os-store";
 import { useThemeStore } from "@/lib/theme-store";
 import { useMounted } from "@/lib/useMounted";
+import { useAuth } from "@/lib/auth/hooks";
+import { AuthService } from "@/lib/auth/AuthService";
 import NotificationCenter from "./NotificationCenter";
 
 interface TopNavProps {
@@ -13,6 +15,7 @@ interface TopNavProps {
 
 export default function TopNav({ title = "Dashboard" }: TopNavProps) {
   const mounted = useMounted();
+  const { user } = useAuth();
   const toggleQuickGenerate = useOSStore((state) => state.toggleQuickGenerate);
   const selectedProviderId = useOSStore((state) => state.selectedProviderId);
   const selectedProfile = useOSStore((state) => state.selectedProfile);
@@ -21,6 +24,13 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
   const { theme, setTheme } = useThemeStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await AuthService.logout();
+    window.location.href = "/login";
+  };
 
   const profiles: AIProfile[] = [
     "Balanced",
@@ -111,14 +121,18 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
               {/* Header with avatar and admin details */}
               <div className="px-4 py-3 border-b border-zinc-850 bg-zinc-950/40 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full border border-zinc-850 bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-zinc-950 text-xs font-black">
-                  SA
+                  {user?.email ? user.email.slice(0, 2).toUpperCase() : "SA"}
                 </div>
                 <div>
                   <div className="font-bold text-zinc-105 flex items-center gap-1.5">
-                    System Admin
-                    <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1 py-0.5 rounded font-mono font-bold uppercase tracking-wider">Root</span>
+                    {user?.email?.split("@")[0] || "System Admin"}
+                    <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                      {user?.role || "ROOT"}
+                    </span>
                   </div>
-                  <div className="text-[9px] text-zinc-500 font-mono">admin@shortfactory.ai</div>
+                  <div className="text-[9px] text-zinc-500 font-mono truncate max-w-[140px]">
+                    {user?.email || "admin@shortfactory.ai"}
+                  </div>
                 </div>
               </div>
               
@@ -163,9 +177,13 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
 
               {/* Footer action logout */}
               <div className="px-2 pt-2 border-t border-zinc-850/80 mt-2">
-                <button className="w-full px-3 py-2 flex items-center gap-2.5 text-rose-400 hover:bg-rose-950/20 hover:text-rose-300 transition-colors cursor-pointer rounded-lg text-left font-semibold">
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="w-full px-3 py-2 flex items-center gap-2.5 text-rose-400 hover:bg-rose-950/20 hover:text-rose-300 transition-colors cursor-pointer rounded-lg text-left font-semibold disabled:opacity-50"
+                >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>Log Out Session</span>
+                  <span>{loggingOut ? "Signing out..." : "Log Out Session"}</span>
                 </button>
               </div>
             </div>
