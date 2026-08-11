@@ -68,3 +68,8 @@ temp/
 *.mp3
 *.jpg
 *.png
+
+# archived documentation
+used_artifacts/
+**/used_artifacts/
+
