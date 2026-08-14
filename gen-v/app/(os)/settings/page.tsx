@@ -445,28 +445,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Right Side: Retention Policies & Themes */}
+        {/* Right Side: Retention Policies */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
-            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest flex items-center gap-2 border-b border-zinc-800 pb-3 font-mono">
-              <Sliders className="w-4 h-4 text-emerald-400" />
-              UI Theme Settings
-            </h3>
-            
-            <div className="flex items-center justify-between bg-zinc-950/40 p-4 rounded-xl border border-zinc-850">
-              <span className="text-xs text-zinc-400 font-semibold">Theme Toggle:</span>
-              {mounted ? (
-                <button
-                  onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-                  className="px-4 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-bold hover:text-emerald-400 transition-colors flex items-center gap-2 select-none"
-                >
-                  {theme === "light" ? "☀️ Light Mode" : "🌙 Dark Mode"}
-                </button>
-              ) : (
-                <div className="w-28 h-8 rounded-lg bg-zinc-900/50 border border-zinc-800/40 animate-pulse" />
-              )}
-            </div>
-          </div>
 
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
             <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-widest flex items-center gap-2 border-b border-zinc-800 pb-3 font-mono">

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
+import { verifyAuthAndRole } from "../../../../lib/auth/auth";
 
 /**
  * GET /api/admin/factory-state
  * Fetches the current kill-switch state of the Content Factory.
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await verifyAuthAndRole(req, "ADMIN");
     const docRef = db.collection("system_config").doc("automation_state");
     const doc = await docRef.get();
 
@@ -24,10 +26,11 @@ export async function GET() {
       lastUpdated: data.lastUpdated ?? new Date().toISOString(),
     });
   } catch (err: any) {
-    console.error("[factory-state GET] Error fetching automation state:", err);
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Role");
+    const status = isForbidden ? 403 : 500;
     return NextResponse.json(
       { error: err?.message ?? "Failed to fetch automation state" },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -38,6 +41,7 @@ export async function GET() {
  */
 export async function PATCH(req: Request) {
   try {
+    await verifyAuthAndRole(req, "ADMIN");
     let body: any;
     try {
       body = await req.json();
@@ -66,10 +70,11 @@ export async function PATCH(req: Request) {
       ...updatedData,
     });
   } catch (err: any) {
-    console.error("[factory-state PATCH] Error updating automation state:", err);
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Role");
+    const status = isForbidden ? 403 : 500;
     return NextResponse.json(
       { error: err?.message ?? "Failed to update automation state" },
-      { status: 500 }
+      { status }
     );
   }
 }

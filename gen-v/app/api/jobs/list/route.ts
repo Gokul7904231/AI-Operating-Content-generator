@@ -10,22 +10,31 @@
  */
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase-admin";
+import { db } from "../../../lib/firebase-admin";
+import { verifySession } from "../../../lib/auth/auth";
+import { isAdminUser } from "../../../lib/auth/roles";
 
 export async function GET(request: Request) {
   try {
+    const { user } = await verifySession(request);
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 50);
     const status = searchParams.get("status");
 
-    let query = db.collection("videos").orderBy("createdAt", "desc").limit(limit);
+    let query: any = db.collection("videos");
 
-    if (status) {
-      query = query.where("status", "==", status) as any;
+    if (!isAdminUser(user.role)) {
+      query = query.where("userId", "==", user.uid);
     }
 
+    if (status) {
+      query = query.where("status", "==", status);
+    }
+
+    query = query.orderBy("createdAt", "desc").limit(limit);
+
     const snapshot = await query.get();
-    const jobs = snapshot.docs.map((doc) => {
+    const jobs = snapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         jobId: data.jobId ?? doc.id,
@@ -41,6 +50,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, jobs, total: jobs.length });
   } catch (err: any) {
     console.error("[API /jobs/list] Error fetching jobs:", err.message);
-    return NextResponse.json({ success: false, jobs: [], error: err.message }, { status: 500 });
+    const status = err.status || 401;
+    return NextResponse.json({ success: false, jobs: [], error: err.message }, { status });
   }
 }

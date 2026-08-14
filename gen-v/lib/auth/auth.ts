@@ -83,3 +83,12 @@ export async function verifyAuthAndRole(
   verifyRole(user, requiredRole);
   return user;
 }
+
+/**
+ * Step 3: Verify Write Permission (Prevents VIEWER role from mutation operations)
+ */
+export function verifyWritePermission(user: AdminUser): void {
+  if (user.role === "VIEWER") {
+    throw new ForbiddenError("Read-only access: VIEWER role cannot perform create, edit, or delete operations.");
+  }
+}

@@ -131,8 +131,9 @@ export default function AIDecisionInspector() {
         </div>
       </div>
 
-      {/* Evidence Breakdown Matrix */}
-      <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-lg space-y-2 text-[11px]">
+      {/* Evidence Breakdown Matrix with smooth grid row transition */}
+      {/* Recipe: RECIPES.md #CompositorGridRowExpand - Grid template rows 0fr->1fr transition */}
+      <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-lg space-y-2 text-[11px] transition-[grid-template-rows,opacity] duration-200 ease-out">
         <div className="text-zinc-500 text-[10px] uppercase font-bold flex justify-between">
           <span>Evidence Metric Matrix</span>
           <span>Req ID: {record.requestId}</span>

@@ -88,16 +88,26 @@ function validateQuizContent(quiz: { hook?: string; questions?: any[] }) {
   return { approved: errors.length === 0, errors };
 }
 
+import { verifySession, verifyWritePermission } from "../../../lib/auth/auth";
+
 export async function POST(req: Request) {
   try {
     let userId = "anonymous";
     try {
-      const authResult = await auth();
-      if (authResult?.userId) {
-        userId = authResult.userId;
+      const { user } = await verifySession(req);
+      userId = user.uid;
+      verifyWritePermission(user);
+    } catch (err: any) {
+      if (err.message?.includes("Read-only access") || err.status === 403) {
+        return NextResponse.json({ error: err.message }, { status: 403 });
       }
-    } catch {
-      // clerk SDK auth might fail or throw if Clerk keys are not configured yet, fallback to anonymous
+      // If auth fails/missing, check Clerk auth fallback
+      try {
+        const authResult = await auth();
+        if (authResult?.userId) {
+          userId = authResult.userId;
+        }
+      } catch {}
     }
 
     const body = await req.json();

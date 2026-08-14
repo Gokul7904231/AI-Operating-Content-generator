@@ -8,8 +8,8 @@
 
 import fs from "fs";
 import path from "path";
-import { WorkflowLoader, type WorkflowManifest } from "@/content-engines/_loader";
-import { PromptRegistry } from "@/prompts/registry";
+import { WorkflowLoader, type WorkflowManifest } from "../../content-engines/_loader";
+import { PromptRegistry } from "../../prompts/registry";
 
 const ENGINES_DIR = path.resolve(process.cwd(), "content-engines");
 const SKIP_DIRS = new Set(["_loader", "_runtime", "_types"]);

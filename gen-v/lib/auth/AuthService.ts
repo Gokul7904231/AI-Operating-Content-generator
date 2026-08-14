@@ -9,13 +9,14 @@ import {
   auth,
   googleProvider,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signInWithPopup,
   signOut,
   sendPasswordResetEmail,
 } from "./firebase-client";
 import { validateEmail, checkRateLimit } from "./validators";
 import { AdminUser, AuthResponse } from "./types";
-import { AuthError, RateLimitExceededError } from "./errors";
+import { AuthError, RateLimitExceededError, formatAuthErrorMessage } from "./errors";
 
 export class AuthService {
   /**
@@ -49,7 +50,42 @@ export class AuthService {
 
       return { success: true, data: { user: data.user, idToken } };
     } catch (err: any) {
-      return { success: false, error: err.message || "Email login failed." };
+      return { success: false, error: formatAuthErrorMessage(err) };
+    }
+  }
+
+  /**
+   * Client-Side Email/Password Sign-Up
+   */
+  static async signUpWithEmail(fullName: string, email: string, pass: string): Promise<AuthResponse<{ user: AdminUser; idToken: string }>> {
+    if (!fullName || fullName.trim().length === 0) {
+      return { success: false, error: "Please enter your full name." };
+    }
+    if (!validateEmail(email)) {
+      return { success: false, error: "Invalid email address format." };
+    }
+    if (!pass || pass.length < 6) {
+      return { success: false, error: "Password must be at least 6 characters long." };
+    }
+
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+      const idToken = await credential.user.getIdToken();
+
+      const res = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, isGoogleLogin: false, fullName: fullName.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new AuthError(data.error || "Failed to establish admin account session", "SESSION_ERROR", res.status);
+      }
+
+      return { success: true, data: { user: data.user, idToken } };
+    } catch (err: any) {
+      return { success: false, error: formatAuthErrorMessage(err) };
     }
   }
 
@@ -75,7 +111,7 @@ export class AuthService {
 
       return { success: true, data: { user: data.user, idToken } };
     } catch (err: any) {
-      return { success: false, error: err.message || "Google sign-in failed." };
+      return { success: false, error: formatAuthErrorMessage(err) };
     }
   }
 
@@ -90,7 +126,7 @@ export class AuthService {
       await sendPasswordResetEmail(auth, email.trim());
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || "Failed to send password reset email." };
+      return { success: false, error: formatAuthErrorMessage(err) };
     }
   }
 

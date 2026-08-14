@@ -13,7 +13,7 @@ export default function OSLayout({
 }) {
   return (
     <Providers>
-      <div className="flex h-screen w-full bg-zinc-950 text-zinc-50 font-body-base overflow-hidden bg-glow select-none">
+      <div className="flex h-screen w-full bg-[#f5f5f7] text-[#1d1d1f] font-sans overflow-hidden select-none">
         {/* Expanded / Collapsible Left Navigation */}
         <Sidebar />
 
@@ -21,7 +21,7 @@ export default function OSLayout({
         <div className="flex-1 flex flex-col min-w-0 h-full relative">
           <TopNav title="ShortFactory Command Center" />
           
-          <main className="flex-1 overflow-y-auto p-6 md:p-8 terminal-scroll relative z-10">
+          <main className="flex-1 overflow-y-auto p-6 md:p-8 terminal-scroll relative z-10 page-transition-entrance">
             {children}
           </main>
         </div>

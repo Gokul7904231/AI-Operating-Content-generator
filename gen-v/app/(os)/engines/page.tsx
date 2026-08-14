@@ -9,6 +9,7 @@ import {
   CheckCircle, Plus, X, Trash2 
 } from "lucide-react";
 import NewEngineForm from "@/components/NewEngineForm";
+import WebsiteModal from "@/components/WebsiteModal";
 
 interface EngineMeta {
   id: string;
@@ -84,11 +85,18 @@ export default function EnginesGalleryPage() {
     }
   });
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm(`Are you sure you want to delete custom engine "${id}"?`)) {
-      deleteMutation.mutate(id);
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDeleteEngine = () => {
+    if (deleteConfirmId) {
+      deleteMutation.mutate(deleteConfirmId);
+      setDeleteConfirmId(null);
     }
   };
 
@@ -200,6 +208,17 @@ export default function EnginesGalleryPage() {
       {showNewEngineModal && (
         <NewEngineForm isModal={true} onDismiss={() => setShowNewEngineModal(false)} />
       )}
+      <WebsiteModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete Custom Engine?"
+        description={`Are you sure you want to delete custom engine "${deleteConfirmId}"? This action cannot be undone.`}
+        icon="warning"
+        variant="danger"
+        confirmText="Delete Engine"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteEngine}
+      />
     </div>
   );
 }

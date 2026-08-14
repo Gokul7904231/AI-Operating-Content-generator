@@ -6,25 +6,34 @@
  */
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebase-admin";
+import { verifySession } from "@/lib/auth/auth";
+import { isAdminUser } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    const { user } = await verifySession(req);
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get("limit") ?? 50);
     const status = searchParams.get("status");
 
-    let query = db.collection("videos").orderBy("createdAt", "desc").limit(limit);
+    let query: any = db.collection("videos");
+
+    if (!isAdminUser(user.role)) {
+      query = query.where("userId", "==", user.uid);
+    }
 
     if (status) {
       query = query.where("status", "==", status);
     }
 
+    query = query.orderBy("createdAt", "desc").limit(limit);
+
     const snapshot = await query.get();
     const jobs: any[] = [];
 
-    snapshot.forEach((doc) => {
+    snapshot.forEach((doc: any) => {
       const data = doc.data();
       jobs.push({
         id: doc.id,
@@ -36,6 +45,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, jobs });
   } catch (err: any) {
     console.error("[/api/job-history]", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const status = err.status || 401;
+    return NextResponse.json({ error: err.message }, { status });
   }
 }

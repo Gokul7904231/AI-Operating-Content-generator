@@ -72,23 +72,20 @@ export async function getAdminByUid(uid: string, email: string): Promise<AdminUs
       // Check if any OWNER exists in the collection
       const ownerQuery = await db.collection("admins").where("role", "==", "OWNER").limit(1).get();
 
-      if (ownerQuery.empty && normalizedEmail === ALLOWED_BOOTSTRAP_OWNER_EMAIL) {
-        const newOwner: AdminUser = {
-          uid,
-          email: normalizedEmail,
-          role: "OWNER",
-          active: true,
-          disabled: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        };
-        await docRef.set(newOwner);
-        console.log(`[FirebaseAdmin] Bootstrapped initial OWNER admin: ${normalizedEmail} (UID: ${uid})`);
-        return newOwner;
-      }
-
-      return null;
+      const isBootstrapOwner = ownerQuery.empty && normalizedEmail === ALLOWED_BOOTSTRAP_OWNER_EMAIL;
+      const newUser: AdminUser = {
+        uid,
+        email: normalizedEmail,
+        role: isBootstrapOwner ? "OWNER" : "EDITOR",
+        active: true,
+        disabled: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
+      await docRef.set(newUser);
+      console.log(`[FirebaseAdmin] Registered user: ${normalizedEmail} with role: ${newUser.role}`);
+      return newUser;
     } catch (err: any) {
       console.error("[FirebaseAdmin] Firestore error fetching admin:", err.message);
     }
@@ -97,11 +94,12 @@ export async function getAdminByUid(uid: string, email: string): Promise<AdminUs
   // Fallback to Mock Store for Dev / Test Mode
   let adminUser = Array.from(mockAdminsStore.values()).find((u) => u.uid === uid || u.email === normalizedEmail);
 
-  if (!adminUser && normalizedEmail === ALLOWED_BOOTSTRAP_OWNER_EMAIL) {
+  if (!adminUser) {
+    const isBootstrapOwner = normalizedEmail === ALLOWED_BOOTSTRAP_OWNER_EMAIL;
     adminUser = {
       uid,
       email: normalizedEmail,
-      role: "OWNER",
+      role: isBootstrapOwner ? "OWNER" : "EDITOR",
       active: true,
       disabled: false,
       createdAt: new Date().toISOString(),

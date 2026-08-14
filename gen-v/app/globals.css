@@ -1,7 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 @import "tailwindcss";
 
 @theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  
   --color-zinc-950: var(--background);
   --color-zinc-900: var(--surface);
   --color-zinc-850: var(--surface-hover);
@@ -25,35 +28,23 @@
   --color-danger: var(--danger);
   --color-warning: var(--warning);
 
-  --color-on-surface-variant: #bbcabf;
+  --color-on-surface-variant: #6e6e73;
   --color-outline-variant: var(--border);
-  --color-on-tertiary: #313032;
+  --color-on-tertiary: #1d1d1f;
   --color-on-background: var(--text);
-  --color-primary-fixed-dim: #4edea3;
-  --color-on-primary-fixed-variant: #005236;
-  --color-on-primary-fixed: #002113;
   --color-surface-dim: var(--background);
   --color-surface-tint: var(--primary);
   --color-surface-container-high: var(--surface-hover);
-  --color-secondary: #c0c1ff;
-  --color-on-secondary: #1000a9;
-  --color-on-tertiary-container: #39393b;
-  --color-on-error: #690005;
-  --color-tertiary: #c8c6c8;
-  --color-surface-container-highest: var(--surface-hover);
-  --color-inverse-primary: #006c49;
-  --color-on-tertiary-fixed: #1c1b1d;
-  --color-secondary-fixed: #e1e0ff;
-  --color-error-container: #93000a;
+  --color-secondary: #0071e3;
+  --color-[#0071e3]: #0071e3;
+  --color-[#0066cc]: #0066cc;
+  --color-[#2997ff]: #2997ff;
+  --color-[#f5f5f7]: #f5f5f7;
+  --color-[#e8e8ed]: #e8e8ed;
+  --color-[#1d1d1f]: #1d1d1f;
+  --color-[#6e6e73]: #6e6e73;
+  --color-[#86868b]: #86868b;
   --color-on-surface: var(--text);
-  --color-on-primary-container: #00422b;
-  --color-tertiary-fixed-dim: #c8c6c8;
-  --color-on-primary: #003824;
-  --color-tertiary-container: #a4a2a5;
-  --color-on-tertiary-fixed-variant: #474649;
-  --color-error: #ffb4ab;
-  --color-surface-container: var(--surface);
-  --color-outline: var(--border);
   --color-surface-container-low: var(--surface);
   --color-surface-container-lowest: var(--background);
   --color-secondary-fixed-dim: #c0c1ff;
@@ -233,42 +224,177 @@ body {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Root Semantic Design Tokens */
-:root {
-  --background: #09090b;
-  --surface: #18181b;
-  --surface-hover: #27272a;
-  --border: #27272a;
-  --primary: #10b981;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --text: #f4f4f5;
-  --muted: #71717a;
-  --card: #18181b;
-  --input: #09090b;
-  --shadow: rgba(0, 0, 0, 0.5);
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  
+  --color-zinc-950: var(--background);
+  --color-zinc-900: var(--surface);
+  --color-zinc-850: var(--surface-hover);
+  --color-zinc-800: var(--border);
+  --color-zinc-50: var(--text);
+  --color-zinc-100: var(--text);
+  --color-zinc-150: var(--text);
+  --color-zinc-200: var(--text);
+  --color-zinc-300: var(--text);
+  --color-zinc-400: var(--muted);
+  --color-zinc-500: var(--muted);
+  --color-zinc-550: var(--muted);
+  --color-zinc-600: var(--muted);
+  --color-zinc-650: var(--muted);
+  --color-zinc-700: var(--muted);
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+
+  --color-on-surface-variant: #6e6e73;
+  --color-outline-variant: var(--border);
+  --color-on-tertiary: #1d1d1f;
+  --color-on-background: var(--text);
+  --color-surface-dim: var(--background);
+  --color-surface-tint: var(--primary);
+  --color-surface-container-high: var(--surface-hover);
+  --color-secondary: #0071e3;
+  --color-[#0071e3]: #0071e3;
+  --color-[#0066cc]: #0066cc;
+  --color-[#2997ff]: #2997ff;
+  --color-[#f5f5f7]: #f5f5f7;
+  --color-[#d2d2d7]: #d2d2d7;
+  --color-[#e8e8ed]: #d2d2d7;
+  --color-[#1d1d1f]: #1d1d1f;
+  --color-[#6e6e73]: #6e6e73;
+  --color-[#86868b]: #86868b;
+  --color-on-surface: var(--text);
 }
 
-:root.light, [data-theme="light"] {
-  --background: #f4f4f5;
+:root {
+  --background: #f5f5f7;
   --surface: #ffffff;
-  --surface-hover: #e4e4e7;
-  --border: #e4e4e7;
-  --primary: #059669;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --text: #09090b;
-  --muted: #71717a;
+  --surface-hover: #f2f2f7;
+  --border: #d2d2d7; /* Canonical Soft Border Gray for idle resting borders */
+  --border-strong: #86868b; /* Canonical Mid Border Gray for focus/active states */
+  --primary: #0071e3; /* Single primary interactive accent: Apple Blue */
+  --primary-hover: #0066cc;
+  --primary-link: #2997ff;
+  --success: #34c759;
+  --danger: #ff3b30;
+  --warning: #ff9500;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
   --card: #ffffff;
   --input: #ffffff;
-  --shadow: rgba(0, 0, 0, 0.05);
+  --shadow: rgba(0, 0, 0, 0.06);
+
+  --tracking-display: clamp(-0.012em, -0.028em, -0.038em);
+  --tracking-text: -0.374px; /* Canonical Apple 17px body tracking: -0.374px */
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-apple: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer-apple: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root.dark, [data-theme="dark"] {
+  --background: #f5f5f7;
+  --surface: #ffffff;
+  --surface-hover: #f2f2f7;
+  --border: #d2d2d7;
+  --border-strong: #86868b;
+  --primary: #0071e3;
+  --success: #34c759;
+  --danger: #ff3b30;
+  --warning: #ff9500;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --card: #ffffff;
+  --input: #ffffff;
+  --shadow: rgba(0, 0, 0, 0.06);
 }
 
 body {
   background-color: var(--background);
   color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: var(--tracking-text);
+  line-height: 1.47; /* Canonical Apple 17px body line-height: 1.47 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Form Controls — Idle Resting (#d2d2d7) vs Focus (#86868b + Apple Blue Focus Ring) */
+input, select, textarea {
+  border-color: var(--border);
+  transition: border-color 0.16s var(--ease-out-apple), box-shadow 0.16s var(--ease-out-apple);
+}
+
+input:focus, select:focus, textarea:focus, input:focus-visible {
+  border-color: var(--border-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+
+/* Apple Two-Tier Typography System */
+/* Display tier — anything >= 20px: hero headlines, section titles, big stat numbers */
+.font-display {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+}
+
+/* Text tier — anything <= 19px: body copy, nav links, buttons, form labels, captions, tables */
+.font-text {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: var(--tracking-text);
+  line-height: 1.47;
+}
+
+/* Tabular numbers for price/metric columns */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.tracking-display {
+  letter-spacing: var(--tracking-display);
+}
+
+.tracking-text {
+  letter-spacing: var(--tracking-text);
+}
+
+/* Legacy tracking helper aliases mapped to two-tier properties */
+.tracking-apple-display {
+  letter-spacing: var(--tracking-display);
+}
+
+.tracking-apple-headline {
+  letter-spacing: -0.022em;
+}
+
+.tracking-apple-body {
+  letter-spacing: var(--tracking-text);
+}
+
+/* Hero Scale Typography */
+.text-apple-hero {
+  font-size: clamp(3.25rem, 7.5vw, 6.5rem);
+  line-height: 1.02;
+  letter-spacing: var(--tracking-display);
+  font-weight: 600;
+}
+
+/* Spotlight Card Container (28px - 36px scale from DESIGN.md) */
+.apple-spotlight-card {
+  border-radius: 32px;
+}
+
+/* Minimum 44px Tap Target Standard */
+.tap-target-min {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .glass-panel {
@@ -276,4 +402,5 @@ body {
   backdrop-filter: blur(24px);
   border: 1px solid var(--border);
 }
+
 

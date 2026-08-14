@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import PublicLandingPage from "./landing/page";
 
 export default function RootPage() {
-  redirect("/dashboard");
+  return <PublicLandingPage />;
 }

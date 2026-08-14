@@ -14,6 +14,7 @@ import {
   ForbiddenError,
   AccountDisabledError,
   RateLimitExceededError,
+  formatAuthErrorMessage,
 } from "../../lib/auth/errors";
 import { ALLOWED_BOOTSTRAP_OWNER_EMAIL, SESSION_COOKIE_NAME } from "../../lib/auth/constants";
 import { NextRequest } from "next/server";
@@ -23,6 +24,24 @@ describe("FactoryOS v1 — Production Authentication & Authorization Suite", () 
   beforeEach(() => {
     resetRateLimit(`login_${ALLOWED_BOOTSTRAP_OWNER_EMAIL}`);
     resetRateLimit("login_rate_limit_test@factoryos.pro");
+  });
+
+  // 0. Firebase Error Message Formatting Tests
+  describe("Firebase Auth Error Formatting", () => {
+    it("formats raw auth/invalid-credential into a clean user error message", () => {
+      const err = new Error("Firebase: Error (auth/invalid-credential).");
+      expect(formatAuthErrorMessage(err)).toBe("Invalid email address or password. Please check your credentials and try again.");
+    });
+
+    it("formats raw auth/user-not-found into a clean user error message", () => {
+      const err = { code: "auth/user-not-found", message: "Firebase: Error (auth/user-not-found)." };
+      expect(formatAuthErrorMessage(err)).toBe("No account found matching this email address.");
+    });
+
+    it("formats raw auth/too-many-requests into a clean user error message", () => {
+      const err = new Error("Firebase: Error (auth/too-many-requests).");
+      expect(formatAuthErrorMessage(err)).toBe("Access temporarily blocked due to multiple failed attempts. Please try again in a few minutes.");
+    });
   });
 
   // 1. Role Hierarchy & Validation Tests

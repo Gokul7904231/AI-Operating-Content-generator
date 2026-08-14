@@ -28,7 +28,7 @@ export interface WorkerTelemetryData {
 export interface RegisteredWorker {
   workerId: string;
   vendor: WorkerVendor;
-  accessTier: WorkerAccessTier;
+  accessTier?: WorkerAccessTier;
   tenantId?: string; // Bound to specific tenant if USER_OWNED
   name: string;
   endpoint: string;

@@ -251,8 +251,8 @@ export async function autoRefinePipeline(input: AutoRefineInput): Promise<AutoRe
     if (!last.approved) {
       const openingIndex = 0;
       const currentScene = scenes[openingIndex];
-      const previousScene = undefined;
-      const nextScene = scenes[openingIndex + 1];
+      const previousScene: any = undefined;
+      const nextScene: any = scenes[openingIndex + 1];
 
       const regen = await regenerateSceneAgent({
         sceneId: currentScene.id ?? `opening-${attempts}`,

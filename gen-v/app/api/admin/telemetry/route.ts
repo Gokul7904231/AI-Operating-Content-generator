@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
+import { verifyAuthAndRole } from "../../../../lib/auth/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await verifyAuthAndRole(req, "ADMIN");
     const now = new Date();
     // Compute start date bound for the current calendar month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -30,6 +32,8 @@ export async function GET() {
       totalVideosGenerated: jobCount,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const isForbidden = error.message?.includes("Forbidden") || error.message?.includes("Role");
+    const status = isForbidden ? 403 : 500;
+    return NextResponse.json({ error: error.message }, { status });
   }
 }

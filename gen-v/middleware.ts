@@ -6,9 +6,12 @@ const SESSION_COOKIE_NAME = "__session";
 // Explicit Public Paths (No authentication required)
 const PUBLIC_PREFIXES = [
   "/login",
+  "/prototypes",
   "/api/published-video",
   "/api/health",
   "/api/auth/session",
+  "/api/render-workers/pair",
+  "/api/render-workers/heartbeat",
   "/_next",
   "/public",
   "/favicon.ico",

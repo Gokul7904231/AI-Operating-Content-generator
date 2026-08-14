@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
+import { verifyAuthAndRole } from "../../../../lib/auth/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,11 @@ export interface AIDecisionRecord {
  * GET /api/admin/ai-decision
  * Returns the latest verified AI Decision evidence object from telemetry logs or Firestore.
  */
-export async function GET() {
+export async function GET(request?: Request) {
   try {
+    if (request) {
+      await verifyAuthAndRole(request, "ADMIN");
+    }
     let latestDecision: AIDecisionRecord | null = null;
 
     try {

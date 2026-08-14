@@ -86,7 +86,8 @@ export default function LiveEventFeed() {
         {events.map((evt) => {
           const Icon = evt.icon;
           return (
-            <div key={evt.id} className="flex items-start gap-3 text-[11px] font-mono leading-relaxed">
+            /* Recipe: RECIPES.md #EntranceItemSlide - Opacity + translateY(-8px) entrance transition */
+            <div key={evt.id} className="flex items-start gap-3 text-[11px] font-mono leading-relaxed transition-[opacity,transform] duration-200 ease-out animate-in fade-in-0 slide-in-from-top-2">
               <span className="text-zinc-650 select-none shrink-0">{evt.time}</span>
               <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${evt.color}`} />
               <span className="text-zinc-400">{evt.message}</span>

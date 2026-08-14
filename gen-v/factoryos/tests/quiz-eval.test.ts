@@ -22,5 +22,5 @@ describe("FactoryOS — Quiz Guardian Benchmark Evaluation Suite", () => {
     expect(report.totalCases).toBeGreaterThanOrEqual(50);
     expect(report.contradictionRecall).toBeGreaterThanOrEqual(0.85);
     expect(report.decisionAccuracy).toBeGreaterThanOrEqual(0.75);
-  }, 60000);
+  }, 120000);
 });

@@ -45,10 +45,31 @@ export default function Sidebar() {
   const initSSE = useFactoryStore((state) => state.initSSE);
   const fetchState = useFactoryStore((state) => state.fetchState);
 
+  const [userRole, setUserRole] = useState<string>("VIEWER");
+  const [userName, setUserName] = useState<string>("User");
+  const [userEmail, setUserEmail] = useState<string>("");
+
   useEffect(() => {
     initSSE();
     fetchState();
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authenticated && data?.user) {
+          setUserRole(data.user.role || "EDITOR");
+          setUserName(data.user.name || data.user.email?.split("@")[0] || "User");
+          setUserEmail(data.user.email || "");
+        }
+      })
+      .catch(() => {});
   }, [initSSE, fetchState]);
+
+  const isAdmin = userRole === "OWNER" || userRole === "ADMIN";
+
+  const visibleSections = ROUTE_SECTIONS.filter((section) => {
+    if (section.id === "sre" && !isAdmin) return false;
+    return true;
+  });
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
     Object.fromEntries(
@@ -70,24 +91,24 @@ export default function Sidebar() {
       initial={sidebarOpen ? "open" : "collapsed"}
       animate={sidebarOpen ? "open" : "collapsed"}
       variants={sidebarVariants}
-      className="bg-zinc-950 border-r border-zinc-900 flex flex-col h-screen sticky top-0 flex-shrink-0 z-50 overflow-hidden"
+      className="bg-white border-r border-[#e8e8ed] flex flex-col h-screen sticky top-0 flex-shrink-0 z-50 overflow-hidden shadow-sm"
     >
       {/* Brand */}
-      <div className="p-4 flex items-center justify-between border-b border-zinc-900 h-16">
+      <div className="p-4 flex items-center justify-between border-b border-[#e8e8ed] h-16">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden select-none">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0 shadow-inner">
-            <Hexagon className="w-4 h-4 text-emerald-400 fill-emerald-400/20" />
+          <div className="w-8 h-8 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 flex items-center justify-center flex-shrink-0 p-1 overflow-hidden">
+            <img src="/favicon-black.png" alt="FactoryOS Logo" className="w-full h-full object-contain" />
           </div>
           {sidebarOpen && (
-            <span className="text-sm font-bold text-zinc-50 tracking-tight whitespace-nowrap">
-              ShortsFactory <span className="text-[10px] text-emerald-400 font-normal">OS</span>
+            <span className="text-sm font-bold text-[#1d1d1f] tracking-tight whitespace-nowrap">
+              ShortsFactory <span className="text-[10px] text-[#0071e3] font-semibold">OS</span>
             </span>
           )}
         </Link>
         {sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="text-zinc-500 hover:text-zinc-300 p-1 rounded hover:bg-zinc-900"
+            className="text-[#86868b] hover:text-[#1d1d1f] p-1 rounded-md hover:bg-[#f2f2f7] transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -95,13 +116,13 @@ export default function Sidebar() {
       </div>
 
       {/* Quick Generate Trigger */}
-      <div className="p-3 border-b border-zinc-900">
+      <div className="p-3 border-b border-[#e8e8ed]">
         <button
           onClick={toggleQuickGenerate}
-          className={`w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+          className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm ${
             sidebarOpen
-              ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-zinc-950 shadow-md hover:opacity-90 active:scale-[0.98]"
-              : "bg-zinc-900 border border-zinc-800 text-emerald-400 hover:bg-zinc-800"
+              ? "bg-[#0071e3] hover:bg-[#0066cc] text-white active:scale-[0.98]"
+              : "bg-[#f2f2f7] border border-[#e8e8ed] text-[#0071e3] hover:bg-[#e8e8ed]"
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -110,23 +131,23 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Areas */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1 terminal-scroll select-none">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-5 terminal-scroll select-none">
         {/* Dashboard Link */}
         <Link
           href="/dashboard"
           onMouseEnter={() => router.prefetch("/dashboard")}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-xs font-semibold ${
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-xs font-semibold ${
             pathname === "/dashboard"
-              ? "bg-zinc-900 text-emerald-400"
-              : "text-zinc-400 hover:text-zinc-150 hover:bg-zinc-900/50"
+              ? "bg-[#0071e3]/10 text-[#0071e3] font-bold border border-[#0071e3]/20"
+              : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
           }`}
         >
-          <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
+          <LayoutDashboard className={`w-4 h-4 flex-shrink-0 ${pathname === "/dashboard" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
           {sidebarOpen && <span>Dashboard</span>}
         </Link>
 
         {/* Dynamic Sections from RouteRegistry */}
-        {ROUTE_SECTIONS.map((section) => {
+        {visibleSections.map((section) => {
           const SectionIcon = getIcon(section.icon);
           const isExpanded = expandedSections[section.id];
           
@@ -160,8 +181,8 @@ export default function Sidebar() {
               {sidebarOpen ? (
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors ${
-                    hasActiveItem ? "text-zinc-300" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/30"
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors ${
+                    hasActiveItem ? "text-[#1d1d1f]" : "text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -175,7 +196,7 @@ export default function Sidebar() {
                   />
                 </button>
               ) : (
-                <div className="w-full flex items-center justify-center py-2 text-zinc-600">
+                <div className="w-full flex items-center justify-center py-2 text-[#86868b]">
                   <SectionIcon className="w-4 h-4" />
                 </div>
               )}
@@ -198,14 +219,14 @@ export default function Sidebar() {
                           key={route.id}
                           href={route.href}
                           onMouseEnter={() => router.prefetch(route.href)}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-xs ${
+                          className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-xs ${
                             isActive
-                              ? "bg-zinc-900 text-emerald-400 font-semibold"
-                              : "text-zinc-400 hover:text-zinc-150 hover:bg-zinc-900/30"
+                              ? "bg-[#0071e3]/10 text-[#0071e3] font-bold border border-[#0071e3]/20"
+                              : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
                           } ${!sidebarOpen ? "justify-center" : ""}`}
                           title={!sidebarOpen ? route.label : undefined}
                         >
-                          <RouteIcon className="w-4 h-4 flex-shrink-0" />
+                          <RouteIcon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#0071e3]" : "text-[#86868b]"}`} />
                           {sidebarOpen && <span className="truncate">{route.label}</span>}
                         </Link>
                       );
@@ -221,23 +242,23 @@ export default function Sidebar() {
         <Link
           href="/settings"
           onMouseEnter={() => router.prefetch("/settings")}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-xs font-semibold ${
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-xs font-semibold ${
             pathname === "/settings"
-              ? "bg-zinc-900 text-emerald-400"
-              : "text-zinc-400 hover:text-zinc-150 hover:bg-zinc-900/50"
+              ? "bg-[#0071e3]/10 text-[#0071e3] font-bold border border-[#0071e3]/20"
+              : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
           }`}
         >
-          <Settings className="w-4 h-4 flex-shrink-0" />
+          <Settings className={`w-4 h-4 flex-shrink-0 ${pathname === "/settings" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
           {sidebarOpen && <span>Settings</span>}
         </Link>
       </div>
 
       {/* Collapse button for mini sidebar */}
       {!sidebarOpen && (
-        <div className="p-3 border-t border-zinc-900 flex justify-center">
+        <div className="p-3 border-t border-[#e8e8ed] flex justify-center">
           <button
             onClick={toggleSidebar}
-            className="text-zinc-500 hover:text-zinc-300 p-1.5 rounded hover:bg-zinc-900"
+            className="text-[#86868b] hover:text-[#1d1d1f] p-1.5 rounded-md hover:bg-[#f2f2f7]"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -246,14 +267,14 @@ export default function Sidebar() {
 
       {/* Footer Profile */}
       {sidebarOpen && (
-        <div className="p-3 border-t border-zinc-900 bg-zinc-950 flex items-center justify-between">
+        <div className="p-3 border-t border-[#e8e8ed] bg-white flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full border border-zinc-800 bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-zinc-950 text-xs font-bold flex-shrink-0">
-              SA
+            <div className="w-8 h-8 rounded-full border border-[#e8e8ed] bg-[#0071e3] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+              {userName.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[11px] font-bold text-zinc-200 truncate">System Admin</span>
-              <span className="text-[10px] text-zinc-500 truncate">admin@shortfactory.ai</span>
+              <span className="text-[11px] font-bold text-[#1d1d1f] truncate">{userName}</span>
+              <span className="text-[10px] text-[#86868b] truncate font-semibold uppercase tracking-wider">{userRole}</span>
             </div>
           </div>
         </div>

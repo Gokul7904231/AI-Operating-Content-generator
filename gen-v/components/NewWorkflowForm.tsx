@@ -67,8 +67,11 @@ export default function NewWorkflowForm({ onDismiss, isModal = false }: NewWorkf
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    alert(`Workflow DAG "${name}" registered successfully with ${steps.length} processing isolates!`);
-    handleClose();
+    if (onDismiss) {
+      onDismiss();
+    } else {
+      handleClose();
+    }
   };
 
   const toggleDependency = (id: string) => {

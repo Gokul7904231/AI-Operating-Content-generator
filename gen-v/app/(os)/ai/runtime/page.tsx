@@ -65,16 +65,16 @@ export default function RuntimePage() {
             <div className="grid grid-cols-2 gap-4 text-xs font-mono">
               <div className="p-3 bg-zinc-950/40 border border-zinc-850/80 rounded-lg">
                 <span className="text-zinc-650 block text-[9px] uppercase">CPU Load</span>
-                <span className="text-zinc-250 font-bold block mt-1">{system.cpuUsagePct}%</span>
+                <span className="text-zinc-250 font-bold block mt-1">{system.containerCpuPct}%</span>
                 <div className="w-full bg-zinc-900 rounded-full h-1 mt-2">
-                  <div className="bg-blue-500 h-full rounded-full" style={{ width: `${system.cpuUsagePct}%` }} />
+                  <div className="bg-blue-500 h-full rounded-full" style={{ width: `${system.containerCpuPct}%` }} />
                 </div>
               </div>
               <div className="p-3 bg-zinc-950/40 border border-zinc-850/80 rounded-lg">
                 <span className="text-zinc-650 block text-[9px] uppercase">RAM Allocation</span>
-                <span className="text-zinc-250 font-bold block mt-1">{system.memUsagePct}%</span>
+                <span className="text-zinc-250 font-bold block mt-1">{system.containerMemPct}%</span>
                 <div className="w-full bg-zinc-900 rounded-full h-1 mt-2">
-                  <div className="bg-purple-500 h-full rounded-full" style={{ width: `${system.memUsagePct}%` }} />
+                  <div className="bg-purple-500 h-full rounded-full" style={{ width: `${system.containerMemPct}%` }} />
                 </div>
               </div>
             </div>

@@ -3,8 +3,13 @@ import { enhanceAgent } from "../../../agents/enhance-agent";
 import { LLMProvider } from "../../../ai/provider";
 import { ScriptSchema } from "../../../lib/schema";
 
+import { verifySession, verifyWritePermission } from "../../../lib/auth/auth";
+
 export async function POST(req: Request) {
   try {
+    const { user } = await verifySession(req);
+    verifyWritePermission(user);
+
     const body = await req.json();
 
     const draft = String(body?.draft ?? "").trim();
@@ -35,10 +40,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ enhanced: parsed.data });
 
   } catch (err: any) {
-    // Covers JSON.parse failures and unexpected runtime errors.
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Read-only access");
+    const status = err.status || (isForbidden ? 403 : err.message?.includes("missing or expired") ? 401 : 500);
     return NextResponse.json(
       { error: err?.message ?? "Failed to enhance draft" },
-      { status: 500 }
+      { status }
     );
   }
 }

@@ -5,8 +5,13 @@ import { autoRefinePipeline } from "../../../lib/auto-refine-pipeline";
 import { LLMProvider } from "../../../ai/provider";
 
 
+import { verifySession, verifyWritePermission } from "../../../lib/auth/auth";
+
 export async function POST(req: Request) {
   try {
+    const { user } = await verifySession(req);
+    verifyWritePermission(user);
+
     const body = await req.json();
 
     const topic = String(body?.topic ?? "").trim();
@@ -66,8 +71,8 @@ export async function POST(req: Request) {
       topic,
       style,
       hook,
-      script: draft?.scenes?.map((s) => s.contactText).join("\n") ?? "",
-      scenes: draft?.scenes?.map((s) => ({ text: s.contactText, imagePrompt: s.imagePrompt })) ?? [],
+      script: draft?.scenes?.map((s: any) => s.contactText).join("\n") ?? "",
+      scenes: draft?.scenes?.map((s: any) => ({ text: s.contactText, imagePrompt: s.imagePrompt })) ?? [],
       provider,
       maxAttempts: faster ? 0 : 3,
       faster,
@@ -89,7 +94,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? "Failed to generate script" }, { status: 500 });
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Read-only access");
+    const status = err.status || (isForbidden ? 403 : err.message?.includes("missing or expired") ? 401 : 500);
+    return NextResponse.json({ error: err?.message ?? "Failed to generate script" }, { status });
   }
 }
 

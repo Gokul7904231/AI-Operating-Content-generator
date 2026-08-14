@@ -8,6 +8,7 @@ import {
   ArrowUpRight, Share2, Sparkles, X, Download, Upload 
 } from "lucide-react";
 import NewTemplateForm from "@/components/NewTemplateForm";
+import WebsiteModal from "@/components/WebsiteModal";
 
 interface WorkflowTemplate {
   id: string;
@@ -115,9 +116,16 @@ export default function TemplatesPage() {
     });
   };
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this custom template?")) {
-      deleteMutation.mutate(id);
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmId) {
+      deleteMutation.mutate(deleteConfirmId);
+      setDeleteConfirmId(null);
     }
   };
 
@@ -351,6 +359,17 @@ export default function TemplatesPage() {
       {showNewTemplateModal && (
         <NewTemplateForm isModal={true} onDismiss={() => setShowNewTemplateModal(false)} />
       )}
+      <WebsiteModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete Custom Template?"
+        description="Are you sure you want to delete this custom template? This action cannot be undone."
+        icon="warning"
+        variant="danger"
+        confirmText="Delete Template"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

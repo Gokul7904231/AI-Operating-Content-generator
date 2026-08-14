@@ -8,6 +8,7 @@ import {
   Auth,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signInWithPopup,
   signOut,
   sendPasswordResetEmail,
@@ -29,6 +30,7 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
 
 export {
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signInWithPopup,
   signOut,
   sendPasswordResetEmail,

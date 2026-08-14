@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
+import { verifyAuthAndRole } from "../../../../lib/auth/auth";
 
 export const runtime = "nodejs";
 
@@ -9,8 +10,9 @@ const BLUEPRINT_ID = "geo_quiz";
  * GET /api/admin/blueprint
  * Fetches the prompt_blueprints/geo_quiz document from Firestore.
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await verifyAuthAndRole(req, "ADMIN");
     const doc = await db.collection("prompt_blueprints").doc(BLUEPRINT_ID).get();
     if (!doc.exists) {
       // Return default blueprint so the UI has something to edit
@@ -32,8 +34,9 @@ export async function GET() {
     }
     return NextResponse.json({ id: BLUEPRINT_ID, ...doc.data() });
   } catch (err: any) {
-    console.error("[Blueprint GET]", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Role");
+    const status = isForbidden ? 403 : 500;
+    return NextResponse.json({ error: err.message }, { status });
   }
 }
 
@@ -43,6 +46,7 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
+    await verifyAuthAndRole(req, "ADMIN");
     const body = await req.json();
     const { systemPrompt, userPromptTemplate } = body;
 
@@ -59,7 +63,8 @@ export async function POST(req: Request) {
     await db.collection("prompt_blueprints").doc(BLUEPRINT_ID).set(payload, { merge: true });
     return NextResponse.json({ status: "saved", id: BLUEPRINT_ID });
   } catch (err: any) {
-    console.error("[Blueprint POST]", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Role");
+    const status = isForbidden ? 403 : 500;
+    return NextResponse.json({ error: err.message }, { status });
   }
 }

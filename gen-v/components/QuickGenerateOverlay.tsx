@@ -34,11 +34,12 @@ export default function QuickGenerateOverlay() {
   const isOpen = useOSStore((state) => state.quickGenerateOpen);
   const setOpen = useOSStore((state) => state.setQuickGenerateOpen);
 
+  const [topicBrief, setTopicBrief] = useState("");
   const [quizCountry, setQuizCountry] = useState("US");
   const [engagementTone, setEngagementTone] = useState("Challenging & Provocative");
   const [quizFormat, setQuizFormat] = useState("6_rapid");
   const [batchNumber, setBatchNumber] = useState("1");
-  const [mockMode, setMockMode] = useState(true);
+  const [mockMode, setMockMode] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -189,24 +190,24 @@ export default function QuickGenerateOverlay() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
           {/* Overlay Box */}
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="w-full max-w-4xl max-h-[85vh] bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl flex flex-col"
+            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+            className="w-full max-w-4xl max-h-[85vh] bg-white border border-[#e8e8ed] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
           >
             {/* Header */}
-            <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/80 shrink-0">
+            <div className="p-4 border-b border-[#e8e8ed] flex justify-between items-center bg-[#f5f5f7] shrink-0">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-bold text-zinc-50">Quick Generate Short</h3>
+                <Sparkles className="w-5 h-5 text-[#0071e3]" />
+                <h3 className="text-sm font-display font-semibold text-[#1d1d1f] tracking-display">Quick Generate Short</h3>
               </div>
               <button
                 onClick={() => setOpen(false)}
-                className="text-zinc-500 hover:text-zinc-300 p-1.5 rounded hover:bg-zinc-800"
+                className="text-[#86868b] hover:text-[#1d1d1f] p-1.5 rounded-lg hover:bg-[#e8e8ed] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -216,23 +217,35 @@ export default function QuickGenerateOverlay() {
             <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-12 gap-6 terminal-scroll">
               {/* Form Config Left */}
               <div className="md:col-span-5 space-y-4">
+                {/* Topic / Concept Brief Input */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Target Country</label>
+                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Topic Brief / Concept</label>
+                  <input
+                    type="text"
+                    value={topicBrief}
+                    onChange={(e) => setTopicBrief(e.target.value)}
+                    placeholder="e.g. Quantum Computing Decryption & Cyber Warfare"
+                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3.5 py-2.5 text-xs font-sans text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Target Country</label>
                   <select
                     value={quizCountry}
                     onChange={(e) => setQuizCountry(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
                   >
                     {GEO_COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                   </select>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Engagement Tone</label>
+                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Engagement Tone</label>
                   <select
                     value={engagementTone}
                     onChange={(e) => setEngagementTone(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
                   >
                     <option value="Challenging & Provocative">Challenging & Provocative</option>
                     <option value="Educational & Direct">Educational & Direct</option>
@@ -241,11 +254,11 @@ export default function QuickGenerateOverlay() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Quiz Format</label>
+                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Quiz Format</label>
                   <select
                     value={quizFormat}
                     onChange={(e) => setQuizFormat(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
                   >
                     <option value="6_rapid">6 Rapid Questions (Golden Strategy, 60s)</option>
                     <option value="12_slow">12 Slow Paced Questions (120s)</option>
@@ -253,36 +266,37 @@ export default function QuickGenerateOverlay() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Batch / Version</label>
+                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Batch / Version</label>
                   <input
                     type="number"
                     min="1"
                     value={batchNumber}
                     onChange={(e) => setBatchNumber(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-md bg-zinc-950 border border-zinc-800/80">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[#f5f5f7] border border-[#e8e8ed]">
                   <div>
-                    <div className="text-[10px] font-bold text-zinc-200">Sandbox Mock Mode</div>
-                    <div className="text-[9px] text-zinc-500">Fast preview run, saves credits.</div>
+                    <div className="text-[10px] font-bold text-[#1d1d1f]">Sandbox Mock Mode</div>
+                    <div className="text-[9px] text-[#6e6e73]">Fast preview run, saves credits.</div>
                   </div>
                   <button 
                     onClick={() => setMockMode(!mockMode)}
-                    className={`w-9 h-5 rounded-full relative transition-colors ${mockMode ? 'bg-emerald-500' : 'bg-zinc-700'}`}
+                    className={`w-9 h-5 rounded-full relative transition-colors ${mockMode ? 'bg-[#0071e3]' : 'bg-[#e8e8ed]'}`}
                   >
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${mockMode ? 'left-4.5' : 'left-0.5'}`} />
+                    {/* Recipe: RECIPES.md #CompositorTransformToggle - GPU transform translateX for toggle knob */}
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-160 ease-out shadow-xs ${mockMode ? 'translate-x-4' : 'translate-x-0'}`} />
                   </button>
                 </div>
 
                 <button
                   onClick={generateDraft}
                   disabled={loading}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  className="w-full bg-[#0071e3] hover:bg-[#0066cc] text-white font-mono text-xs font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-[transform,background-color] duration-160 ease-out active:scale-[0.98] shadow-sm"
                 >
                   {loading ? (
-                    <span className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin"/> Generating...</span>
+                    <span className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/> Generating...</span>
                   ) : (
                     <><Sparkles className="w-3.5 h-3.5" /> Generate Draft</>
                   )}
@@ -351,7 +365,8 @@ export default function QuickGenerateOverlay() {
                             <div className="w-8 h-8 border-2 border-zinc-700 border-t-emerald-500 rounded-full animate-spin mb-2" />
                             <div className="text-xs font-semibold text-zinc-300">Rendering Video Pipeline</div>
                             <div className="w-full bg-zinc-800 rounded-full h-1 mt-3 overflow-hidden">
-                              <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (elapsedSeconds / 45) * 100)}%` }} />
+                              {/* Recipe: RECIPES.md #CompositorScaleProgressBar - GPU transform scaleX progress bar */}
+                              <div className="bg-emerald-500 h-full w-full rounded-full transition-transform duration-500 ease-out origin-left" style={{ transform: `scaleX(${Math.min(1, elapsedSeconds / 45)})` }} />
                             </div>
                           </div>
                         ) : (
