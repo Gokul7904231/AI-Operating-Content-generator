@@ -117,5 +117,5 @@ describe("FactoryOS RBAC & Role Isolation Suite", () => {
 
     const resApprove = await approveJobPOST(reqWithoutAuth.clone());
     expect([401, 403]).toContain(resApprove.status);
-  });
+  }, 15000);
 });

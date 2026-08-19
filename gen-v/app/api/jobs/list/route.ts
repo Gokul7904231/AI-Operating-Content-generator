@@ -10,9 +10,9 @@
  */
 
 import { NextResponse } from "next/server";
-import { db } from "../../../lib/firebase-admin";
-import { verifySession } from "../../../lib/auth/auth";
-import { isAdminUser } from "../../../lib/auth/roles";
+import { db } from "@/lib/firebase-admin";
+import { verifySession } from "@/lib/auth/auth";
+import { isAdminUser } from "@/lib/auth/roles";
 
 export async function GET(request: Request) {
   try {

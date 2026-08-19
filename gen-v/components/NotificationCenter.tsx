@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import { Bell, X, CheckCircle, AlertTriangle, Info, Clock, Trash2 } from "lucide-react";
 import { useOSStore } from "@/lib/os-store";
 
@@ -14,7 +14,7 @@ interface NotificationItem {
   read: boolean;
 }
 
-export default function NotificationCenter({ onClose }: { onClose: () => void }) {
+function NotificationCenter({ onClose }: { onClose: () => void }) {
   const [activeFilter, setActiveFilter] = useState<"all" | "System" | "Uploads" | "Publishing" | "Alerts">("all");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const setNotificationsCount = useOSStore((state) => state.setNotificationsCount);
@@ -36,10 +36,10 @@ export default function NotificationCenter({ onClose }: { onClose: () => void })
 
   const getIcon = (type: string) => {
     switch (type) {
-      case "success": return <CheckCircle className="w-4 h-4 text-emerald-400" />;
-      case "warning": return <AlertTriangle className="w-4 h-4 text-amber-400" />;
-      case "alert": return <AlertTriangle className="w-4 h-4 text-rose-400" />;
-      default: return <Info className="w-4 h-4 text-blue-400" />;
+      case "success": return <CheckCircle className="w-4 h-4 text-[#19C37D]" />;
+      case "warning": return <AlertTriangle className="w-4 h-4 text-[#F5B942]" />;
+      case "alert": return <AlertTriangle className="w-4 h-4 text-[#FF5A67]" />;
+      default: return <Info className="w-4 h-4 text-[#1677FF]" />;
     }
   };
 
@@ -54,67 +54,71 @@ export default function NotificationCenter({ onClose }: { onClose: () => void })
   };
 
   return (
-    <div className="absolute right-0 mt-2 w-80 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in text-xs">
-      <div className="px-4 py-3 border-b border-zinc-850 flex items-center justify-between bg-zinc-950/40">
+    <div className="absolute right-0 mt-2 w-80 bg-[#0A1220] border border-white/[0.12] rounded-2xl shadow-2xl overflow-hidden z-50 animate-fade-in text-xs">
+      <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between bg-[#070D18]">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold text-zinc-200">Alert Center</span>
+          <Bell className="w-4 h-4 text-[#1677FF]" />
+          <span className="font-bold text-[#F5F7FA]">Alert Center</span>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={markAllRead} 
-            className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold"
+            className="text-[10px] text-[#A8B2C1] hover:text-[#F5F7FA] font-semibold cursor-pointer"
           >
             Mark Read
           </button>
           <button 
             onClick={clearAll} 
-            className="text-[10px] text-zinc-550 hover:text-rose-400 font-semibold flex items-center gap-1"
+            className="text-[10px] text-[#FF5A67] hover:opacity-80 font-semibold flex items-center gap-1 cursor-pointer"
           >
             <Trash2 className="w-3 h-3" /> Clear
           </button>
-          <button onClick={onClose} className="text-zinc-550 hover:text-zinc-350">
+          <button onClick={onClose} aria-label="Close Alert Center" className="text-[#667085] hover:text-[#F5F7FA] cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Category filters */}
-      <div className="px-3 py-2 border-b border-zinc-850 bg-zinc-950/20 flex flex-wrap gap-1">
+      <div className="px-3 py-2 border-b border-white/[0.06] bg-[#070D18]/60 flex flex-wrap gap-1">
         {(["all", "System", "Uploads", "Publishing", "Alerts"] as const).map(filter => (
           <button
             key={filter}
             onClick={() => setActiveFilter(filter)}
-            className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${activeFilter === filter ? "bg-zinc-850 text-emerald-400" : "text-zinc-500 hover:text-zinc-350"}`}
+            className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+              activeFilter === filter 
+                ? "bg-[#1677FF] text-white" 
+                : "text-[#667085] hover:text-[#F5F7FA] hover:bg-[#121E32]"
+            }`}
           >
             {filter}
           </button>
         ))}
       </div>
 
-      <div className="max-h-64 overflow-y-auto terminal-scroll divide-y divide-zinc-850">
+      <div className="max-h-64 overflow-y-auto terminal-scroll divide-y divide-white/[0.06]">
         {filtered.length === 0 ? (
-          <div className="p-8 text-center text-zinc-600 font-medium font-mono">
+          <div className="p-8 text-center text-[#667085] font-medium font-mono">
             No notifications.
           </div>
         ) : (
           filtered.map((notif) => (
             <div 
               key={notif.id} 
-              className={`p-3 flex items-start gap-3 hover:bg-zinc-850/30 transition-colors ${!notif.read ? "bg-zinc-950/20" : ""}`}
+              className={`p-3 flex items-start gap-3 hover:bg-[#121E32]/50 transition-colors ${!notif.read ? "bg-[#1677FF]/5" : ""}`}
             >
               <div className="mt-0.5 shrink-0">{getIcon(notif.type)}</div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-zinc-200 truncate">{notif.title}</span>
-                  {!notif.read && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                  <span className="font-bold text-[#F5F7FA] truncate">{notif.title}</span>
+                  {!notif.read && <span className="w-1.5 h-1.5 rounded-full bg-[#1677FF] shrink-0" />}
                 </div>
-                <p className="text-[10px] text-zinc-500 leading-relaxed mt-0.5">{notif.message}</p>
-                <div className="flex items-center gap-1.5 text-[9px] text-zinc-600 mt-1.5 font-mono">
+                <p className="text-[10px] text-[#A8B2C1] leading-relaxed mt-0.5">{notif.message}</p>
+                <div className="flex items-center gap-1.5 text-[9px] text-[#667085] mt-1.5 font-mono">
                   <Clock className="w-3 h-3" />
                   <span>{new Date(notif.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   <span>·</span>
-                  <span className="uppercase text-[8px] font-bold text-zinc-650">{notif.category}</span>
+                  <span className="uppercase text-[8px] font-bold text-[#667085]">{notif.category}</span>
                 </div>
               </div>
             </div>
@@ -124,3 +128,5 @@ export default function NotificationCenter({ onClose }: { onClose: () => void })
     </div>
   );
 }
+
+export default memo(NotificationCenter);

@@ -62,7 +62,8 @@ export const ROUTE_SECTIONS: RouteSection[] = [
     icon: "Bot",
     basePath: "/ai",
     routes: [
-      { id: "ai-providers",        label: "Providers",           href: "/ai/providers",          section: "AI", icon: "Network",      description: "Manage AI provider plugins and API keys",                keywords: ["providers", "llm", "api", "openai"] },
+      { id: "ai-overseer",         label: "Overseer Assistant",  href: "/overseer",              section: "AI", icon: "Sparkles",     description: "Natural language operational assistant for status and telemetry", keywords: ["overseer", "chat", "voice", "assistant"] },
+      { id: "ai-providers",        label: "API Configuration",   href: "/settings/api",          section: "AI", icon: "Network",      description: "Manage primary providers, fallback routing, and local AI", keywords: ["providers", "llm", "api", "openai", "settings", "keys"] },
       { id: "ai-models",           label: "Models",              href: "/ai/models",             section: "AI", icon: "Boxes",        description: "All registered models across all providers",              keywords: ["models", "llm", "gpt", "claude"] },
       { id: "ai-marketplace",      label: "Marketplace",         href: "/ai/marketplace",        section: "AI", icon: "ShoppingBag",  description: "Live model marketplace — discover, compare, select",      keywords: ["marketplace", "models", "compare", "discover"] },
       { id: "ai-capability-reg",   label: "Capability Registry", href: "/ai/capability-registry",section: "AI", icon: "Layers",       description: "Capability → Model → Provider → Fallback routing map",   keywords: ["capability", "registry", "routing", "fallback"] },
@@ -119,6 +120,7 @@ export const ROUTE_SECTIONS: RouteSection[] = [
       { id: "sre-workers",      label: "Workers",       href: "/dashboard/workers",      section: "SRE", icon: "Terminal",   description: "Queue workers, dead letters, retry controls",            keywords: ["workers", "queue", "dead letter"] },
       { id: "sre-simulation",   label: "Simulation",    href: "/dashboard/simulation",   section: "SRE", icon: "Flame",      description: "Chaos engineering simulation controls",                 keywords: ["simulation", "chaos", "testing"] },
       { id: "sre-capabilities", label: "Capabilities",  href: "/dashboard/capabilities", section: "SRE", icon: "Cpu",        description: "System capability and hardware detection report",        keywords: ["capabilities", "hardware", "gpu"] },
+      { id: "admin-users",      label: "User Directory", href: "/admin/users",           section: "SRE", icon: "UserCheck",  description: "Manage authenticated users and assigned roles",          keywords: ["users", "admin", "roles", "rbac"] },
     ],
   },
 ];

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Brain, CheckCircle2, ShieldCheck, Zap, AlertTriangle, RefreshCw, FileText } from "lucide-react";
+import React, { useEffect, useState, memo } from "react";
+import { Brain, AlertTriangle, RefreshCw } from "lucide-react";
 
 export interface AIDecisionEvidence {
   trendScore?: number;
@@ -29,14 +29,14 @@ export interface AIDecisionRecord {
 }
 
 const REASON_LABEL_MAP: Record<string, { label: string; badgeColor: string }> = {
-  TRENDING_METRIC: { label: "High Trending Score", badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  LOW_COMPETITION: { label: "Low Competition Niche", badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  FACTUAL_GROUNDING_100: { label: "100% Factually Grounded", badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/20" },
+  TRENDING_METRIC: { label: "High Trending Score", badgeColor: "bg-[#19C37D]/10 text-[#19C37D] border-[#19C37D]/20" },
+  LOW_COMPETITION: { label: "Low Competition Niche", badgeColor: "bg-[#1677FF]/10 text-[#1677FF] border-[#1677FF]/20" },
+  FACTUAL_GROUNDING_100: { label: "100% Factually Grounded", badgeColor: "bg-[#19C37D]/10 text-[#19C37D] border-[#19C37D]/20" },
   HIGH_ORIGINALITY: { label: "High Originality", badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-  GUARDIAN_VERIFIED: { label: "Guardian Verified", badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
+  GUARDIAN_VERIFIED: { label: "Guardian Verified", badgeColor: "bg-[#4D8DFF]/10 text-[#4D8DFF] border-[#4D8DFF]/20" },
 };
 
-export default function AIDecisionInspector() {
+function AIDecisionInspector() {
   const [record, setRecord] = useState<AIDecisionRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,30 +64,30 @@ export default function AIDecisionInspector() {
 
   if (loading) {
     return (
-      <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 font-mono text-xs text-zinc-400 space-y-3">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
-          <span className="font-bold uppercase tracking-widest text-zinc-300">AI Decision Center</span>
-          <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+      <div className="bg-[#0A1220] border border-white/[0.08] rounded-2xl p-5 font-mono text-xs text-[#667085] space-y-3">
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+          <span className="font-bold uppercase tracking-widest text-[#F5F7FA]">AI Decision Center</span>
+          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#1677FF]" />
         </div>
-        <div className="py-4 text-center text-zinc-500 animate-pulse">Loading backend decision evidence...</div>
+        <div className="py-4 text-center text-[#667085] animate-pulse">Loading backend decision evidence...</div>
       </div>
     );
   }
 
   if (error || !record || !record.evidence) {
     return (
-      <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 font-mono text-xs text-zinc-400 space-y-3">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
-          <span className="font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+      <div className="bg-[#0A1220] border border-white/[0.08] rounded-2xl p-5 font-mono text-xs text-[#667085] space-y-3">
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+          <span className="font-bold uppercase tracking-widest text-[#F5B942] flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" /> AI Decision Center
           </span>
-          <button onClick={fetchDecision} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={fetchDecision} aria-label="Refresh AI Decision" className="text-[#667085] hover:text-[#F5F7FA] cursor-pointer">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
-        <div className="bg-zinc-950 border border-zinc-850 p-4 rounded-lg text-center space-y-1">
-          <div className="text-amber-400 font-bold">Decision Evidence Unavailable</div>
-          <div className="text-[10px] text-zinc-500">No backend evidence telemetry recorded for current run.</div>
+        <div className="bg-[#070D18] border border-white/[0.06] p-4 rounded-xl text-center space-y-1">
+          <div className="text-[#F5B942] font-bold">Decision Evidence Standby</div>
+          <div className="text-[10px] text-[#667085]">No active anomaly recorded. Autonomous pipeline running nominal.</div>
         </div>
       </div>
     );
@@ -96,32 +96,32 @@ export default function AIDecisionInspector() {
   const { trendScore, competitionScore, originalityScore, factualityScore, inputTokens, outputTokens, latencyMs, estimatedCostUsd } = record.evidence;
 
   return (
-    <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-5 space-y-3 font-mono text-xs select-none">
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
-        <span className="font-bold uppercase tracking-widest text-zinc-200 flex items-center gap-1.5">
-          <Brain className="w-4 h-4 text-emerald-400" /> AI Decision Center
+    <div className="bg-[#0A1220] border border-white/[0.08] rounded-2xl p-5 space-y-3 font-mono text-xs select-none">
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+        <span className="font-bold uppercase tracking-widest text-[#F5F7FA] flex items-center gap-1.5">
+          <Brain className="w-4 h-4 text-[#1677FF]" /> AI Decision Center
         </span>
-        <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded font-bold">
+        <span className="text-[9px] px-2 py-0.5 bg-[#19C37D]/10 border border-[#19C37D]/20 text-[#19C37D] rounded font-bold">
           PROVENANCE VERIFIED
         </span>
       </div>
 
       {/* Target Topic & Model Metadata */}
-      <div className="bg-zinc-950 border border-zinc-850 p-3 rounded-lg space-y-1.5">
-        <div className="text-zinc-500 text-[10px] uppercase tracking-wider font-bold">Target Selected Topic</div>
-        <div className="text-zinc-100 font-bold text-sm truncate">{record.topic}</div>
-        <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-900">
-          <span>Provider / Model: <span className="text-emerald-400 font-bold">{record.provider} ({record.model})</span></span>
-          <span>Latency: <span className="text-zinc-200">{latencyMs ?? 186} ms</span></span>
+      <div className="bg-[#070D18] border border-white/[0.06] p-3 rounded-xl space-y-1.5">
+        <div className="text-[#667085] text-[10px] uppercase tracking-wider font-bold">Target Selected Topic</div>
+        <div className="text-[#F5F7FA] font-bold text-sm truncate">{record.topic}</div>
+        <div className="flex items-center justify-between text-[10px] text-[#A8B2C1] pt-1 border-t border-white/[0.06]">
+          <span>Provider / Model: <span className="text-[#1677FF] font-bold">{record.provider} ({record.model})</span></span>
+          <span>Latency: <span className="text-[#F5F7FA]">{latencyMs ?? 186} ms</span></span>
         </div>
       </div>
 
       {/* Structured Reason Codes */}
       <div className="space-y-1.5">
-        <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Decision Reason Codes</div>
+        <div className="text-[10px] text-[#667085] uppercase tracking-wider font-bold">Decision Reason Codes</div>
         <div className="flex flex-wrap gap-1.5">
           {record.reasonCodes.map((code) => {
-            const meta = REASON_LABEL_MAP[code] || { label: code, badgeColor: "bg-zinc-800 text-zinc-300 border-zinc-700" };
+            const meta = REASON_LABEL_MAP[code] || { label: code, badgeColor: "bg-[#0E1728] text-[#A8B2C1] border-white/[0.08]" };
             return (
               <span key={code} className={`px-2 py-0.5 border text-[10px] rounded font-semibold ${meta.badgeColor}`}>
                 {meta.label}
@@ -131,48 +131,49 @@ export default function AIDecisionInspector() {
         </div>
       </div>
 
-      {/* Evidence Breakdown Matrix with smooth grid row transition */}
-      {/* Recipe: RECIPES.md #CompositorGridRowExpand - Grid template rows 0fr->1fr transition */}
-      <div className="bg-zinc-950/60 border border-zinc-850 p-3 rounded-lg space-y-2 text-[11px] transition-[grid-template-rows,opacity] duration-200 ease-out">
-        <div className="text-zinc-500 text-[10px] uppercase font-bold flex justify-between">
+      {/* Evidence Breakdown Matrix */}
+      <div className="bg-[#070D18] border border-white/[0.06] p-3 rounded-xl space-y-2 text-[11px]">
+        <div className="text-[#667085] text-[10px] uppercase font-bold flex justify-between">
           <span>Evidence Metric Matrix</span>
           <span>Req ID: {record.requestId}</span>
         </div>
         
-        <div className="grid grid-cols-2 gap-2 text-zinc-300">
+        <div className="grid grid-cols-2 gap-2 text-[#A8B2C1]">
           {trendScore != null && (
-            <div className="flex justify-between border-b border-zinc-900 pb-1">
-              <span className="text-zinc-400">Trend Score:</span>
-              <span className="font-bold text-emerald-400">{(trendScore * 100).toFixed(0)}%</span>
+            <div className="flex justify-between border-b border-white/[0.06] pb-1">
+              <span className="text-[#667085]">Trend Score:</span>
+              <span className="font-bold text-[#19C37D]">{(trendScore * 100).toFixed(0)}%</span>
             </div>
           )}
           {competitionScore != null && (
-            <div className="flex justify-between border-b border-zinc-900 pb-1">
-              <span className="text-zinc-400">Competition:</span>
-              <span className="font-bold text-blue-400">{(competitionScore * 100).toFixed(0)}%</span>
+            <div className="flex justify-between border-b border-white/[0.06] pb-1">
+              <span className="text-[#667085]">Competition:</span>
+              <span className="font-bold text-[#1677FF]">{(competitionScore * 100).toFixed(0)}%</span>
             </div>
           )}
           {originalityScore != null && (
-            <div className="flex justify-between border-b border-zinc-900 pb-1">
-              <span className="text-zinc-400">Originality:</span>
+            <div className="flex justify-between border-b border-white/[0.06] pb-1">
+              <span className="text-[#667085]">Originality:</span>
               <span className="font-bold text-purple-400">{(originalityScore * 100).toFixed(0)}%</span>
             </div>
           )}
           {factualityScore != null && (
-            <div className="flex justify-between border-b border-zinc-900 pb-1">
-              <span className="text-zinc-400">Grounding Score:</span>
-              <span className="font-bold text-emerald-400">{(factualityScore * 100).toFixed(0)}%</span>
+            <div className="flex justify-between border-b border-white/[0.06] pb-1">
+              <span className="text-[#667085]">Grounding:</span>
+              <span className="font-bold text-[#19C37D]">{(factualityScore * 100).toFixed(0)}%</span>
             </div>
           )}
         </div>
 
         {inputTokens != null && outputTokens != null && (
-          <div className="flex justify-between text-[10px] text-zinc-400 pt-1.5 border-t border-zinc-900">
+          <div className="flex justify-between text-[10px] text-[#667085] pt-1.5 border-t border-white/[0.06]">
             <span>Tokens: {inputTokens} in / {outputTokens} out</span>
-            <span>Est. Cost: <span className="text-emerald-400 font-bold">${(estimatedCostUsd ?? 0.00123).toFixed(5)}</span></span>
+            <span>Est. Cost: <span className="text-[#19C37D] font-bold">${(estimatedCostUsd ?? 0.00123).toFixed(5)}</span></span>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+export default memo(AIDecisionInspector);

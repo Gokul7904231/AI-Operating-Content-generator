@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Moon, Sun, Bell, Terminal, Sparkles, Activity, ShieldAlert, User, Mail, Briefcase, CreditCard, Key, LogOut } from "lucide-react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import { Moon, Sun, Bell, Terminal, Activity, User, Briefcase, Key, LogOut } from "lucide-react";
 import { useOSStore, AIProfile } from "@/lib/os-store";
 import { useThemeStore } from "@/lib/theme-store";
 import { useMounted } from "@/lib/useMounted";
 import { useAuth } from "@/lib/auth/hooks";
 import { AuthService } from "@/lib/auth/AuthService";
-import NotificationCenter from "./NotificationCenter";
+
+const NotificationCenter = dynamic(() => import("./NotificationCenter"), { ssr: false });
+const UserProfileModal = dynamic(() => import("./UserProfileModal"), { ssr: false });
 
 interface TopNavProps {
   title?: string;
@@ -16,20 +20,41 @@ interface TopNavProps {
 export default function TopNav({ title = "Dashboard" }: TopNavProps) {
   const mounted = useMounted();
   const { user } = useAuth();
-  const toggleQuickGenerate = useOSStore((state) => state.toggleQuickGenerate);
-  const selectedProviderId = useOSStore((state) => state.selectedProviderId);
   const selectedProfile = useOSStore((state) => state.selectedProfile);
   const setSelectedProfile = useOSStore((state) => state.setSelectedProfile);
   const notificationsCount = useOSStore((state) => state.notificationsCount);
-  const { theme, setTheme } = useThemeStore();
+  const selectedAvatar = useOSStore((state) => state.selectedAvatar);
+  const { theme, toggleTheme } = useThemeStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const userRoleBadge = user?.role === "EDITOR" || !user?.role 
+    ? "CREATOR" 
+    : user?.role === "VIEWER" 
+    ? "VIEWER" 
+    : user?.role;
 
   const handleLogout = async () => {
     setLoggingOut(true);
     await AuthService.logout();
     window.location.href = "/login";
+  };
+
+  const handleFocusOverseer = () => {
+    if (typeof window !== "undefined") {
+      if (window.location.pathname !== "/dashboard") {
+        window.location.href = "/dashboard#overseer-command-center";
+      } else {
+        const el = document.getElementById("overseer-command-center");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+          const input = el.querySelector("input");
+          if (input) input.focus();
+        }
+      }
+    }
   };
 
   const profiles: AIProfile[] = [
@@ -42,154 +67,199 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
   ];
 
   return (
-    <header className="bg-white/90 backdrop-blur-md border-b border-[#e8e8ed] flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40 flex-shrink-0 select-none shadow-sm">
-      <div className="flex items-center gap-4">
-        <h1 className="text-sm font-bold text-[#1d1d1f] tracking-tight">{title}</h1>
-        
-        {/* Active System Mode Badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-[#f2f2f7] border border-[#e8e8ed] rounded-full text-[10px] text-[#6e6e73] font-medium">
-          <Activity className="w-3 h-3 text-[#34c759] animate-pulse" />
-          <span>Router Mode: <span className="text-[#0071e3] font-bold uppercase">{selectedProfile}</span></span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        {/* Profile Selector */}
-        <div className="relative">
-          <select
-            value={selectedProfile}
-            onChange={(e) => setSelectedProfile(e.target.value as AIProfile)}
-            className="bg-[#f2f2f7] border border-[#e8e8ed] rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-[#1d1d1f] outline-none focus:border-[#0071e3] cursor-pointer"
-          >
-            {profiles.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+    <>
+      <header className="bg-white/85 dark:bg-[#050A12]/90 backdrop-blur-md border-b border-black/[0.06] dark:border-white/[0.08] flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40 flex-shrink-0 select-none shadow-2xs transition-colors duration-200">
+        <div className="flex items-center gap-4">
+          <h1 className="text-sm font-semibold text-[#111827] dark:text-[#F5F7FA] tracking-tight">{title}</h1>
+          
+          {/* Active System Mode Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-black/[0.03] dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] rounded-full text-[10px] text-[#667085] dark:text-[#A7B0BC] font-medium">
+            <Activity className="w-3 h-3 text-[#179E69] dark:text-[#21C58B] animate-pulse" />
+            <span>Router Mode: <span className="text-[#1769E8] font-bold uppercase">{selectedProfile}</span></span>
+          </div>
         </div>
 
-        {/* Theme Toggle (☀️ / 🌙) */}
-        {mounted ? (
+        <div className="flex items-center gap-3">
+          {/* Profile Selector */}
+          <div className="relative">
+            <select
+              id="router-mode-selector"
+              aria-label="Router Mode AI Profile Selector"
+              value={selectedProfile}
+              onChange={(e) => setSelectedProfile(e.target.value as AIProfile)}
+              className="bg-black/[0.03] dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-[#111827] dark:text-[#F5F7FA] outline-none focus:border-[#1769E8] cursor-pointer"
+            >
+              {profiles.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Theme Toggle Button */}
+          {mounted ? (
+            <button
+              onClick={toggleTheme}
+              className="relative p-2 rounded-xl text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] bg-black/[0.03] dark:bg-[#08101B] hover:bg-black/[0.06] dark:hover:bg-[#0D1622] border border-black/[0.06] dark:border-white/[0.08] transition-all duration-200 cursor-pointer flex items-center justify-center group shadow-2xs active:scale-95"
+              title={`Active Theme: ${theme.toUpperCase()} (Click to toggle Light/Dark)`}
+              aria-label="Toggle theme mode"
+            >
+              {theme === "dark" ? (
+                <Moon className="w-4 h-4 text-[#1769E8] group-hover:rotate-12 transition-transform duration-300 drop-shadow-[0_0_8px_rgba(23,105,232,0.35)]" />
+              ) : (
+                <Sun className="w-4 h-4 text-[#E8B949] group-hover:rotate-45 transition-transform duration-300" />
+              )}
+            </button>
+          ) : (
+            <div className="w-8.5 h-8.5 rounded-xl bg-black/[0.03] dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] animate-pulse" />
+          )}
+
+          {/* Subtle Overseer Status Indicator */}
           <button
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className="text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7] transition-all p-2 rounded-lg border border-transparent hover:border-[#e8e8ed]"
-            title="Toggle Theme"
+            onClick={handleFocusOverseer}
+            aria-label="Focus Overseer Command Center"
+            className="px-2.5 py-1 rounded-lg bg-black/[0.03] dark:bg-[#0D1622] text-[#1769E8] font-semibold text-xs border border-black/[0.06] dark:border-white/[0.08] flex items-center gap-1.5 hover:bg-black/[0.06] dark:hover:bg-[#121E30] transition-colors cursor-pointer"
+            title="Focus Overseer Command Center"
           >
-            {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            <span className="w-1.5 h-1.5 rounded-full bg-[#179E69] dark:bg-[#21C58B]" />
+            <span className="hidden sm:inline font-mono text-[11px]">Overseer Online</span>
+            <span className="sm:hidden font-mono text-[11px]">Overseer</span>
           </button>
-        ) : (
-          <div className="w-8.5 h-8.5 rounded-lg bg-[#f2f2f7] border border-[#e8e8ed] animate-pulse" />
-        )}
 
-        {/* Console / Terminal Quick Link */}
-        <button className="text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7] transition-all p-2 rounded-lg border border-transparent hover:border-[#e8e8ed]">
-          <Terminal className="w-4.5 h-4.5" />
-        </button>
-
-        {/* Notifications */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7] transition-all p-2 rounded-lg border border-transparent hover:border-[#e8e8ed]"
+          {/* Console / Terminal Quick Link */}
+          <button
+            aria-label="Open Terminal"
+            className="text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B] transition-all p-2 rounded-lg border border-transparent hover:border-black/[0.06] dark:hover:border-white/[0.08] cursor-pointer"
           >
-            <Bell className="w-4.5 h-4.5" />
-            {notificationsCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#34c759] rounded-full" />
+            <Terminal className="w-4.5 h-4.5" />
+          </button>
+
+          {/* Notifications */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              aria-label="View notifications"
+              className="relative text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B] transition-all p-2 rounded-lg border border-transparent hover:border-black/[0.06] dark:hover:border-white/[0.08] cursor-pointer"
+            >
+              <Bell className="w-4.5 h-4.5" />
+              {notificationsCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#179E69] dark:bg-[#21C58B] rounded-full" />
+              )}
+            </button>
+            {showNotifications && (
+              <NotificationCenter onClose={() => setShowNotifications(false)} />
             )}
-          </button>
-          {showNotifications && (
-            <NotificationCenter onClose={() => setShowNotifications(false)} />
-          )}
-        </div>
+          </div>
 
-        <div className="h-5 w-px bg-[#e8e8ed] mx-1"></div>
+          <div className="h-5 w-px bg-white/[0.08] mx-1"></div>
 
-        {/* Quick User Status - Avatar to Profile Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-            className="flex items-center gap-2 focus:outline-none"
-          >
-            <div className="w-7 h-7 rounded-full border border-[#e8e8ed] bg-[#0071e3] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 cursor-pointer hover:opacity-90 shadow-sm">
-              SA
-            </div>
-          </button>
+          {/* Quick User Status - Avatar to Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              aria-label="User profile and account settings"
+              className="flex items-center gap-2 focus:outline-none cursor-pointer"
+            >
+              <img
+                src={selectedAvatar}
+                alt="User Avatar"
+                width={32}
+                height={32}
+                loading="lazy"
+                decoding="async"
+                className="w-8 h-8 rounded-full border border-[#1677FF]/40 object-cover flex-shrink-0 cursor-pointer hover:opacity-90 shadow-sm"
+              />
+            </button>
 
-          {showProfileDropdown && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-[#e8e8ed] rounded-xl shadow-xl overflow-hidden z-50 py-2.5 text-xs text-[#6e6e73]">
-              {/* Header with avatar and admin details */}
-              <div className="px-4 py-3 border-b border-[#e8e8ed] bg-[#f5f5f7] flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full border border-[#e8e8ed] bg-[#0071e3] flex items-center justify-center text-white text-xs font-black">
-                  {user?.email ? user.email.slice(0, 2).toUpperCase() : "SA"}
-                </div>
-                <div>
-                  <div className="font-bold text-[#1d1d1f] flex items-center gap-1.5">
-                    {user?.email?.split("@")[0] || "System Admin"}
-                    <span className="text-[8px] bg-[#0071e3]/10 text-[#0071e3] px-1 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
-                      {user?.role || "ROOT"}
-                    </span>
+            {showProfileDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-[#0A1220] border border-white/[0.12] rounded-2xl shadow-2xl overflow-hidden z-50 py-2.5 text-xs text-[#A8B2C1]">
+                {/* Header with avatar and user details */}
+                <div className="px-4 py-3 border-b border-white/[0.08] bg-[#070D18] flex items-center gap-3">
+                  <img
+                    src={selectedAvatar}
+                    alt="User Avatar"
+                    width={40}
+                    height={40}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-10 h-10 rounded-full border border-[#1677FF]/40 object-cover flex-shrink-0 shadow-xs"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-[#F5F7FA] flex items-center gap-1.5 truncate">
+                      {user?.email ? user.email.split("@")[0].toUpperCase() : "OPERATOR"}
+                      <span className="text-[8px] bg-[#1677FF]/20 text-[#1677FF] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider border border-[#1677FF]/30 flex-shrink-0">
+                        {userRoleBadge}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-[#667085] font-mono truncate">
+                      {user?.email || "operator@factoryos.internal"}
+                    </div>
                   </div>
-                  <div className="text-[9px] text-[#86868b] font-mono truncate max-w-[140px]">
-                    {user?.email || "admin@shortfactory.ai"}
-                  </div>
                 </div>
-              </div>
-              
-              <div className="px-2 py-2 space-y-0.5">
-                {/* Menu items */}
-                <button className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[#f2f2f7] hover:text-[#1d1d1f] transition-colors cursor-pointer rounded-lg text-left">
-                  <User className="w-3.5 h-3.5 text-[#86868b]" />
-                  <span>Account Profile</span>
-                </button>
                 
-                <button className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[#f2f2f7] hover:text-[#1d1d1f] transition-colors cursor-pointer rounded-lg text-left">
-                  <Briefcase className="w-3.5 h-3.5 text-[#86868b]" />
-                  <span className="flex-grow">Active Workspace</span>
-                  <span className="text-[9px] font-mono bg-[#f2f2f7] border border-[#e8e8ed] px-1.5 py-0.5 rounded text-[#6e6e73] font-bold">Default</span>
-                </button>
+                <div className="px-2 py-2 space-y-0.5">
+                  {/* Menu items */}
+                  <button 
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      setShowProfileModal(true);
+                    }}
+                    className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[#121E32] hover:text-[#F5F7FA] transition-colors cursor-pointer rounded-lg text-left font-medium"
+                  >
+                    <User className="w-3.5 h-3.5 text-[#1677FF]" />
+                    <span>Account Profile & Preferences</span>
+                  </button>
+                  
+                  <button className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[#121E32] hover:text-[#F5F7FA] transition-colors cursor-pointer rounded-lg text-left font-medium">
+                    <Briefcase className="w-3.5 h-3.5 text-[#667085]" />
+                    <span className="flex-grow">Active Workspace</span>
+                    <span className="text-[9px] font-mono bg-[#070D18] border border-white/[0.08] px-1.5 py-0.5 rounded text-[#A8B2C1] font-bold">Default</span>
+                  </button>
 
-                <button className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[#f2f2f7] hover:text-[#1d1d1f] transition-colors cursor-pointer rounded-lg text-left">
-                  <Key className="w-3.5 h-3.5 text-[#86868b]" />
-                  <span>API Key Config</span>
-                </button>
-              </div>
+                  <Link 
+                    href="/settings/api"
+                    onClick={() => setShowProfileDropdown(false)}
+                    className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[#121E32] hover:text-[#F5F7FA] transition-colors cursor-pointer rounded-lg text-left font-medium"
+                  >
+                    <Key className="w-3.5 h-3.5 text-[#1677FF]" />
+                    <span>API Configuration</span>
+                  </Link>
+                </div>
 
-              {/* SRE metrics box */}
-              <div className="mx-3.5 my-2 p-3 bg-[#f5f5f7] border border-[#e8e8ed] rounded-xl space-y-2 text-[10px] font-mono">
-                <div className="flex justify-between items-center border-b border-[#e8e8ed] pb-1.5 mb-1.5">
-                  <span className="text-[#86868b] uppercase text-[8px] font-bold">Billing Usage</span>
-                  <span className="text-[#34c759] font-bold">Dynamic Router Active</span>
+                {/* Personal router mode box */}
+                <div className="mx-3.5 my-2 p-3 bg-[#070D18] border border-white/[0.08] rounded-xl space-y-2 text-[10px] font-mono">
+                  <div className="flex justify-between items-center border-b border-white/[0.08] pb-1.5 mb-1.5">
+                    <span className="text-[#667085] uppercase text-[8px] font-bold">Routing Profile</span>
+                    <span className="text-[#19C37D] font-bold">Active</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#A8B2C1]">Router Mode:</span>
+                    <span className="text-[#F5F7FA] font-bold uppercase">{selectedProfile}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6e6e73]">Router Mode:</span>
-                  <span className="text-[#1d1d1f] font-bold uppercase">{selectedProfile}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6e6e73]">Available Credits:</span>
-                  <span className="text-[#1d1d1f] font-bold">$120.45</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6e6e73]">Tokens Consumed:</span>
-                  <span className="text-[#1d1d1f] font-bold">14,204</span>
-                </div>
-              </div>
 
-              {/* Footer action logout */}
-              <div className="px-2 pt-2 border-t border-[#e8e8ed] mt-2">
-                <button
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="w-full px-3 py-2 flex items-center gap-2.5 text-[#ff3b30] hover:bg-[#ff3b30]/10 transition-colors cursor-pointer rounded-lg text-left font-semibold disabled:opacity-50"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>{loggingOut ? "Signing out..." : "Log Out Session"}</span>
-                </button>
+                {/* Footer action logout */}
+                <div className="px-2 pt-2 border-t border-white/[0.08] mt-2">
+                  <button
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="w-full px-3 py-2 flex items-center gap-2.5 text-[#FF5A67] hover:bg-[#FF5A67]/10 transition-colors cursor-pointer rounded-lg text-left font-semibold disabled:opacity-50"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{loggingOut ? "Signing out..." : "Log Out Session"}</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* User Profile & Preferences Modal */}
+      {showProfileModal && (
+        <UserProfileModal onClose={() => setShowProfileModal(false)} />
+      )}
+    </>
   );
 }

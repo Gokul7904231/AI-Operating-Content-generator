@@ -1,0 +1,124 @@
+"""Contract tests for Floor 02 handoff payloads and Overseer execution reports."""
+
+import json
+from pathlib import Path
+import pytest
+
+from floors.floor01_strategy.app.domain.handoff import (
+    ContentPlanResult,
+    CurriculumMapResult,
+    Floor01HandoffPayload,
+    StrategyResult,
+    TopicIntelligenceResult,
+)
+from floors.floor02_scripting.app.core.exceptions import Floor02ValidationError
+from floors.floor02_scripting.app.domain.handoff import Floor02HandoffPayload, Floor02Input, FloorExecutionReport
+from floors.floor02_scripting.app.pipeline import Floor02Pipeline
+
+
+def build_mock_floor01_payload() -> Floor01HandoffPayload:
+    return Floor01HandoffPayload(
+        request_id="req-floor01-test-123",
+        topic=TopicIntelligenceResult(
+            selected_topic="Python Decorators",
+            normalized_topic="python_decorators",
+            selection_reason="High educational demand",
+        ),
+        strategy=StrategyResult(
+            target_audience="intermediate_developers",
+            platform="youtube_shorts",
+            content_angle="practical_mental_model",
+            target_duration_seconds=60,
+        ),
+        content_plan=ContentPlanResult(
+            core_objective="Explain wrapper functions and decorator syntax",
+            key_takeaways=["Functions are first-class objects", "@decorator is syntactic sugar"],
+            hook_direction="Did you know Python functions are secretly objects?",
+            cta_direction="Follow for Python mental models",
+            structural_outline=["Hook", "Concept Breakdown", "Example", "CTA"],
+        ),
+        curriculum=CurriculumMapResult(
+            learning_objectives=["Understand higher-order functions"],
+        ),
+        decision_quality_score=0.92,
+    )
+
+
+def test_floor01_handoff_ingestion():
+    f01_payload = build_mock_floor01_payload()
+    inp = Floor02Input(floor01_payload=f01_payload, request_id="req-f02-ingest-1")
+
+    pipeline = Floor02Pipeline()
+    f02_payload = pipeline.execute(inp)
+
+    assert f02_payload.request_id == "req-f02-ingest-1"
+    assert f02_payload.plan_id == f01_payload.plan_id
+    assert "Python Decorators" in f02_payload.title
+    assert len(f02_payload.scenes) >= 3
+    assert f02_payload.script_version == 1
+
+
+def test_execution_report_generation():
+    f01_payload = build_mock_floor01_payload()
+    inp = Floor02Input(floor01_payload=f01_payload, request_id="req-f02-report-1")
+
+    pipeline = Floor02Pipeline()
+    payload, report = pipeline.execute_with_report(inp)
+
+    assert isinstance(payload, Floor02HandoffPayload)
+    assert isinstance(report, FloorExecutionReport)
+    assert report.floor_id == "floor02"
+    assert report.request_id == "req-f02-report-1"
+    assert report.plan_id == f01_payload.plan_id
+    assert report.execution_mode.executed is False
+    assert len(report.worker_results) == 4
+
+
+def test_execution_report_artifact_persistence(tmp_path):
+    """Verify that execution report JSON artifact is physically written to disk and schema-valid."""
+    report_dir = tmp_path / "reports"
+    f01_payload = build_mock_floor01_payload()
+    inp = Floor02Input(floor01_payload=f01_payload, request_id="req-f02-artifact-1")
+
+    pipeline = Floor02Pipeline(artifact_report_dir=str(report_dir))
+    payload, report = pipeline.execute_with_report(inp)
+
+    report_path = report_dir / f"floor02_execution_{report.execution_id}.json"
+    assert report_path.exists()
+
+    with open(report_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    loaded_report = FloorExecutionReport.model_validate(data)
+    assert loaded_report.execution_id == report.execution_id
+    assert loaded_report.request_id == "req-f02-artifact-1"
+
+
+def test_provenance_correctness():
+    """Verify that every decision in payload contains hardened, valid provenance entries."""
+    f01_payload = build_mock_floor01_payload()
+    inp = Floor02Input(floor01_payload=f01_payload, request_id="req-f02-prov-1")
+
+    pipeline = Floor02Pipeline()
+    payload = pipeline.execute(inp)
+
+    assert len(payload.provenance) >= 4
+    for prov in payload.provenance:
+        assert prov.evidence_type in ["UPSTREAM_HANDOFF", "DETERMINISTIC_RULE", "MODEL_INFERENCE"]
+        assert len(prov.source_type) > 0
+        assert len(prov.source_identifier) > 0
+        assert len(prov.method) > 0
+        assert len(prov.summary) > 0
+
+
+def test_idempotency_payload_mismatch_rejection():
+    """Verify same request_id with conflicting topic query is rejected."""
+    pipeline = Floor02Pipeline()
+    inp1 = Floor02Input(request_id="req-conflict-999", topic_query="Topic Alpha")
+    pipeline.execute(inp1)
+
+    inp2 = Floor02Input(request_id="req-conflict-999", topic_query="Topic Beta")
+    with pytest.raises(Floor02ValidationError) as exc_info:
+        pipeline.execute(inp2)
+
+    assert "Idempotency conflict" in str(exc_info.value)

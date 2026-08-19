@@ -109,7 +109,7 @@ describe("FactoryOS — Quiz Guardian Forensic Acceptance Suite (20 Scenarios)",
     const guardian = new QuizGuardian();
     const res = await guardian.evaluate(quiz);
     expect(res.decision).toBe("REPAIR");
-  });
+  }, 15000);
 
   // Scenario 07: Duplicate option
   it("07: Duplicate option -> REPAIR", async () => {

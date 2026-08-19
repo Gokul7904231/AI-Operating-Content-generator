@@ -2,8 +2,7 @@ import React from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNav from "@/components/TopNav";
 import { Providers } from "../providers";
-import QuickGenerateOverlay from "@/components/QuickGenerateOverlay";
-import CommandPalette from "@/components/CommandPalette";
+import GlobalOverlays from "@/components/GlobalOverlays";
 import "@/lib/core/ServiceRegistryInit";
 
 export default function OSLayout({
@@ -13,7 +12,7 @@ export default function OSLayout({
 }) {
   return (
     <Providers>
-      <div className="flex h-screen w-full bg-[#f5f5f7] text-[#1d1d1f] font-sans overflow-hidden select-none">
+      <div className="flex h-screen w-full bg-[#F7F8FA] dark:bg-[#050A12] text-[#111827] dark:text-[#F5F7FA] font-sans overflow-hidden select-none transition-colors duration-200">
         {/* Expanded / Collapsible Left Navigation */}
         <Sidebar />
 
@@ -26,11 +25,8 @@ export default function OSLayout({
           </main>
         </div>
 
-        {/* Global Quick Generate Spotlight Overlay */}
-        <QuickGenerateOverlay />
-
-        {/* Global Ctrl+K Command Palette */}
-        <CommandPalette />
+        {/* Global Quick Generate & Command Palette Overlays */}
+        <GlobalOverlays />
       </div>
     </Providers>
   );

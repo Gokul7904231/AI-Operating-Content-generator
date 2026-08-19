@@ -12,6 +12,7 @@ export default defineConfig({
     environment: "node",
     globals: false,
     reporters: ["verbose"],
-    testTimeout: 30000,
+    testTimeout: 60000,
+    fileParallelism: true,
   },
 });

@@ -63,7 +63,7 @@ const hasDriveCredentials = hasServiceAccount || hasOAuth;
       console.log("[Phase 1] Drive Health Status            =", healthy ? "PASS" : "FAIL");
 
       expect(healthy).toBe(true);
-    }, 30000);
+    }, 60000);
 
     it("PHASE 2: Locate / Render Real FactoryOS MP4 Artifact", async () => {
       const adapter = new VideoPipelineAdapter();

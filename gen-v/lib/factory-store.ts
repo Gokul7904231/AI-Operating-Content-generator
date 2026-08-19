@@ -173,11 +173,7 @@ export const useFactoryStore = create<FactoryState>((set, get) => {
     },
 
     initSSE: () => {
-      if (typeof window === "undefined" || get().sseConnected) return;
-
-      if (sseSource) {
-        sseSource.close();
-      }
+      if (typeof window === "undefined" || get().sseConnected || sseSource !== null) return;
 
       try {
         sseSource = new EventSource("/api/factory-state/sse");

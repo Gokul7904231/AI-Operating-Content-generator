@@ -29,7 +29,10 @@ export interface QuizEvalMetricReport {
 
 export class QuizEvaluator {
   static async runEvaluation(datasetPath?: string): Promise<QuizEvalMetricReport> {
-    const file = datasetPath ?? path.join(process.cwd(), "factoryos/benchmarks/quiz_semantic_eval_dataset.json");
+    const defaultPath = fs.existsSync(path.join(process.cwd(), "gen-v", "factoryos", "benchmarks", "quiz_semantic_eval_dataset.json"))
+      ? path.join(process.cwd(), "gen-v", "factoryos", "benchmarks", "quiz_semantic_eval_dataset.json")
+      : path.join(process.cwd(), "factoryos", "benchmarks", "quiz_semantic_eval_dataset.json");
+    const file = datasetPath ?? defaultPath;
     const raw = fs.readFileSync(file, "utf-8");
     const dataset: Array<any> = JSON.parse(raw);
 

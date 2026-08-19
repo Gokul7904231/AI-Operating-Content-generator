@@ -91,24 +91,26 @@ export default function Sidebar() {
       initial={sidebarOpen ? "open" : "collapsed"}
       animate={sidebarOpen ? "open" : "collapsed"}
       variants={sidebarVariants}
-      className="bg-white border-r border-[#e8e8ed] flex flex-col h-screen sticky top-0 flex-shrink-0 z-50 overflow-hidden shadow-sm"
+      className="bg-white dark:bg-[#050A12] border-r border-black/[0.06] dark:border-white/[0.08] flex flex-col h-screen sticky top-0 flex-shrink-0 z-50 overflow-hidden shadow-2xs transition-colors duration-200"
     >
       {/* Brand */}
-      <div className="p-4 flex items-center justify-between border-b border-[#e8e8ed] h-16">
+      <div className="p-4 flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.08] h-16">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden select-none">
-          <div className="w-8 h-8 rounded-lg bg-[#0071e3]/10 border border-[#0071e3]/20 flex items-center justify-center flex-shrink-0 p-1 overflow-hidden">
-            <img src="/favicon-black.png" alt="FactoryOS Logo" className="w-full h-full object-contain" />
+          <div className="w-8 h-8 rounded-lg bg-[#1769E8]/10 border border-[#1769E8]/20 flex items-center justify-center flex-shrink-0 p-1 overflow-hidden">
+            <img src="/favicon-black.png" alt="FactoryOS Logo" width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-contain dark:hidden block" />
+            <img src="/favicon-white.png" alt="FactoryOS Logo" width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-contain hidden dark:block" />
           </div>
           {sidebarOpen && (
-            <span className="text-sm font-bold text-[#1d1d1f] tracking-tight whitespace-nowrap">
-              ShortsFactory <span className="text-[10px] text-[#0071e3] font-semibold">OS</span>
+            <span className="text-sm font-semibold text-[#111827] dark:text-[#F5F7FA] tracking-tight whitespace-nowrap">
+              ShortsFactory <span className="text-[10px] text-[#1769E8] font-semibold">OS</span>
             </span>
           )}
         </Link>
         {sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="text-[#86868b] hover:text-[#1d1d1f] p-1 rounded-md hover:bg-[#f2f2f7] transition-colors"
+            aria-label="Collapse navigation sidebar"
+            className="text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] p-1 rounded-md hover:bg-black/[0.04] dark:hover:bg-[#08101B] transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -116,13 +118,13 @@ export default function Sidebar() {
       </div>
 
       {/* Quick Generate Trigger */}
-      <div className="p-3 border-b border-[#e8e8ed]">
+      <div className="p-3 border-b border-black/[0.06] dark:border-white/[0.08]">
         <button
           onClick={toggleQuickGenerate}
-          className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm ${
+          className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer ${
             sidebarOpen
-              ? "bg-[#0071e3] hover:bg-[#0066cc] text-white active:scale-[0.98]"
-              : "bg-[#f2f2f7] border border-[#e8e8ed] text-[#0071e3] hover:bg-[#e8e8ed]"
+              ? "bg-[#1769E8] hover:bg-[#0F58CA] text-white active:scale-[0.98]"
+              : "bg-black/[0.03] dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] text-[#1769E8] hover:bg-black/[0.06] dark:hover:bg-[#0D1622]"
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -131,18 +133,18 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Areas */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-5 terminal-scroll select-none">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 terminal-scroll select-none">
         {/* Dashboard Link */}
         <Link
           href="/dashboard"
           onMouseEnter={() => router.prefetch("/dashboard")}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-xs font-semibold ${
+          className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
             pathname === "/dashboard"
-              ? "bg-[#0071e3]/10 text-[#0071e3] font-bold border border-[#0071e3]/20"
-              : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
+              ? "bg-[#1769E8]/10 text-[#1769E8] font-bold border border-[#1769E8]/20"
+              : "text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B]"
           }`}
         >
-          <LayoutDashboard className={`w-4 h-4 flex-shrink-0 ${pathname === "/dashboard" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
+          <LayoutDashboard className={`w-4 h-4 flex-shrink-0 ${pathname === "/dashboard" ? "text-[#1769E8]" : "text-[#667085] dark:text-[#A7B0BC]"}`} />
           {sidebarOpen && <span>Dashboard</span>}
         </Link>
 
@@ -181,8 +183,8 @@ export default function Sidebar() {
               {sidebarOpen ? (
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors ${
-                    hasActiveItem ? "text-[#1d1d1f]" : "text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-bold transition-colors cursor-pointer ${
+                    hasActiveItem ? "text-[#111827] dark:text-[#F5F7FA]" : "text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B]"
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -196,7 +198,7 @@ export default function Sidebar() {
                   />
                 </button>
               ) : (
-                <div className="w-full flex items-center justify-center py-2 text-[#86868b]">
+                <div className="w-full flex items-center justify-center py-2 text-[#667085] dark:text-[#A7B0BC]">
                   <SectionIcon className="w-4 h-4" />
                 </div>
               )}
@@ -221,12 +223,12 @@ export default function Sidebar() {
                           onMouseEnter={() => router.prefetch(route.href)}
                           className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-xs ${
                             isActive
-                              ? "bg-[#0071e3]/10 text-[#0071e3] font-bold border border-[#0071e3]/20"
-                              : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
+                              ? "bg-[#1769E8]/10 text-[#1769E8] font-bold border border-[#1769E8]/20"
+                              : "text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B]"
                           } ${!sidebarOpen ? "justify-center" : ""}`}
                           title={!sidebarOpen ? route.label : undefined}
                         >
-                          <RouteIcon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#0071e3]" : "text-[#86868b]"}`} />
+                          <RouteIcon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#1769E8]" : "text-[#667085] dark:text-[#A7B0BC]"}`} />
                           {sidebarOpen && <span className="truncate">{route.label}</span>}
                         </Link>
                       );
@@ -242,23 +244,24 @@ export default function Sidebar() {
         <Link
           href="/settings"
           onMouseEnter={() => router.prefetch("/settings")}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-xs font-semibold ${
+          className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
             pathname === "/settings"
-              ? "bg-[#0071e3]/10 text-[#0071e3] font-bold border border-[#0071e3]/20"
-              : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f2f2f7]"
+              ? "bg-[#1769E8]/10 text-[#1769E8] font-bold border border-[#1769E8]/20"
+              : "text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B]"
           }`}
         >
-          <Settings className={`w-4 h-4 flex-shrink-0 ${pathname === "/settings" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
+          <Settings className={`w-4 h-4 flex-shrink-0 ${pathname === "/settings" ? "text-[#1769E8]" : "text-[#667085] dark:text-[#A7B0BC]"}`} />
           {sidebarOpen && <span>Settings</span>}
         </Link>
       </div>
 
       {/* Collapse button for mini sidebar */}
       {!sidebarOpen && (
-        <div className="p-3 border-t border-[#e8e8ed] flex justify-center">
+        <div className="p-3 border-t border-black/[0.06] dark:border-white/[0.08] flex justify-center">
           <button
             onClick={toggleSidebar}
-            className="text-[#86868b] hover:text-[#1d1d1f] p-1.5 rounded-md hover:bg-[#f2f2f7]"
+            aria-label="Expand navigation sidebar"
+            className="text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] p-1.5 rounded-md hover:bg-black/[0.04] dark:hover:bg-[#08101B] cursor-pointer"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -267,14 +270,20 @@ export default function Sidebar() {
 
       {/* Footer Profile */}
       {sidebarOpen && (
-        <div className="p-3 border-t border-[#e8e8ed] bg-white flex items-center justify-between">
+        <div className="p-3 border-t border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-[#050A12] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full border border-[#e8e8ed] bg-[#0071e3] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
-              {userName.slice(0, 2).toUpperCase()}
-            </div>
+            <img
+              src={useOSStore.getState().selectedAvatar}
+              alt="User Avatar"
+              width={32}
+              height={32}
+              loading="lazy"
+              decoding="async"
+              className="w-8 h-8 rounded-full border border-[#1769E8]/30 object-cover flex-shrink-0 shadow-2xs"
+            />
             <div className="flex flex-col min-w-0">
-              <span className="text-[11px] font-bold text-[#1d1d1f] truncate">{userName}</span>
-              <span className="text-[10px] text-[#86868b] truncate font-semibold uppercase tracking-wider">{userRole}</span>
+              <span className="text-[11px] font-semibold text-[#111827] dark:text-[#F5F7FA] truncate">{userName}</span>
+              <span className="text-[10px] text-[#667085] dark:text-[#98A2B3] truncate font-semibold uppercase tracking-wider">{userRole === "EDITOR" ? "CREATOR" : userRole}</span>
             </div>
           </div>
         </div>

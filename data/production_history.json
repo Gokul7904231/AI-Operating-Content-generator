@@ -1,0 +1,254 @@
+[
+  {
+    "jobId": "job_2026-08-06_slot1_mswwx12k",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswwx12k_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:28:41.900Z",
+    "completedAt": "2026-08-17T07:28:53.683Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswwxa62",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswwxa62_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:28:53.690Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswx3i3u",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswx3i3u_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:33:43.914Z",
+    "completedAt": "2026-08-17T07:33:56.035Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswx3rgq",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswx3rgq_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:33:56.042Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswx7uk5",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswx7uk5_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:37:06.677Z",
+    "completedAt": "2026-08-17T07:37:17.723Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswx8337",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswx8337_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:37:17.731Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswxcf09",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswxcf09_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:40:39.801Z",
+    "completedAt": "2026-08-17T07:40:53.016Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswxcp7g",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswxcp7g_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T07:40:53.020Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswyy503",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswyy503_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:25:32.883Z",
+    "completedAt": "2026-08-17T08:25:45.007Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswyyecy",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswyyecy_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:25:45.010Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswz1u8a",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswz1u8a_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:28:25.546Z",
+    "completedAt": "2026-08-17T08:28:35.904Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswz2283",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswz2283_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:28:35.907Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswz80p8",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswz80p8_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:33:13.868Z",
+    "completedAt": "2026-08-17T08:33:21.975Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswz86yh",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswz86yh_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:33:21.977Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswzytjd",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswzytjd_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:54:04.297Z",
+    "completedAt": "2026-08-17T08:54:14.094Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_mswzz13n",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_mswzz13n_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:54:14.099Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx03gph",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx03gph_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:57:40.949Z",
+    "completedAt": "2026-08-17T08:57:52.058Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx03pa4",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx03pa4_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T08:57:52.060Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx077rv",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx077rv_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T09:00:35.995Z",
+    "completedAt": "2026-08-17T09:00:44.647Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx07ega",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx07ega_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T09:00:44.650Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx10xvf",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx10xvf_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T09:23:42.843Z",
+    "completedAt": "2026-08-17T09:23:57.490Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx1196t",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx1196t_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T09:23:57.509Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx2ujm2",
+    "date": "2026-08-06",
+    "topic": "French Revolution",
+    "status": "COMPLETED",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx2ujm2_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T10:14:43.659Z",
+    "completedAt": "2026-08-17T10:14:59.623Z"
+  },
+  {
+    "jobId": "job_2026-08-06_slot1_msx2uvxo",
+    "date": "2026-08-06",
+    "topic": "Ocean Deep",
+    "status": "DELIVERY_PENDING",
+    "guardianDecision": "PASS",
+    "videoPath": "C:\\Users\\ASUS\\OneDrive\\Desktop\\123\\aishorts\\data\\renders\\job_2026-08-06_slot1_msx2uvxo_render.mp4",
+    "deliveryMethod": "LOCAL_OUTBOX",
+    "createdAt": "2026-08-17T10:14:59.628Z"
+  }
+]

@@ -8,15 +8,10 @@ export const metadata = {
     icon: [
       {
         url: "/favicon-black.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/favicon-white.png",
-        media: "(prefers-color-scheme: dark)",
       },
     ],
-    shortcut: "/favicon-white.png",
-    apple: "/favicon-white.png",
+    shortcut: "/favicon-black.png",
+    apple: "/favicon-black.png",
   },
 };
 

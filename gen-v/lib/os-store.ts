@@ -16,6 +16,7 @@ interface OSState {
   selectedEngineId: string;
   selectedProfile: AIProfile;
   notificationsCount: number;
+  selectedAvatar: string;
   
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -27,6 +28,7 @@ interface OSState {
   setSelectedEngineId: (id: string) => void;
   setSelectedProfile: (profile: AIProfile) => void;
   setNotificationsCount: (count: number) => void;
+  setSelectedAvatar: (avatarUrl: string) => void;
 }
 
 export const useOSStore = create<OSState>((set) => ({
@@ -37,6 +39,7 @@ export const useOSStore = create<OSState>((set) => ({
   selectedEngineId: "quiz",
   selectedProfile: "Balanced",
   notificationsCount: 0,
+  selectedAvatar: "/avatars/factory-avatar-01.png",
 
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
@@ -48,4 +51,5 @@ export const useOSStore = create<OSState>((set) => ({
   setSelectedEngineId: (id) => set({ selectedEngineId: id }),
   setSelectedProfile: (profile) => set({ selectedProfile: profile }),
   setNotificationsCount: (count) => set({ notificationsCount: count }),
+  setSelectedAvatar: (avatarUrl) => set({ selectedAvatar: avatarUrl }),
 }));

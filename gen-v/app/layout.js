@@ -15,20 +15,20 @@ export const metadata = {
         media: "(prefers-color-scheme: dark)",
       },
     ],
-    shortcut: "/favicon-white.png",
-    apple: "/favicon-white.png",
+    shortcut: "/favicon-black.png",
+    apple: "/favicon-black.png",
   },
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" data-theme="dark" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon-black.png" media="(prefers-color-scheme: light)" />
         <link rel="icon" href="/favicon-white.png" media="(prefers-color-scheme: dark)" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
       </head>
-      <body className="bg-zinc-950 text-zinc-50 font-body-base antialiased h-screen w-full selection:bg-emerald-500/30" suppressHydrationWarning>
+      <body className="bg-[#f5f5f7] dark:bg-zinc-950 text-[#1d1d1f] dark:text-zinc-50 font-body-base antialiased min-h-screen w-full selection:bg-[#0071e3]/20" suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>

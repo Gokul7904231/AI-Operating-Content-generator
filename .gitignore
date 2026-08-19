@@ -69,7 +69,31 @@ temp/
 *.jpg
 *.png
 
-# archived documentation
+# Allow essential UI assets in public/
+!**/public/*.png
+!**/public/*.jpg
+!**/public/*.svg
+!**/public/avatars/*.png
+
+# generated test databases & renders
+data/renders/
+**/data/renders/
+data/test_*/
+**/data/test_*/
+data/voice-cache/
+**/data/voice-cache/
+data/scene-cache/
+**/data/scene-cache/
+*.db
+*.db-journal
+
+# development & audit tools
+.unlighthouse/
+**/.unlighthouse/
+.claude/
+**/.claude/
+.aider*
 used_artifacts/
 **/used_artifacts/
-
+used_artifact/
+**/used_artifact/
