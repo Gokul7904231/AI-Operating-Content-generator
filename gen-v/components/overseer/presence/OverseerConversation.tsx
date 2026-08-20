@@ -42,17 +42,18 @@ export const OverseerConversation: React.FC<OverseerConversationProps> = memo(({
   return (
     <div
       ref={containerRef}
-      className={`w-full max-h-[260px] sm:max-h-[300px] overflow-y-auto terminal-scroll px-2 py-2 space-y-3 select-text ${className}`}
+      className={`w-full max-w-2xl mx-auto max-h-[280px] sm:max-h-[320px] overflow-y-auto terminal-scroll px-2 py-2 space-y-3 select-text ${className}`}
       role="log"
       aria-label="Overseer Conversation Stream"
     >
-      {messages.map((msg) => {
+      {messages.map((msg, index) => {
         const isUser = msg.sender === "user";
         const isEvidenceOpen = Boolean(expandedEvidence[msg.id]);
+        const uniqueKey = msg.id ? `${msg.id}_${index}` : `msg_${index}_${Date.now()}`;
 
         return (
           <div
-            key={msg.id}
+            key={uniqueKey}
             className={`flex flex-col ${isUser ? "items-end" : "items-start"} animate-fade-in`}
           >
             {/* Identity & Timestamp Header */}

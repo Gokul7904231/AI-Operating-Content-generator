@@ -18,12 +18,17 @@ export interface UserAccount {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
+  adminExpiresAt?: string | null; // ISO timestamp string or null for permanent
+  proxyAdminGrantedBy?: string;
+  proxyAdminGrantedAt?: string;
 }
 
 export type SafeUser = Omit<UserAccount, "passwordHash" | "passwordSalt"> & {
   uid: string;
   active: boolean;
   disabled: boolean;
+  isProxyAdmin?: boolean;
+  isExpiredAdmin?: boolean;
 };
 
 export interface PasswordResetChallenge {
@@ -52,6 +57,11 @@ export interface AdminUser {
   createdAt: string;
   updatedAt: string;
   lastLogin?: string;
+  adminExpiresAt?: string | null;
+  proxyAdminGrantedBy?: string;
+  proxyAdminGrantedAt?: string;
+  isProxyAdmin?: boolean;
+  isExpiredAdmin?: boolean;
 }
 
 export interface AuthSession {
@@ -62,6 +72,7 @@ export interface AuthSession {
   disabled: boolean;
   issuedAt: number;
   expiresAt: number;
+  adminExpiresAt?: string | null;
 }
 
 export interface AuthState {

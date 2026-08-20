@@ -17,7 +17,11 @@ export class AuthService {
   /**
    * Client-Side Email/Password Login
    */
-  static async loginWithEmail(email: string, pass: string): Promise<AuthResponse<{ user: SafeUser | AdminUser }>> {
+  static async loginWithEmail(
+    email: string,
+    pass: string,
+    targetRole: "USER" | "ADMIN" = "USER"
+  ): Promise<AuthResponse<{ user: SafeUser | AdminUser }>> {
     if (!validateEmail(email)) {
       return { success: false, error: "Invalid email address format." };
     }
@@ -26,7 +30,7 @@ export class AuthService {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password: pass }),
+        body: JSON.stringify({ email: email.trim(), password: pass, targetRole }),
       });
 
       const data = await res.json();
@@ -87,7 +91,7 @@ export class AuthService {
   /**
    * Client-Side Google OAuth Login (Firebase popup + session cookie)
    */
-  static async loginWithGoogle(): Promise<AuthResponse<{ user: any; idToken?: string }>> {
+  static async loginWithGoogle(targetRole: "USER" | "ADMIN" = "USER"): Promise<AuthResponse<{ user: any; idToken?: string }>> {
     try {
       const credential = await signInWithPopup(auth, googleProvider);
       const idToken = await credential.user.getIdToken();
@@ -95,7 +99,7 @@ export class AuthService {
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, isGoogleLogin: true }),
+        body: JSON.stringify({ idToken, isGoogleLogin: true, targetRole }),
       });
 
       const data = await res.json();

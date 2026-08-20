@@ -35,11 +35,15 @@ if (!localUsersStore.has("mock_owner_uid")) {
  */
 export function toSafeUser(user: UserAccount): SafeUser {
   const { passwordHash, passwordSalt, ...rest } = user;
+  const isProxy = !!(user.role === "ADMIN" && user.adminExpiresAt);
+  const isExpired = !!(user.adminExpiresAt && new Date(user.adminExpiresAt).getTime() <= Date.now());
   return {
     ...rest,
     uid: user.id,
     active: user.status === "ACTIVE",
     disabled: user.status === "DISABLED",
+    isProxyAdmin: isProxy,
+    isExpiredAdmin: isExpired,
   };
 }
 
@@ -203,6 +207,67 @@ export class UserRepository {
 
     localUsersStore.set(id, { ...updated });
     return updated;
+  }
+
+  /**
+   * Grants or promotes an email address to ADMIN role with an optional expiration duration.
+   * If the user doesn't exist yet, creates an active placeholder so they get admin access upon first registration/login.
+   */
+  static async grantAdminRole(params: {
+    email: string;
+    durationMs?: number | null;
+    grantedBy?: string;
+  }): Promise<UserAccount> {
+    const cleanEmail = normalizeEmail(params.email);
+    if (!cleanEmail) throw new Error("A valid email address is required.");
+
+    const now = new Date().toISOString();
+    const adminExpiresAt = params.durationMs ? new Date(Date.now() + params.durationMs).toISOString() : null;
+
+    const existing = await this.findByNormalizedEmail(cleanEmail);
+    if (existing) {
+      const updated = await this.update(existing.id, {
+        role: "ADMIN",
+        adminExpiresAt,
+        proxyAdminGrantedBy: params.grantedBy || "system",
+        proxyAdminGrantedAt: now,
+      });
+      return updated!;
+    }
+
+    // Create new placeholder account with pre-granted admin role
+    const newUser = await this.create({
+      email: cleanEmail,
+      name: cleanEmail.split("@")[0],
+      passwordHash: "", // Will be set upon explicit registration
+      passwordSalt: "",
+      role: "ADMIN",
+      status: "ACTIVE",
+    });
+
+    const updated = await this.update(newUser.id, {
+      adminExpiresAt,
+      proxyAdminGrantedBy: params.grantedBy || "system",
+      proxyAdminGrantedAt: now,
+    });
+
+    return updated!;
+  }
+
+  /**
+   * Revokes admin role and reverts user account to basic USER role.
+   */
+  static async revokeAdminRole(uidOrEmail: string): Promise<UserAccount | null> {
+    let user = await this.findById(uidOrEmail);
+    if (!user) {
+      user = await this.findByNormalizedEmail(uidOrEmail);
+    }
+    if (!user) return null;
+
+    return this.update(user.id, {
+      role: "USER",
+      adminExpiresAt: null,
+    });
   }
 
   /**

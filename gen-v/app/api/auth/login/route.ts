@@ -4,11 +4,12 @@ import { verifyPassword, hashPassword } from "@/lib/auth/password-hasher";
 import { createSessionForUserAccount } from "@/lib/auth/session";
 import { RateLimiter, AUTH_RATE_LIMITS } from "@/lib/auth/rate-limiter";
 import { logAuthEvent } from "@/lib/auth/audit-logger";
+import { isEffectiveAdmin } from "@/lib/auth/roles";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, targetRole } = body;
 
     const ipAddress = request.headers.get("x-forwarded-for") || "127.0.0.1";
     const userAgent = request.headers.get("user-agent") || "Unknown";
@@ -104,6 +105,37 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    // 4.5. Admin Portal Access Gate Check
+    if (targetRole === "ADMIN") {
+      const isAllowedAdmin = isEffectiveAdmin(user);
+
+      if (!isAllowedAdmin) {
+        const isExpired = user.role === "ADMIN" && user.adminExpiresAt && new Date(user.adminExpiresAt).getTime() <= Date.now();
+        const errorMsg = isExpired
+          ? "Access denied! Your temporary administrator privileges have expired. Contact the system Owner."
+          : "Access denied! Administrator privileges required.";
+
+        await logAuthEvent({
+          eventType: "LOGIN_FAILURE",
+          uid: user.id,
+          email: user.email,
+          role: user.role,
+          ipAddress,
+          userAgent,
+          details: { reason: "Admin portal access denied", isExpired },
+        });
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: errorMsg,
+            code: isExpired ? "ADMIN_EXPIRED" : "ACCESS_DENIED",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // 5. Clear failed attempt rate limiting counter upon success

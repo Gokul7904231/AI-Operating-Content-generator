@@ -148,6 +148,8 @@ const mockCollection = (name: string) => {
   };
 };
 
+let mockTransactionQueue: Promise<any> = Promise.resolve();
+
 export const db = (admin.apps.length
   ? admin.firestore()
   : {
@@ -156,6 +158,26 @@ export const db = (admin.apps.length
         update: () => {},
         commit: async () => {},
       }),
+      runTransaction: async (updateFunction: (transaction: any) => Promise<any>) => {
+        const prev = mockTransactionQueue;
+        let resolveNext: (value?: any) => void;
+        mockTransactionQueue = new Promise((resolve) => {
+          resolveNext = resolve;
+        });
+
+        await prev;
+        try {
+          const transaction = {
+            get: async (docRef: any) => docRef.get(),
+            set: (docRef: any, data: any, options?: any) => docRef.set(data, options),
+            update: (docRef: any, data: any) => docRef.set(data, { merge: true }),
+            delete: (docRef: any) => docRef.delete(),
+          };
+          return await updateFunction(transaction);
+        } finally {
+          resolveNext!();
+        }
+      },
     }) as unknown as admin.firestore.Firestore;
 
 export const bucket = (admin.apps.length

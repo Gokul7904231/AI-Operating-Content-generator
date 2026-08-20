@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { AdminGuard } from "@/lib/auth/guards";
 
 interface StepMetric {
   step: string;
@@ -255,6 +256,7 @@ export default function ProfilerPage() {
   const failedJobs = jobs.filter((j) => j.status === "failed").length;
 
   return (
+    <AdminGuard>
     <div className="min-h-screen bg-zinc-950 p-6 space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -330,5 +332,6 @@ export default function ProfilerPage() {
         </div>
       )}
     </div>
+    </AdminGuard>
   );
 }

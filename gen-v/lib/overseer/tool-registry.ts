@@ -24,17 +24,24 @@ const TOOLS_CATALOG: OverseerTool[] = [
   {
     id: "getUserQuota",
     name: "Get User Quota",
-    description: "Retrieves AI credit quota usage and remaining limits.",
+    description: "Retrieves video generation quota usage and remaining limits.",
     inputSchema: { type: "object", properties: {} },
     requiredRole: "VIEWER",
     riskLevel: "READ",
     confirmationRequired: false,
     handler: async (_, ctx) => {
-      const isAdmin = ctx.user.role === "OWNER" || ctx.user.role === "ADMIN";
+      const { getUserQuota } = await import("../quota/quota-service");
+      const quota = await getUserQuota(ctx.user.uid, ctx.user.role);
       return {
-        usedCredits: isAdmin ? 0 : 72,
-        maxCredits: isAdmin ? "UNLIMITED (∞)" : 100,
-        remainingPercent: isAdmin ? 100 : 28,
+        limit: quota.limit,
+        completed: quota.completed,
+        reserved: quota.reserved,
+        remaining: quota.remaining,
+        isUnlimited: quota.isUnlimited,
+        isExceeded: quota.isExceeded,
+        message: quota.isUnlimited
+          ? "Unlimited Admin Video Generation"
+          : `You have generated ${quota.completed} of ${quota.limit} videos (${quota.remaining} remaining slots).`,
       };
     },
   },

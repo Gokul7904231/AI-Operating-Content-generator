@@ -20,9 +20,27 @@ export function isOwnerUser(role?: UserRole | string | null): boolean {
   return role === "OWNER";
 }
 
-export function isAdminUser(role?: UserRole | string | null): boolean {
-  if (!role) return false;
-  return role === "OWNER" || role === "ADMIN";
+/**
+ * Checks if a user has active Admin or Owner authority, taking time-limited proxy admin expiration into account.
+ */
+export function isEffectiveAdmin(user?: { role?: UserRole | string | null; adminExpiresAt?: string | null } | null): boolean {
+  if (!user || !user.role) return false;
+  if (user.role === "OWNER") return true;
+  if (user.role === "ADMIN") {
+    if (user.adminExpiresAt) {
+      return new Date(user.adminExpiresAt).getTime() > Date.now();
+    }
+    return true;
+  }
+  return false;
+}
+
+export function isAdminUser(userOrRole?: { role?: UserRole | string | null; adminExpiresAt?: string | null } | UserRole | string | null): boolean {
+  if (!userOrRole) return false;
+  if (typeof userOrRole === "object") {
+    return isEffectiveAdmin(userOrRole);
+  }
+  return userOrRole === "OWNER" || userOrRole === "ADMIN";
 }
 
 export function isBasicUser(role?: UserRole | string | null): boolean {
@@ -39,3 +57,9 @@ export function isViewerUser(role?: UserRole | string | null): boolean {
   if (!role) return false;
   return role === "VIEWER";
 }
+
+export function canWrite(role?: UserRole | string | null): boolean {
+  if (!role) return false;
+  return role !== "VIEWER";
+}
+

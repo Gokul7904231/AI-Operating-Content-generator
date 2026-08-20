@@ -5,6 +5,7 @@ import {
   Mic, Activity, CheckCircle2, AlertTriangle, Play, RefreshCw,
   Sliders, Cpu, Database, Sparkles, Volume2, ShieldAlert
 } from "lucide-react";
+import { AdminGuard } from "@/lib/auth/guards";
 
 interface ProviderRow {
   id: string;
@@ -114,6 +115,7 @@ export default function VoiceRegistryDashboard() {
   };
 
   return (
+    <AdminGuard>
     <div className="flex-grow p-8 bg-zinc-950 text-zinc-100 min-h-screen overflow-y-auto">
       <div className="max-w-7xl mx-auto space-y-8">
         
@@ -269,34 +271,38 @@ export default function VoiceRegistryDashboard() {
               </div>
             </div>
 
-            {/* Benchmarking History */}
-            <div className="lg:col-span-3 space-y-6">
-              <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Database className="w-4 h-4 text-emerald-400" /> Diagnostic Benchmarks Registry
-              </h2>
+            {/* SECTION 3: Recent Telemetry Benchmarks Table */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-400" />
+                  Historical Latency & RTF Benchmarks
+                </h2>
+                <span className="text-xs text-zinc-600 font-mono">Last 50 executions</span>
+              </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-xl">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-850 bg-zinc-900/50 text-zinc-400 text-[10px] font-black uppercase tracking-wider">
-                      <th className="p-3">PROVIDER</th>
-                      <th className="p-3">LATENCY</th>
-                      <th className="p-3">COLD START</th>
-                      <th className="p-3">WARM START</th>
-                      <th className="p-3">WORDS/SEC</th>
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden shadow-xl max-h-64 overflow-y-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[10px] sticky top-0">
+                    <tr>
+                      <th className="p-3">Provider</th>
+                      <th className="p-3">Voice ID</th>
+                      <th className="p-3">Total Latency</th>
+                      <th className="p-3">Cold Start</th>
+                      <th className="p-3">Speed</th>
                       <th className="p-3">RTF</th>
-                      <th className="p-3">CPU %</th>
-                      <th className="p-3">MEM</th>
-                      <th className="p-3 text-right">TIMESTAMP</th>
+                      <th className="p-3">CPU</th>
+                      <th className="p-3">RAM</th>
+                      <th className="p-3 text-right">Timestamp</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-850 text-[11px] font-mono text-zinc-300">
+                  <tbody className="divide-y divide-zinc-800/60 text-zinc-300 text-[11px]">
                     {history.map((h) => (
-                      <tr key={h.id} className="hover:bg-zinc-950/20 transition-colors">
-                        <td className="p-3 font-bold text-zinc-200 capitalize">{h.provider_id}</td>
+                      <tr key={h.id} className="hover:bg-zinc-850/30">
+                        <td className="p-3 font-bold text-zinc-200">{h.provider_id}</td>
+                        <td className="p-3 text-zinc-400">{h.voice_id}</td>
                         <td className="p-3">{h.latency_ms}ms</td>
                         <td className="p-3">{h.cold_start_ms}ms</td>
-                        <td className="p-3">{h.warm_start_ms}ms</td>
                         <td className="p-3">{h.words_per_sec} w/s</td>
                         <td className="p-3">{h.rtf}</td>
                         <td className="p-3">{h.cpu_pct}%</td>
@@ -307,7 +313,7 @@ export default function VoiceRegistryDashboard() {
                     {history.length === 0 && (
                       <tr>
                         <td colSpan={9} className="p-8 text-center text-zinc-650 text-xs italic">
-                          No benchmarking records logged in SQLite. Trigger diagnostics to generate records.
+                          No benchmarking records logged in SQLite.
                         </td>
                       </tr>
                     )}
@@ -321,5 +327,6 @@ export default function VoiceRegistryDashboard() {
 
       </div>
     </div>
+    </AdminGuard>
   );
 }

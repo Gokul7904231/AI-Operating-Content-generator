@@ -73,44 +73,34 @@ export default function DashboardPage() {
 
   const activeQueuedCount = (queues?.storageQueue?.length ?? 0) + (queues?.publisherQueue?.length ?? 0);
 
+  // 1. 🌟 BASIC USER EXPERIENCE: OVERSEER + CREATOR WORKSPACE
+  if (!isAdmin) {
+    return (
+      <div id="overseer-basic-user-workspace" className="space-y-10 max-w-7xl mx-auto pb-16 select-none font-sans">
+        {/* UNIFIED LIVING OVERSEER PRESENCE */}
+        <section className="relative w-full">
+          <OverseerPresenceView isDashboardEmbedded={true} />
+        </section>
+
+        {/* BASIC USER CREATOR DASHBOARD WITH 5-VIDEO QUOTA */}
+        <div className="pt-4 border-t border-black/[0.06] dark:border-white/[0.08]">
+          <BasicUserDashboard userRole={userRole} userEmail={userEmail} />
+        </div>
+      </div>
+    );
+  }
+
+  // 2. 🛡️ ADMINISTRATIVE OPERATIONAL COMMAND CENTER (ADMIN & OWNER)
   return (
     <div id="overseer-command-center" className="space-y-10 max-w-7xl mx-auto pb-16 select-none font-sans">
-      {/* 1. 🌟 UNIFIED LIVING OVERSEER COMMAND CENTER (PRIMARY FOCAL POINT ON LOAD) */}
+      {/* UNIFIED LIVING OVERSEER COMMAND CENTER */}
       <section className="relative w-full">
         <OverseerPresenceView isDashboardEmbedded={true} />
       </section>
 
-      {/* 2. 🟢 BELOW THE FOLD: ROLE-AWARE SECONDARY FACTORY INFORMATION */}
+      {/* BELOW THE FOLD: ADMINISTRATIVE TELEMETRY TIER */}
       <div className="pt-4 border-t border-black/[0.06] dark:border-white/[0.08] space-y-8">
-        
-        {/* BASIC USER EXPERIENCE TIER (CREATOR & VIEWER ROLES) */}
-        {!isAdmin && (
-          <section className="space-y-8">
-            {/* 9-Stage Content Generation Pipeline */}
-            <div className="bg-white dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-6 shadow-2xs">
-              <div className="flex justify-between items-center border-b border-black/[0.04] dark:border-white/[0.08] pb-3 mb-4">
-                <h3 className="text-xs font-bold text-[#111827] dark:text-[#F5F7FA] uppercase tracking-widest font-mono">
-                  9-Stage Content Generation Pipeline
-                </h3>
-                <span className="text-[10px] text-[#667085] dark:text-[#A7B0BC] font-mono">Source: FactoryOS Swarms</span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono font-bold text-[#667085] dark:text-[#A7B0BC] bg-black/[0.02] dark:bg-[#050A12] border border-black/[0.04] dark:border-white/[0.06] p-4 rounded-xl">
-                {["Topic", "Script", "Guardian", "Voice", "Assets", "Renderer", "Validation", "Upload", "Publish"].map((stage, idx, arr) => (
-                  <React.Fragment key={stage}>
-                    <span className={`px-2.5 py-1 rounded-lg ${idx <= (jobsSummary.running > 0 ? 5 : 8) ? "bg-[#179E69]/10 dark:bg-[#21C58B]/10 text-[#179E69] dark:text-[#21C58B] border border-[#179E69]/20 dark:border-[#21C58B]/20" : "bg-black/[0.04] dark:bg-[#0D1622] text-[#98A2B3] dark:text-[#667085] border border-black/[0.04] dark:border-white/[0.06]"}`}>
-                      {stage}
-                    </span>
-                    {idx < arr.length - 1 && <span className="text-[#98A2B3] dark:text-[#667085]">➔</span>}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ADMINISTRATIVE TELEMETRY TIER (ADMIN & OWNER ROLES) */}
-        {isAdmin && (
-          <section className="space-y-8">
+        <section className="space-y-8">
             {/* Live 9-Point System Status Layer Header */}
             <div className="bg-white dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-5 relative overflow-hidden shadow-2xs backdrop-blur-md">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-black/[0.04] dark:border-white/[0.08] pb-4 mb-4">
@@ -275,7 +265,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </section>
-        )}
 
       </div>
     </div>

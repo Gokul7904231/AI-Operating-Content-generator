@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Cpu, DollarSign, Clock, ShieldAlert, CheckCircle2 } from "lucide-react";
 
+import { AdminGuard } from "@/lib/auth/guards";
+
 interface CapabilityRow {
   capability: string;
   provider: string;
@@ -72,6 +74,7 @@ export default function CapabilitiesInspectorPage() {
   }, []);
 
   return (
+    <AdminGuard>
     <div className="flex-1 p-8 overflow-y-auto bg-zinc-950 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
@@ -139,5 +142,6 @@ export default function CapabilitiesInspectorPage() {
         )}
       </div>
     </div>
+    </AdminGuard>
   );
 }

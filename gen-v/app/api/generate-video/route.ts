@@ -89,26 +89,35 @@ function validateQuizContent(quiz: { hook?: string; questions?: any[] }) {
 }
 
 import { verifySession, verifyWritePermission } from "../../../lib/auth/auth";
+import { reserveGenerationSlot, releaseGenerationSlot, QuotaExceededError } from "../../../lib/quota/quota-service";
 
 export async function POST(req: Request) {
+  let userId = "";
+  let jobId = "";
   try {
-    let userId = "anonymous";
+    let authenticatedUser: any = null;
     try {
       const { user } = await verifySession(req);
-      userId = user.uid;
+      authenticatedUser = user;
       verifyWritePermission(user);
     } catch (err: any) {
       if (err.message?.includes("Read-only access") || err.status === 403) {
         return NextResponse.json({ error: err.message }, { status: 403 });
       }
-      // If auth fails/missing, check Clerk auth fallback
       try {
         const authResult = await auth();
         if (authResult?.userId) {
-          userId = authResult.userId;
+          authenticatedUser = { uid: authResult.userId, role: "USER" };
         }
       } catch {}
     }
+
+    if (!authenticatedUser) {
+      return NextResponse.json({ error: "Unauthorized. Please log in to generate videos." }, { status: 401 });
+    }
+
+    userId = authenticatedUser.uid;
+    const userRole = authenticatedUser.role || "USER";
 
     const body = await req.json();
     const parsed = GenerateVideoRequestSchema.safeParse(body);
@@ -119,7 +128,25 @@ export async function POST(req: Request) {
       );
     }
 
-    const jobId = `job_${crypto.randomBytes(8).toString("hex")}`;
+    jobId = `job_${crypto.randomBytes(8).toString("hex")}`;
+
+    // 🔒 Concurrency-Safe Server-Authoritative 5-Video Hard Limit Reservation
+    try {
+      await reserveGenerationSlot(userId, userRole, jobId);
+    } catch (quotaErr: any) {
+      if (quotaErr instanceof QuotaExceededError || quotaErr.name === "QuotaExceededError") {
+        return NextResponse.json(
+          {
+            error: quotaErr.message,
+            quota: quotaErr.quotaInfo,
+            code: "QUOTA_EXCEEDED",
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaErr;
+    }
+
     let finalPayload: any = null;
 
     // Clamp duration to YouTube Shorts range (30–60 s)
@@ -298,6 +325,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ jobId, videoId: jobId, status: "queued" });
   } catch (err: any) {
+    if (userId && jobId) {
+      try {
+        await releaseGenerationSlot(userId, jobId);
+      } catch {}
+    }
     return NextResponse.json(
       { error: err?.message ?? "Failed to generate video" },
       { status: 500 }

@@ -7,17 +7,31 @@ import { EventBus } from "@/ai/event-bus";
 import { MetricsDB } from "@/lib/queue-db";
 import { StorageQueue } from "@/storage/upload-queue";
 import { PublisherQueue } from "@/publishing/publisher-queue";
+import { verifySession } from "@/lib/auth/auth";
+import { isAdminUser } from "@/lib/auth/roles";
 import os from "os";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // 1. Fetch Video Jobs from Firestore
+    let authenticatedUser: any = null;
+    try {
+      const { user } = await verifySession(request);
+      authenticatedUser = user;
+    } catch {
+      // Graceful fallback for unauthenticated session probes
+    }
+
+    // 1. Fetch Video Jobs from Firestore with strict role-based data isolation
     let jobs: any[] = [];
     try {
-      const snapshot = await db.collection("videos").orderBy("createdAt", "desc").limit(50).get();
-      jobs = snapshot.docs.map((doc) => {
+      let query: any = db.collection("videos");
+      if (authenticatedUser && !isAdminUser(authenticatedUser.role)) {
+        query = query.where("userId", "==", authenticatedUser.uid);
+      }
+      const snapshot = await query.orderBy("createdAt", "desc").limit(50).get();
+      jobs = snapshot.docs.map((doc: any) => {
         const data = doc.data();
         return {
           id: doc.id,

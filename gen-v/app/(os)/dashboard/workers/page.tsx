@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AdminGuard } from "@/lib/auth/guards";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -168,6 +169,7 @@ export default function WorkersDashboard() {
   const { storage, publisher, charts } = data;
 
   return (
+    <AdminGuard>
     <div className="space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -340,6 +342,7 @@ export default function WorkersDashboard() {
         </div>
       )}
     </div>
+    </AdminGuard>
   );
 }
 

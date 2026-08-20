@@ -1,123 +1,103 @@
 "use client";
 
 import React, { useState, useEffect, useRef, memo } from "react";
-import { Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Mic, MicOff } from "lucide-react";
 import type { VoiceState } from "@/factoryos/core/overseer/presence";
+import { OverseerVoiceEngine } from "./OverseerVoiceEngine";
 
 interface OverseerVoiceProps {
-  voiceState: VoiceState;
-  onTranscriptReady: (transcript: string) => void;
-  onSpeechStart?: () => void;
-  onSpeechEnd?: () => void;
+  voiceState?: VoiceState;
+  onDictateTranscript?: (transcript: string) => void;
+  onTranscriptReady?: (transcript: string) => void;
   accentColor?: string;
   className?: string;
 }
 
 export const OverseerVoice: React.FC<OverseerVoiceProps> = memo(({
-  voiceState,
+  onDictateTranscript,
   onTranscriptReady,
-  onSpeechStart,
-  onSpeechEnd,
-  accentColor = "#1677FF",
   className = "",
 }) => {
   const [isListening, setIsListening] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const engineRef = useRef<OverseerVoiceEngine | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const engine = new OverseerVoiceEngine({
+      onListeningStart: () => {
+        setIsListening(true);
+      },
+      onListeningEnd: () => {
+        setIsListening(false);
+      },
+      onInterimTranscript: (text) => {
+        (onDictateTranscript || onTranscriptReady)?.(text);
+      },
+      onFinalTranscript: (text) => {
+        (onDictateTranscript || onTranscriptReady)?.(text);
+        setIsListening(false);
+      },
+      onError: () => {
+        setIsListening(false);
+      },
+    });
 
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = "en-US";
+    engineRef.current = engine;
 
-        recognition.onstart = () => {
-          setIsListening(true);
-          onSpeechStart?.();
-        };
-
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          if (transcript) {
-            onTranscriptReady(transcript);
-          }
-        };
-
-        recognition.onerror = (e: any) => {
-          console.warn("[OverseerVoice] Speech recognition error:", e);
-          setIsListening(false);
-          onSpeechEnd?.();
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-          onSpeechEnd?.();
-        };
-
-        recognitionRef.current = recognition;
+    // Keyboard shortcut: Ctrl + Shift + D
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        toggleListening();
       }
-    }
-  }, [onTranscriptReady, onSpeechStart, onSpeechEnd]);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      engine.stopListening();
+    };
+  }, [onDictateTranscript, onTranscriptReady]);
 
   const toggleListening = () => {
+    if (!engineRef.current) return;
     if (isListening) {
-      recognitionRef.current?.stop();
+      engineRef.current.stopListening();
       setIsListening(false);
     } else {
-      // Barge-in: Cancel any active speech synthesis
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      try {
-        recognitionRef.current?.start();
-        setIsListening(true);
-      } catch (err) {
-        console.warn("[OverseerVoice] Failed to start recognition:", err);
-      }
+      setIsListening(true);
+      engineRef.current.startDictation();
     }
-  };
-
-  const toggleMute = () => {
-    if (!isMuted && typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsMuted(!isMuted);
   };
 
   return (
-    <div className={`flex items-center gap-1.5 ${className}`}>
-      {/* Microphone Toggle Button */}
+    <div className={`relative flex items-center ${className}`}>
       <button
         type="button"
         onClick={toggleListening}
-        aria-label={isListening ? "Stop listening" : "Talk to Overseer (Voice Mode)"}
-        className={`relative flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 border cursor-pointer ${
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        aria-label={isListening ? "Stop voice input" : "Start voice input (Ctrl + Shift + D)"}
+        className={`relative flex items-center justify-center w-8 h-8 rounded-full transition-all duration-150 cursor-pointer ${
           isListening
-            ? "bg-[#1769E8]/20 border-[#1769E8] text-[#1769E8] shadow-[0_0_12px_rgba(23,105,232,0.35)] animate-pulse"
-            : "bg-black/[0.04] dark:bg-[#0D1622] border-black/[0.06] dark:border-white/[0.08] text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.08] dark:hover:bg-[#121E30]"
+            ? "bg-[#1677FF]/20 text-[#1677FF] border border-[#1677FF] shadow-[0_0_12px_rgba(22,119,255,0.4)] animate-pulse"
+            : "text-[#667085] dark:text-[#A8B2C1] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
         }`}
       >
-        <Mic className="w-4 h-4" />
-      </button>
-
-      {/* Mute Audio Toggle Button */}
-      <button
-        type="button"
-        onClick={toggleMute}
-        aria-label={isMuted ? "Unmute Overseer Voice" : "Mute Overseer Voice"}
-        className="flex items-center justify-center w-7 h-7 rounded-full bg-black/[0.04] dark:bg-[#0D1622] border border-black/[0.06] dark:border-white/[0.08] text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] transition-colors cursor-pointer"
-      >
-        {isMuted ? (
-          <VolumeX className="w-3.5 h-3.5 text-[#FF5964]" />
+        {isListening ? (
+          <Mic className="w-4 h-4 text-[#1677FF]" />
         ) : (
-          <Volume2 className="w-3.5 h-3.5" />
+          <Mic className="w-4 h-4" />
         )}
       </button>
+
+      {/* Tooltip */}
+      {showTooltip && (
+        <div className="absolute bottom-full mb-2 right-0 px-2.5 py-1 rounded-lg bg-[#0F172A] text-white text-[11px] font-sans font-medium whitespace-nowrap shadow-lg z-50 pointer-events-none flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100 border border-white/10">
+          <span>{isListening ? "Listening..." : "Voice Input"}</span>
+          <span className="px-1 py-0.5 rounded bg-white/15 text-[9px] font-mono text-white/80">Ctrl + Shift + D</span>
+        </div>
+      )}
     </div>
   );
 });

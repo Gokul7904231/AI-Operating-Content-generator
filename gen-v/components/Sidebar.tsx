@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useOSStore } from "@/lib/os-store";
 import { useFactoryStore } from "@/lib/factory-store";
-import { ROUTE_SECTIONS, type RouteEntry } from "@/lib/core/RouteRegistry";
+import { ROUTE_SECTIONS, getNavigationForRole, type RouteEntry } from "@/lib/core/RouteRegistry";
 
 // Icon map — resolves string icon names from RouteRegistry to Lucide components
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -64,12 +64,7 @@ export default function Sidebar() {
       .catch(() => {});
   }, [initSSE, fetchState]);
 
-  const isAdmin = userRole === "OWNER" || userRole === "ADMIN";
-
-  const visibleSections = ROUTE_SECTIONS.filter((section) => {
-    if (section.id === "sre" && !isAdmin) return false;
-    return true;
-  });
+  const visibleSections = getNavigationForRole(userRole);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
     Object.fromEntries(

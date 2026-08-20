@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSessionFromIdToken, destroySession } from "@/lib/auth/session";
 import { verifySession } from "@/lib/auth/auth";
+import { isEffectiveAdmin } from "@/lib/auth/roles";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { idToken, isGoogleLogin } = body;
+    const { idToken, isGoogleLogin, targetRole } = body;
 
     if (!idToken || typeof idToken !== "string") {
       return NextResponse.json({ success: false, error: "idToken is required" }, { status: 400 });
@@ -15,6 +16,19 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get("user-agent") || "Unknown";
 
     const { cookieHeader, user } = await createSessionFromIdToken(idToken, !!isGoogleLogin, ipAddress, userAgent);
+
+    if (targetRole === "ADMIN") {
+      if (!isEffectiveAdmin(user)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Access denied! Google account is not an authorized administrator.",
+            code: "ACCESS_DENIED",
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const response = NextResponse.json({ success: true, user });
     response.headers.set("Set-Cookie", cookieHeader);

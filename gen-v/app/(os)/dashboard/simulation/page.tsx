@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, AlertTriangle, RefreshCw, Layers, ShieldAlert, Cpu, Activity, Info, BarChart3, Database } from "lucide-react";
+import { AdminGuard } from "@/lib/auth/guards";
 
 const SimulationChart = dynamic(() => import("@/components/charts/SimulationChart"), { ssr: false });
 
@@ -120,6 +121,7 @@ export default function SimulationDashboard() {
   };
 
   return (
+    <AdminGuard>
     <div className="flex-1 p-6 overflow-y-auto bg-zinc-950 text-zinc-50 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
         
@@ -319,10 +321,6 @@ export default function SimulationDashboard() {
                 <span className="font-bold text-emerald-400">94% (High score prediction)</span>
               </div>
               <div className="flex justify-between border-b border-zinc-800/60 pb-2">
-                <span className="text-zinc-500">Reasons</span>
-                <span className="text-zinc-400 text-right">Lowest SCRIPT Latency, Verified format parser</span>
-              </div>
-              <div className="flex justify-between border-b border-zinc-800/60 pb-2">
                 <span className="text-zinc-500">Estimated Cost</span>
                 <span className="font-mono text-zinc-200">${(0.0012).toFixed(4)}</span>
               </div>
@@ -344,5 +342,6 @@ export default function SimulationDashboard() {
 
       </div>
     </div>
+    </AdminGuard>
   );
 }

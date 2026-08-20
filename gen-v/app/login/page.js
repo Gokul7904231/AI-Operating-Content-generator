@@ -6,6 +6,9 @@ import { AuthService } from "@/lib/auth/AuthService";
 import { formatAuthErrorMessage } from "@/lib/auth/errors";
 
 function AuthContainerContent() {
+  // portalType: "user" | "admin"
+  const [portalType, setPortalType] = useState("user");
+
   // authMode: "signin" | "signup" | "forgot_email" | "forgot_otp" | "forgot_password"
   const [authMode, setAuthMode] = useState("signin");
 
@@ -38,6 +41,15 @@ function AuthContainerContent() {
     setSuccessMsg("");
   };
 
+  const switchPortal = (type) => {
+    setPortalType(type);
+    if (type === "admin") {
+      setAuthMode("signin"); // Admins can only sign in
+    }
+    setError("");
+    setSuccessMsg("");
+  };
+
   // Sign In Handler
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -45,24 +57,32 @@ function AuthContainerContent() {
     setError("");
     setSuccessMsg("");
 
+    const targetRole = portalType === "admin" ? "ADMIN" : "USER";
+
     try {
-      const res = await AuthService.loginWithEmail(email, password);
+      const res = await AuthService.loginWithEmail(email, password, targetRole);
 
       if (!res.success) {
-        setError(res.error || "Invalid email or password.");
+        setError(res.error || (portalType === "admin" ? "Access denied! Administrator privileges required." : "Invalid email or password."));
         setLoading(false);
         return;
       }
 
-      setSuccessMsg("Authentication verified. Redirecting to control plane...");
-      let redirectTo = searchParams?.get("redirect") || "/dashboard";
-      if (redirectTo === "/admin" || redirectTo === "/login") {
-        redirectTo = "/dashboard";
+      if (portalType === "admin") {
+        setSuccessMsg("✓ Administrator clearance verified. Redirecting to Admin Console...");
+        setTimeout(() => {
+          router.push("/admin/users");
+        }, 600);
+      } else {
+        setSuccessMsg("Authentication verified. Redirecting to workspace...");
+        let redirectTo = searchParams?.get("redirect") || "/dashboard";
+        if (redirectTo === "/admin" || redirectTo === "/login") {
+          redirectTo = "/dashboard";
+        }
+        setTimeout(() => {
+          router.push(redirectTo);
+        }, 600);
       }
-
-      setTimeout(() => {
-        router.push(redirectTo);
-      }, 600);
     } catch (err) {
       setError(formatAuthErrorMessage(err));
       setLoading(false);
@@ -106,24 +126,32 @@ function AuthContainerContent() {
     setError("");
     setSuccessMsg("");
 
+    const targetRole = portalType === "admin" ? "ADMIN" : "USER";
+
     try {
-      const res = await AuthService.loginWithGoogle();
+      const res = await AuthService.loginWithGoogle(targetRole);
 
       if (!res.success) {
-        setError(res.error || "Google authentication failed or was cancelled.");
+        setError(res.error || (portalType === "admin" ? "Access denied! Google account is not an authorized administrator." : "Google authentication failed."));
         setGoogleLoading(false);
         return;
       }
 
-      setSuccessMsg("Google account authorized. Redirecting to dashboard...");
-      let redirectTo = searchParams?.get("redirect") || "/dashboard";
-      if (redirectTo === "/admin" || redirectTo === "/login") {
-        redirectTo = "/dashboard";
+      if (portalType === "admin") {
+        setSuccessMsg("✓ Administrator clearance verified. Redirecting to Admin Console...");
+        setTimeout(() => {
+          router.push("/admin/users");
+        }, 600);
+      } else {
+        setSuccessMsg("Google account authorized. Redirecting to dashboard...");
+        let redirectTo = searchParams?.get("redirect") || "/dashboard";
+        if (redirectTo === "/admin" || redirectTo === "/login") {
+          redirectTo = "/dashboard";
+        }
+        setTimeout(() => {
+          router.push(redirectTo);
+        }, 600);
       }
-
-      setTimeout(() => {
-        router.push(redirectTo);
-      }, 600);
     } catch (err) {
       setError(formatAuthErrorMessage(err));
       setGoogleLoading(false);
@@ -231,16 +259,64 @@ function AuthContainerContent() {
       <main className="w-full max-w-[480px] relative z-20">
         <div className="rounded-3xl p-10 sm:p-14 lg:p-16 flex flex-col gap-7 relative overflow-hidden bg-white/90 backdrop-blur-2xl border border-[#d2d2d7] shadow-xl">
           
+          {/* User vs Admin Segmented Control Switcher */}
+          {!isForgotFlow && (
+            <div className="w-full bg-[#e5e5ea] p-1 rounded-2xl flex items-center gap-1 border border-[#d2d2d7] shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]">
+              <button
+                type="button"
+                onClick={() => switchPortal("user")}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  portalType === "user"
+                    ? "bg-white text-[#1d1d1f] shadow-sm font-bold"
+                    : "text-[#6e6e73] hover:text-[#1d1d1f]"
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span>Basic User</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchPortal("admin")}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  portalType === "admin"
+                    ? "bg-[#1d1d1f] text-white shadow-md font-bold"
+                    : "text-[#6e6e73] hover:text-[#1d1d1f]"
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span>Admin Portal</span>
+              </button>
+            </div>
+          )}
+
           {/* Header Section */}
           <div className="flex flex-col items-center text-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-[#0071e3]/20 flex items-center justify-center mb-2 shadow-sm p-2.5 overflow-hidden">
+            <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-[#0071e3]/20 flex items-center justify-center mb-1 shadow-sm p-2.5 overflow-hidden">
               <img src="/favicon-black.png" alt="FactoryOS Logo" className="w-full h-full object-contain" />
             </div>
 
+            {portalType === "admin" && !isForgotFlow && (
+              <span className="px-3 py-1 rounded-full bg-[#0071e3]/10 text-[#0071e3] border border-[#0071e3]/20 font-bold text-[10px] tracking-wider uppercase">
+                Restricted Admin Access
+              </span>
+            )}
+
             {authMode === "signin" && (
               <>
-                <h1 className="text-3xl font-semibold tracking-tight text-[#1d1d1f] font-display">Sign In</h1>
-                <p className="text-xs text-[#6e6e73] leading-relaxed max-w-xs">Get started with FactoryOS Pro to manage your automated pipelines.</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-[#1d1d1f] font-display">
+                  {portalType === "admin" ? "Admin Sign In" : "Sign In"}
+                </h1>
+                <p className="text-xs text-[#6e6e73] leading-relaxed max-w-xs">
+                  {portalType === "admin"
+                    ? "Elevated access for authorized administrators and system operators."
+                    : "Get started with FactoryOS Pro to manage your automated pipelines."}
+                </p>
               </>
             )}
 
@@ -640,36 +716,44 @@ function AuthContainerContent() {
                       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
                       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
                     </svg>
-                    <span>Continue with Google</span>
+                    <span>{portalType === "admin" ? "Admin Sign In with Google" : "Continue with Google"}</span>
                   </>
                 )}
               </button>
 
               <div className="text-center pt-1">
-                {authMode === "signin" && (
-                  <p className="text-xs text-[#6e6e73]">
-                    Don't have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => switchMode("signup")}
-                      className="text-[#0071e3] hover:text-[#0066cc] font-semibold transition-colors cursor-pointer ml-1"
-                    >
-                      Create Account
-                    </button>
+                {portalType === "admin" ? (
+                  <p className="text-xs text-[#6e6e73] flex items-center justify-center gap-1.5 font-medium">
+                    <span>🔒 Admin delegation & proxy timers are configured in the Admin Room.</span>
                   </p>
-                )}
+                ) : (
+                  <>
+                    {authMode === "signin" && (
+                      <p className="text-xs text-[#6e6e73]">
+                        Don't have an account?{" "}
+                        <button
+                          type="button"
+                          onClick={() => switchMode("signup")}
+                          className="text-[#0071e3] hover:text-[#0066cc] font-semibold transition-colors cursor-pointer ml-1"
+                        >
+                          Create Account
+                        </button>
+                      </p>
+                    )}
 
-                {authMode === "signup" && (
-                  <p className="text-xs text-[#6e6e73]">
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => switchMode("signin")}
-                      className="text-[#0071e3] hover:text-[#0066cc] font-semibold transition-colors cursor-pointer ml-1"
-                    >
-                      Sign In
-                    </button>
-                  </p>
+                    {authMode === "signup" && (
+                      <p className="text-xs text-[#6e6e73]">
+                        Already have an account?{" "}
+                        <button
+                          type="button"
+                          onClick={() => switchMode("signin")}
+                          className="text-[#0071e3] hover:text-[#0066cc] font-semibold transition-colors cursor-pointer ml-1"
+                        >
+                          Sign In
+                        </button>
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </>

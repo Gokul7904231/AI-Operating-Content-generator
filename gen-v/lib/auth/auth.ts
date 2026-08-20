@@ -56,6 +56,9 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
   
   let adminUser: AdminUser | null = null;
   if (canonicalUser) {
+    const isProxy = !!(canonicalUser.role === "ADMIN" && canonicalUser.adminExpiresAt);
+    const isExpired = !!(canonicalUser.adminExpiresAt && new Date(canonicalUser.adminExpiresAt).getTime() <= Date.now());
+
     adminUser = {
       uid: canonicalUser.id,
       email: canonicalUser.email,
@@ -67,6 +70,11 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
       createdAt: canonicalUser.createdAt,
       updatedAt: canonicalUser.updatedAt,
       lastLogin: canonicalUser.lastLoginAt,
+      adminExpiresAt: canonicalUser.adminExpiresAt,
+      proxyAdminGrantedBy: canonicalUser.proxyAdminGrantedBy,
+      proxyAdminGrantedAt: canonicalUser.proxyAdminGrantedAt,
+      isProxyAdmin: isProxy,
+      isExpiredAdmin: isExpired,
     };
   } else {
     // 2. Fallback to legacy/bootstrap admin lookup
@@ -85,10 +93,22 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
 }
 
 /**
- * Step 2: Verify Authorization (Role Hierarchy Check)
+ * Step 2: Verify Authorization (Role Hierarchy Check & Expiration Validation)
  */
 export function verifyRole(user: AdminUser, requiredRole?: UserRole): void {
   if (!requiredRole) return;
+
+  if (requiredRole === "ADMIN") {
+    if (user.role === "OWNER") return;
+    if (user.role === "ADMIN") {
+      if (user.adminExpiresAt && new Date(user.adminExpiresAt).getTime() <= Date.now()) {
+        throw new ForbiddenError("Access denied! Administrator privileges have expired. Please contact the system Owner.");
+      }
+      return;
+    }
+    throw new ForbiddenError(`Access denied! Administrator privileges required. Current role: ${user.role}`);
+  }
+
   if (!isRoleAtLeast(user.role, requiredRole)) {
     throw new ForbiddenError(`Insufficient permissions. Required role: ${requiredRole}, current role: ${user.role}`);
   }

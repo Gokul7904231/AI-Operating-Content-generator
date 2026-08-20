@@ -170,7 +170,7 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
 
     const activeMode = modeOverride || currentMode;
     const userMsg: ChatMessage = {
-      id: `user_${Date.now()}`,
+      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       sender: "user",
       text: command,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -220,7 +220,7 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
         }
 
         const overseerMsg: ChatMessage = {
-          id: `overseer_${Date.now()}`,
+          id: `overseer_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           sender: "overseer",
           text: answer,
           evidence,
@@ -241,32 +241,39 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
           fetchOperationalState();
         }
 
-        // Voice audio playback ONLY for voice input
+        // Voice audio playback for voice inputs
         if (isVoice && typeof window !== "undefined" && "speechSynthesis" in window) {
           window.speechSynthesis.cancel();
-          const cleanText = answer.replace(/[*`#]/g, "");
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.pitch = 1.05;
-          utterance.rate = 1.0;
-          utterance.volume = 0.9;
+          const cleanText = answer
+            .replace(/[*_#`]/g, "")
+            .replace(/https?:\/\/\S+/g, "link")
+            .trim();
 
-          const voices = window.speechSynthesis.getVoices();
-          const preferredVoice = voices.find((v) =>
-            /samantha|victoria|zira|karen|moira|google us english|female/i.test(v.name)
-          ) || voices[0];
-          if (preferredVoice) utterance.voice = preferredVoice;
+          if (cleanText) {
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.pitch = 1.05;
+            utterance.rate = 1.02;
+            utterance.volume = 0.95;
 
-          utterance.onstart = () => setPresence((prev) => ({ ...prev, voiceState: "SPEAKING" }));
-          utterance.onend = () => setPresence((prev) => ({ ...prev, voiceState: "IDLE" }));
-          utterance.onerror = () => setPresence((prev) => ({ ...prev, voiceState: "IDLE" }));
-          window.speechSynthesis.speak(utterance);
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find((v) =>
+              /samantha|victoria|zira|karen|moira|google us english|natural|female/i.test(v.name)
+            ) || voices.find((v) => v.lang.startsWith("en")) || voices[0];
+
+            if (preferredVoice) utterance.voice = preferredVoice;
+
+            utterance.onstart = () => setPresence((prev) => ({ ...prev, voiceState: "SPEAKING" }));
+            utterance.onend = () => setPresence((prev) => ({ ...prev, voiceState: "IDLE" }));
+            utterance.onerror = () => setPresence((prev) => ({ ...prev, voiceState: "IDLE" }));
+            window.speechSynthesis.speak(utterance);
+          }
         }
       } else {
         throw new Error(json.error || "Failed to query Overseer");
       }
     } catch (err: any) {
       const errorMsg: ChatMessage = {
-        id: `err_${Date.now()}`,
+        id: `err_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         sender: "overseer",
         text: `Overseer Alert: ${err.message || "Failed to reach Overseer control plane."}`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -282,7 +289,11 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
   return (
     <div
       id="overseer-stage"
-      className={`w-full min-h-[calc(100vh-6.5rem)] flex flex-col justify-between items-center max-w-4xl mx-auto select-none py-4 ${className}`}
+      className={`w-full flex flex-col items-center ${
+        isDashboardEmbedded
+          ? "py-2 space-y-4"
+          : "min-h-[calc(100vh-6.5rem)] py-4 justify-between"
+      } max-w-4xl mx-auto select-none ${className}`}
     >
       {/* 1. TOP/CENTER: GRAND LIVING OVERSEER HERO & CONVERSATION */}
       <div className="w-full flex-1 flex flex-col justify-center items-center my-auto">
@@ -291,13 +302,27 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
           intent={presence.intent}
           thoughtSummary={presence.thoughtSummary}
           voiceState={presence.voiceState}
+          activeJobsCount={stateData?.missions?.length || 0}
+          hasErrors={(metrics?.criticalCasesCount || 0) > 0}
+          activeMission={
+            stateData?.missions?.[0]
+              ? {
+                  id: stateData.missions[0].missionId,
+                  topic: stateData.missions[0].goal || "Automated Short Render",
+                  stage: stateData.missions[0].status || "Rendering",
+                  progressPct: stateData.missions[0].progress?.percentComplete || 70,
+                }
+              : null
+          }
+          metrics={metrics}
           onFaceClick={() => handleSendCommand("How is the factory?", false)}
+          onQuickCommand={(cmd) => handleSendCommand(cmd, false)}
           accentColor={accentColor}
           className="w-full"
         />
 
         {/* 2. INLINE FRONTIER CONVERSATION STREAM */}
-        <section className="w-full max-w-2xl mt-3">
+        <section className="w-full max-w-2xl mx-auto mt-3">
           <OverseerConversation
             messages={messages}
             isLoading={isLoading}
@@ -312,7 +337,7 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
       </div>
 
       {/* 3. BOTTOM OF VIEWER SEEING PAGE: CHATBOX / COMPOSER + MINIMAL SUMMARY */}
-      <div className="w-full max-w-2xl space-y-3 pt-3">
+      <div className="w-full max-w-2xl mx-auto space-y-3 pt-3 flex flex-col items-center">
         <OverseerCommandComposer
           onSendCommand={handleSendCommand}
           isLoading={isLoading}
@@ -320,10 +345,11 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
           currentMode={currentMode}
           onModeChange={(m) => setCurrentMode(m)}
           accentColor={accentColor}
+          className="w-full"
         />
 
         {/* Minimal Operational Summary */}
-        <div className="flex items-center justify-center gap-5 text-[11px] font-mono text-[#667085] dark:text-[#A7B0BC] pt-1">
+        <div className="flex items-center justify-center gap-5 text-[11px] font-mono text-[#667085] dark:text-[#A7B0BC] pt-1 text-center w-full">
           <button
             type="button"
             onClick={() => setActivePanel("floors")}

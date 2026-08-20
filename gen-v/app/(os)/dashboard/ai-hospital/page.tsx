@@ -10,6 +10,7 @@ import {
   Sparkles, Gauge, AlertCircle, CheckCheck, Flame
 } from "lucide-react";
 import type { SREAuditReport, DoctorProviderCard, SREProgressEvent, DiscoveredModel, ModelBenchmark, ProviderScore } from "@/lib/sre/types";
+import { AdminGuard } from "@/lib/auth/guards";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -537,6 +538,7 @@ export default function AIHospitalPage() {
   const overallScore = summary?.overallScore || 0;
 
   return (
+    <AdminGuard>
     <div className="space-y-5 max-w-7xl mx-auto pb-20">
 
       {/* ─── Hero Header ──────────────────────────────────────────────────── */}
@@ -897,5 +899,6 @@ export default function AIHospitalPage() {
         </div>
       )}
     </div>
+    </AdminGuard>
   );
 }
