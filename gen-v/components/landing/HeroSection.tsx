@@ -42,16 +42,16 @@ export default function HeroSection() {
           <div className="lg:col-span-7 space-y-8 text-left">
             
             {/* Frontier Category Badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#1d1d1f] shadow-sm">
+            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#1d1d1f] shadow-xs">
               <span className="w-2 h-2 rounded-full bg-[#0071e3] animate-pulse" />
               <span className="text-[#86868b] font-medium">CATEGORY:</span>
               <span className="text-[#1d1d1f] font-semibold tracking-wide">PRODUCTION OPERATING SYSTEM</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-apple-hero font-semibold text-[#1d1d1f] font-display">
+            <h1 className="text-4xl sm:text-6xl lg:text-[72px] font-bold text-[#1d1d1f] font-display tracking-[-0.035em] leading-[1.04]">
               YOUR IDEA. <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0071e3] via-sky-600 to-indigo-600 font-semibold">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0071e3] via-sky-600 to-indigo-600 font-bold">
                 INTO PRODUCTION.
               </span>
             </h1>
@@ -75,14 +75,14 @@ export default function HeroSection() {
 
               <a
                 href="#how-it-works"
-                className="px-8 py-4 rounded-2xl bg-white hover:bg-[#f2f2f7] text-[#1d1d1f] border border-[#e8e8ed] font-text text-base font-medium transition-[transform,background-color,border-color] duration-160 ease-out flex items-center justify-center gap-2.5 min-h-[52px] active:scale-[0.98] shadow-sm"
+                className="px-8 py-4 rounded-2xl bg-white hover:bg-[#f2f2f7] text-[#1d1d1f] border border-[#e8e8ed] font-text text-base font-medium transition-[transform,background-color,border-color] duration-160 ease-out flex items-center justify-center gap-2.5 min-h-[52px] active:scale-[0.98] shadow-xs"
               >
                 <span>SEE HOW IT WORKS</span>
               </a>
             </div>
 
             {/* Minimal Production Promise Pills */}
-            <div className="pt-8 border-t border-[#e8e8ed] grid grid-cols-3 gap-6 p-6 sm:p-7 bg-white rounded-2xl border border-[#e8e8ed] font-text text-xs text-[#6e6e73] shadow-sm">
+            <div className="pt-8 border-t border-[#e8e8ed] grid grid-cols-3 gap-4 sm:gap-6 p-5 sm:p-6 bg-white rounded-2xl border border-[#e8e8ed] font-text text-xs text-[#6e6e73] shadow-xs">
               <div>
                 <span className="block text-[#86868b] text-[10px] uppercase tracking-wider mb-1 font-bold">INPUT</span>
                 <span className="font-semibold text-[#1d1d1f] text-xs sm:text-sm">Natural Brief / Idea</span>
@@ -101,12 +101,12 @@ export default function HeroSection() {
 
           {/* Right Column: Real 9:16 Vertical Video Showcase */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="relative w-full max-w-[310px] sm:max-w-[340px] aspect-[9/16] rounded-2xl bg-zinc-950 border border-zinc-800 p-2 shadow-2xl shadow-black/80 group">
-              {/* Outer frame glow */}
-              <div className="absolute inset-0 rounded-2xl border border-amber-500/20 pointer-events-none group-hover:border-amber-500/40 transition-colors" />
+            <div className="relative w-full max-w-[320px] sm:max-w-[350px] aspect-[9/16] rounded-[36px] bg-[#1a1a1e] border-4 border-[#2c2c30] p-2.5 shadow-2xl shadow-black/25 group">
+              {/* Subtle outer frame highlight */}
+              <div className="absolute inset-0 rounded-[32px] border border-white/10 pointer-events-none" />
 
               {/* Video Player Container */}
-              <div className="relative w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
+              <div className="relative w-full h-full rounded-[26px] overflow-hidden bg-black flex items-center justify-center">
                 <video
                   ref={videoRef}
                   src="/demo-short.mp4"
@@ -117,24 +117,24 @@ export default function HeroSection() {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Minimal Overlay Badge */}
-                <div className="absolute top-3 left-3 px-2.5 py-1 rounded bg-zinc-950/80 backdrop-blur-sm border border-zinc-800 text-[10px] font-mono text-zinc-300 flex items-center gap-1.5 z-20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  REAL FACTORYOS RENDER
+                {/* Apple-style Translucent Overlay Badge */}
+                <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-text text-white/90 flex items-center gap-2 z-20 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-medium tracking-wide">REAL FACTORYOS RENDER</span>
                 </div>
 
                 {/* Playback Controls Overlay */}
-                <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-20">
+                <div className="absolute bottom-3.5 right-3.5 flex items-center gap-2 z-20">
                   <button
                     onClick={togglePlay}
-                    className="p-1.5 rounded-md bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 text-zinc-300 transition-colors"
+                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer"
                     title={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   </button>
                   <button
                     onClick={toggleMute}
-                    className="p-1.5 rounded-md bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 text-zinc-300 transition-colors"
+                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer"
                     title={isMuted ? "Unmute" : "Mute"}
                   >
                     {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -144,7 +144,7 @@ export default function HeroSection() {
 
               {/* Bottom Caption */}
               <div className="mt-2 text-center">
-                <p className="text-[11px] font-mono text-zinc-500">
+                <p className="text-[11px] font-text text-zinc-400">
                   Topic: "Quantum Computing Decryption" · Rendered by FactoryOS Pipeline
                 </p>
               </div>

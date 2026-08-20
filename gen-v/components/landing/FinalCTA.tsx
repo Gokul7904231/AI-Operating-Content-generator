@@ -13,10 +13,10 @@ export default function FinalCTA() {
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 text-center space-y-10 relative z-10">
         
         <div className="space-y-6">
-          <span className="px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#0071e3] font-semibold uppercase tracking-wider shadow-sm">
+          <span className="px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#0071e3] font-semibold uppercase tracking-wider shadow-xs">
             FRONTIER PRODUCTION OPERATING SYSTEM
           </span>
-          <h2 className="text-apple-hero font-semibold text-[#1d1d1f] font-display">
+          <h2 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-[#1d1d1f] font-display tracking-[-0.035em] leading-[1.04]">
             START CREATING.
           </h2>
           <p className="text-lg sm:text-xl font-text text-[#6e6e73] max-w-2xl mx-auto tracking-apple-body">

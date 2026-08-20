@@ -59,14 +59,14 @@ export default function SignatureSection() {
             {/* Step 3: Finished Output */}
             <div className="p-8 bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl text-center space-y-3 relative group hover:border-[#d2d2d7] transition-colors shadow-sm">
               <span className="text-xs text-[#34c759] font-bold uppercase tracking-widest">STEP 03</span>
-              <h3 className="text-base font-semibold text-[#1d1d1f]">FINISHED SHORT</h3>
-              <p className="text-xs text-[#6e6e73] font-sans">Rendered 9:16 Video</p>
+              <h3 className="text-base font-semibold text-[#1d1d1f] font-display">FINISHED SHORT</h3>
+              <p className="text-xs text-[#6e6e73] font-text">Rendered 9:16 Video</p>
             </div>
 
           </div>
 
           {/* Bottom Statement */}
-          <div className="mt-10 pt-6 border-t border-zinc-800/80 text-center font-mono text-xs text-zinc-400">
+          <div className="mt-10 pt-6 border-t border-[#e8e8ed] text-center font-text text-xs text-[#86868b]">
             <span>Result: Zero timeline keyframing · Zero manual audio slicing · Zero manual subtitle rendering</span>
           </div>
         </div>

@@ -10,7 +10,7 @@ export default function FactoryDepthSection() {
         
         {/* Section Header */}
         <div className="text-center space-y-5 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-mono text-[#0071e3] shadow-sm">
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#0071e3] shadow-xs">
             <Cpu className="w-4 h-4 text-[#0071e3]" />
             <span className="font-semibold tracking-wide">OPERATIONAL ARCHITECTURE</span>
           </div>

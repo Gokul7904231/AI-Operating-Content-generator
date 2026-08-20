@@ -13,7 +13,7 @@ import Footer from "@/components/landing/Footer";
 
 export default function PublicLandingPage() {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 font-sans selection:bg-amber-500/30 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-text selection:bg-[#0071e3]/20 overflow-x-hidden">
       {/* 1. Navbar */}
       <Navbar />
 

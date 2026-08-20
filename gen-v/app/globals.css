@@ -3,8 +3,9 @@
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
   
   --color-zinc-950: var(--background);
   --color-zinc-900: var(--surface);
@@ -146,10 +147,12 @@
 body {
   background-color: var(--background);
   color: var(--text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: var(--tracking-text);
   line-height: 1.47;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Form Controls — Idle Resting vs Focus */
@@ -167,17 +170,34 @@ body {
 }
 
 /* Apple & Industrial Typography System */
-.font-display {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-weight: 600;
+.font-display,
+.font-apple-display {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: var(--tracking-display);
 }
 
-.font-text {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-weight: 400;
+.font-text,
+.font-apple-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: var(--tracking-text);
   line-height: 1.47;
+}
+
+.font-mono,
+.font-apple-mono {
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
+}
+
+.text-apple-hero {
+  font-size: clamp(2.75rem, 5.5vw, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.text-apple-title {
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .tabular-nums {
@@ -193,7 +213,7 @@ body {
 }
 
 .tracking-apple-display {
-  letter-spacing: var(--tracking-display);
+  letter-spacing: -0.03em;
 }
 
 .tracking-apple-headline {
@@ -207,6 +227,15 @@ body {
 .glass-panel {
   background-color: var(--surface);
   border: 1px solid var(--border);
+}
+
+.apple-card-hover {
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.2s cubic-bezier(0.23, 1, 0.32, 1), border-color 0.2s ease-out;
+}
+
+.apple-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.08);
 }
 
 .terminal-scroll::-webkit-scrollbar {
