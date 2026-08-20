@@ -1,0 +1,34 @@
+name: FactoryOS Render Worker
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factoryos-render-worker
+  cancel-in-progress: false
+
+jobs:
+  render-worker:
+    name: Render Video Job
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout FactoryOS
+        uses: actions/checkout@v4
+
+      - name: Worker Startup Check
+        run: |
+          echo "======================================"
+          echo "FactoryOS Render Worker"
+          echo "======================================"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Run ID: $GITHUB_RUN_ID"
+          echo "Runner OS: $RUNNER_OS"
+          echo "Worker initialized successfully."
