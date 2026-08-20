@@ -2,7 +2,44 @@
  * Production Authentication & Authorization Type Definitions — FactoryOS v1
  */
 
-export type UserRole = "OWNER" | "ADMIN" | "EDITOR" | "VIEWER";
+export type UserRole = "OWNER" | "ADMIN" | "USER" | "EDITOR" | "VIEWER";
+export type UserStatus = "ACTIVE" | "DISABLED";
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  normalizedEmail: string;
+  name?: string;
+  photoURL?: string;
+  passwordHash: string;
+  passwordSalt: string;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}
+
+export type SafeUser = Omit<UserAccount, "passwordHash" | "passwordSalt"> & {
+  uid: string;
+  active: boolean;
+  disabled: boolean;
+};
+
+export interface PasswordResetChallenge {
+  id: string;
+  userId: string;
+  email: string;
+  normalizedEmail: string;
+  otpHash: string;
+  createdAt: string;
+  expiresAt: number; // Unix timestamp in ms
+  attempts: number;
+  maxAttempts: number;
+  consumedAt?: string;
+  resetTokenHash?: string;
+  resetTokenExpiresAt?: number;
+}
 
 export interface AdminUser {
   uid: string;

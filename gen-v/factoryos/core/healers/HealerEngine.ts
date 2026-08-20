@@ -1,7 +1,7 @@
 /**
  * FactoryOS Frontier v2 — Autonomous Healer Swarm Engine (Master Repair Coordinator)
  * Implements shared-resource locks, repair deduplication, dynamic squad allocation,
- * blast radius analysis, and transactional repair execution.
+ * blast radius analysis, simulation gating, and transactional repair execution.
  */
 
 import type { BaseHealer } from "./HealerBase";
@@ -31,6 +31,7 @@ export class HealerEngine {
   private worldState: WorldStateEngine;
   private leaseManager?: LeaseManager;
   private reputationRepo: IReputationRepository;
+  private repairAttempts: Map<string, number> = new Map();
 
   public readonly lockManager: RepairLockManager;
   public readonly deduplicator: RepairDeduplicator;
@@ -98,11 +99,16 @@ export class HealerEngine {
       if (diagnostic) squad.push(diagnostic);
       if (primary && primary !== diagnostic) squad.push(primary);
     } else {
-      // HIGH or CRITICAL: Full squad
+      // HIGH or CRITICAL: Full 3-specialist squad
       if (diagnostic) squad.push(diagnostic);
       if (primary && primary !== diagnostic) squad.push(primary);
       const workerHealer = this.healers.get("healer_worker");
-      if (workerHealer && !squad.includes(workerHealer)) squad.push(workerHealer);
+      if (workerHealer && !squad.includes(workerHealer)) {
+        squad.push(workerHealer);
+      } else {
+        const pipelineHealer = this.healers.get("healer_pipeline");
+        if (pipelineHealer && !squad.includes(pipelineHealer)) squad.push(pipelineHealer);
+      }
     }
 
     return squad.filter(Boolean);
@@ -134,11 +140,38 @@ export class HealerEngine {
   }
 
   /**
-   * Master Dispatch & Transactional Repair Loop with Concurrency Protection
+   * Master Dispatch & Transactional Repair Loop with Concurrency & Simulation Safety
    */
   async dispatchHealersForCase(caseItem: Case): Promise<HealerReport[]> {
     const primaryTarget = caseItem.targetWorker || caseItem.floorId;
     const dependency = this.dependencyAnalyzer.analyzeDependency(caseItem);
+
+    // 0. Bound repair retry attempts (max 3)
+    const attempts = (this.repairAttempts.get(caseItem.caseId) || 0) + 1;
+    this.repairAttempts.set(caseItem.caseId, attempts);
+    if (attempts > 3) {
+      await this.caseManager.transitionStatus(
+        caseItem.caseId,
+        "FAILED",
+        "healer_coordinator",
+        `Exceeded max repair attempts (${attempts} > 3). Escalating to supervisor.`
+      );
+      return [
+        {
+          reportId: `rep_exhausted_${caseItem.caseId}`,
+          caseId: caseItem.caseId,
+          healerId: "healer_coordinator",
+          specialization: "DIAGNOSTIC",
+          slayerHypothesisVerified: true,
+          rootCauseDiagnosis: "Max repair retry threshold reached without permanent resolution",
+          independentEvidence: [],
+          repairPlan: { description: "Exhausted retry budget", actions: [], rollbackActions: [] },
+          repairStatus: "FAILED",
+          durationMs: 10,
+          completedAt: new Date().toISOString(),
+        },
+      ];
+    }
 
     // 1. Repair Deduplication Check
     const dedup = this.deduplicator.checkAndRegister(
@@ -170,7 +203,7 @@ export class HealerEngine {
     const squad = this.allocateHealers(caseItem);
     const reports: HealerReport[] = [];
 
-    // 2. Acquire Exclusive Resource Lock
+    // 2. Acquire Exclusive Resource Lock on primary and dependent resources
     const lockAcquired = await this.lockManager.acquireLock(
       primaryTarget,
       squad[0]?.config.healerId || "healer_coordinator",
@@ -179,6 +212,7 @@ export class HealerEngine {
     );
 
     if (!lockAcquired) {
+      this.deduplicator.completeRepair(dedup.fingerprintId, false);
       return [
         {
           reportId: `rep_busy_${caseItem.caseId}`,
@@ -226,5 +260,9 @@ export class HealerEngine {
 
   getAllHealers(): BaseHealer[] {
     return Array.from(this.healers.values());
+  }
+
+  clearAttempts(): void {
+    this.repairAttempts.clear();
   }
 }

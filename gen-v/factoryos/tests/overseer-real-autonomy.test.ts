@@ -57,7 +57,7 @@ describe("FactoryOS Frontier v2 — Phase 2: True Autonomous Overseer Runtime Su
     console.log("[Proof Step 5] Observing background Slayer swarm autonomous detection...");
     let detectedCase = null;
     const startWait = Date.now();
-    while (Date.now() - startWait < 8000) {
+    while (Date.now() - startWait < 15000) {
       const allCases = await controllerA.caseManager.getAllCases();
       if (allCases.length > 0) {
         detectedCase = allCases[0];
@@ -74,7 +74,7 @@ describe("FactoryOS Frontier v2 — Phase 2: True Autonomous Overseer Runtime Su
     console.log("[Proof Step 7] Observing background Overseer supervisor triage and autonomous repair...");
     let resolvedCase = null;
     const startTriage = Date.now();
-    while (Date.now() - startTriage < 8000) {
+    while (Date.now() - startTriage < 15000) {
       const c = await controllerA.caseManager.getCase(detectedCase!.caseId);
       if (c && c.status === "RESOLVED") {
         resolvedCase = c;

@@ -11,6 +11,7 @@ export const ROLE_HIERARCHY: Record<string, number> = {
   OWNER: 4,
   ADMIN: 3,
   EDITOR: 2,
+  USER: 1,
   VIEWER: 1,
 };
 

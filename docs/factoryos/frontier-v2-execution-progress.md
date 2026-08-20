@@ -181,6 +181,37 @@
 5. **Safe Decision Presentation**: Strict WHAT, WHY, CONFIDENCE, ACTION, RISK, EVIDENCE reporting in disclosure drawers.
 6. **Live State API (`/api/overseer/presence/state`)**: Fast-path GET endpoint delivering complete authoritative operational snapshots to UI components.
 7. **E2E Product Presence Test Suite (`overseer-product-presence-e2e.test.ts`)**: **6 / 6 PASSED** verifying 17 expression presets, grounded status projection, conversational lifecycle, spatial attention targeting, SSE reconnection replay, and restart rehydration.
-8. **Total Whole-Repository Test Suite**: **128 / 128 Test Files Passed (551 / 551 Tests Passed, 0 Failed, 0 Skipped)**.
-9. **TypeScript Typecheck**: **0 Errors (`npm run factoryos:typecheck` Clean)**.
+8. **Total Whole-Repository Test Suite**: **139 / 139 Test Files Passed (608 / 608 Tests Passed, 0 Failed, 0 Skipped)**.
+9. **TypeScript Typecheck**: **0 Errors (`npm run factoryos:typecheck` and `npx tsc --noEmit` Clean)**.
+
+---
+
+## Phase 6 — Healer Swarm Concurrency + Deep Repair Safety (Completed & Hardened)
+
+### Test Verification Status:
+- **Phase 6 Concurrency & Locking Suite**: **16 / 16 PASSED** across 5 test files (`phase6-healer-concurrency.test.ts`, `phase6-repair-locks.test.ts`, `phase6-repair-dedup.test.ts`, `phase6-specialist-allocation.test.ts`, `phase6-autonomous-runtime.test.ts`)
+- **Key Capabilities Hardened**:
+  1. **Multi-Case Concurrency & Parallel Execution**: Independent incidents repair concurrently without thread blocking.
+  2. **Exclusive Resource Mutexes (`RepairLockManager`)**: Resource locks on workers, GPUs, and queues with safe TTL expiration and heartbeat renewal.
+  3. **Repair Deduplication (`RepairDeduplicator`)**: SHA-256 fingerprinting suppresses redundant mutating repairs during in-flight operations.
+  4. **Blast Radius & Conflict Detection (`RepairDependencyAnalyzer`)**: Computes `LOCAL`, `CROSS_FLOOR`, and `GLOBAL` blast radius and evaluates concurrent admissibility.
+  5. **Independent Hypothesis Verification & Validator Coupling**: Healers independently probe symptoms before generating repair plans; cases transition to `VERIFYING` and are only marked `RESOLVED` when `ValidatorAgent` verifies system invariants.
+  6. **Transactional Execution & Rollback (`TransactionalRepairGate`)**: Multi-step repairs execute atomically with reverse rollback upon any step failure.
+  7. **Bounded Retries**: Enforces a strict 3-attempt ceiling on repair failures before supervisor escalation.
+
+---
+
+## Phase 7 — Watchdog Supervision 2.0 (Forensic Audit & Hardened)
+
+### Test Verification Status:
+- **Phase 7 Supervision Suite**: **9 / 9 PASSED** across 4 test files (`phase7-watchdog-supervision.test.ts`, `phase7-agent-heartbeat.test.ts`, `phase7-quarantine.test.ts`, `phase7-autonomous-runtime.test.ts`)
+- **Key Capabilities Hardened**:
+  1. **Direct Whole-Agent Supervision (`HeartbeatTracker`)**: Direct heartbeat monitoring across `GUARDIAN`, `SLAYER`, `HEALER`, `WORKER`, `OVERSEER`, and `VALIDATOR`.
+  2. **Health State Machine**: Strict transitions: `HEALTHY` $\to$ `SUSPECT` $\to$ `DEGRADED` $\to$ `FAILED` $\to$ `RECOVERING` $\to$ `QUARANTINED`.
+  3. **Recovery Loop Prevention**: Bounded auto-recovery attempts (max 3) with exponential backoff and cooldown tracking.
+  4. **Quarantine & Escalation**: Repeatedly failing agents are quarantined in WorldState and escalated via high-severity system cases.
+  5. **Stale Lease Reclamation**: Detects expired task leases, repair locks, and zone leases, returning them to the available pool.
+  6. **Mission Duration & Budget Sweeps**: Continuously evaluates active missions against cost and duration bounds.
+  7. **Supervision Event Stream**: Emits `WATCHDOG_HEALTH_SWEEP`, `AGENT_RECOVERED`, `AGENT_QUARANTINED`, and `LEASE_RECLAIMED`.
+
 

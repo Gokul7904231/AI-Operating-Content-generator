@@ -5,8 +5,14 @@
  * Uses Node environment (no browser, no DOM).
  */
 import { defineConfig } from "vitest/config";
+import path from "path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./"),
+    },
+  },
   test: {
     include: ["factoryos/tests/**/*.test.ts"],
     environment: "node",

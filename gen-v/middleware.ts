@@ -9,7 +9,7 @@ const PUBLIC_PREFIXES = [
   "/prototypes",
   "/api/published-video",
   "/api/health",
-  "/api/auth/session",
+  "/api/auth",
   "/api/render-workers/pair",
   "/api/render-workers/heartbeat",
   "/_next",

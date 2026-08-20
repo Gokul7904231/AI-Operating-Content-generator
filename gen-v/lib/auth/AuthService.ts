@@ -1,54 +1,44 @@
 /**
  * Client-Side Authentication & Authorization Service Facade — FactoryOS v1
  * 
- * Note: This module is client-bundle safe and must NOT import Node.js/Server-only modules
- * (such as firebase-admin or child_process).
+ * Provides clean client-side APIs for Login, Signup, Google OAuth, Forgot Password, and OTP verification.
  */
 
+import { validateEmail } from "./validators";
+import { AdminUser, AuthResponse, SafeUser } from "./types";
+import { formatAuthErrorMessage, AuthError } from "./errors";
 import {
   auth,
   googleProvider,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signInWithPopup,
-  signOut,
-  sendPasswordResetEmail,
 } from "./firebase-client";
-import { validateEmail, checkRateLimit } from "./validators";
-import { AdminUser, AuthResponse } from "./types";
-import { AuthError, RateLimitExceededError, formatAuthErrorMessage } from "./errors";
 
 export class AuthService {
   /**
    * Client-Side Email/Password Login
    */
-  static async loginWithEmail(email: string, pass: string): Promise<AuthResponse<{ user: AdminUser; idToken: string }>> {
+  static async loginWithEmail(email: string, pass: string): Promise<AuthResponse<{ user: SafeUser | AdminUser }>> {
     if (!validateEmail(email)) {
       return { success: false, error: "Invalid email address format." };
     }
 
-    const rateCheck = checkRateLimit(`login_${email.toLowerCase()}`);
-    if (!rateCheck.allowed) {
-      throw new RateLimitExceededError();
-    }
-
     try {
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), pass);
-      const idToken = await credential.user.getIdToken();
-
-      // Establish HTTP-Only session cookie via server API endpoint
-      const res = await fetch("/api/auth/session", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, isGoogleLogin: false }),
+        body: JSON.stringify({ email: email.trim(), password: pass }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new AuthError(data.error || "Failed to establish admin session", "SESSION_ERROR", res.status);
+        return {
+          success: false,
+          error: data.error || "Invalid email or password.",
+          code: data.code || "AUTH_FAILED",
+        };
       }
 
-      return { success: true, data: { user: data.user, idToken } };
+      return { success: true, data: { user: data.user } };
     } catch (err: any) {
       return { success: false, error: formatAuthErrorMessage(err) };
     }
@@ -57,47 +47,51 @@ export class AuthService {
   /**
    * Client-Side Email/Password Sign-Up
    */
-  static async signUpWithEmail(fullName: string, email: string, pass: string): Promise<AuthResponse<{ user: AdminUser; idToken: string }>> {
+  static async signUpWithEmail(fullName: string, email: string, pass: string): Promise<AuthResponse<{ user: SafeUser | AdminUser }>> {
     if (!fullName || fullName.trim().length === 0) {
       return { success: false, error: "Please enter your full name." };
     }
     if (!validateEmail(email)) {
       return { success: false, error: "Invalid email address format." };
     }
-    if (!pass || pass.length < 6) {
-      return { success: false, error: "Password must be at least 6 characters long." };
+    if (!pass || pass.length < 8) {
+      return { success: false, error: "Password must be at least 8 characters long." };
     }
 
     try {
-      const credential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
-      const idToken = await credential.user.getIdToken();
-
-      const res = await fetch("/api/auth/session", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, isGoogleLogin: false, fullName: fullName.trim() }),
+        body: JSON.stringify({
+          name: fullName.trim(),
+          email: email.trim(),
+          password: pass,
+        }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new AuthError(data.error || "Failed to establish admin account session", "SESSION_ERROR", res.status);
+        return {
+          success: false,
+          error: data.error || "Account creation failed.",
+          code: data.code || "SIGNUP_FAILED",
+        };
       }
 
-      return { success: true, data: { user: data.user, idToken } };
+      return { success: true, data: { user: data.user } };
     } catch (err: any) {
       return { success: false, error: formatAuthErrorMessage(err) };
     }
   }
 
   /**
-   * Client-Side Google OAuth Login
+   * Client-Side Google OAuth Login (Firebase popup + session cookie)
    */
-  static async loginWithGoogle(): Promise<AuthResponse<{ user: AdminUser; idToken: string }>> {
+  static async loginWithGoogle(): Promise<AuthResponse<{ user: any; idToken?: string }>> {
     try {
       const credential = await signInWithPopup(auth, googleProvider);
       const idToken = await credential.user.getIdToken();
 
-      // Establish HTTP-Only session cookie via server API endpoint
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,7 +100,11 @@ export class AuthService {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new AuthError(data.error || "Unauthorized admin account", "SESSION_ERROR", res.status);
+        return {
+          success: false,
+          error: data.error || "Failed to establish Google session",
+          code: data.code || "SESSION_ERROR",
+        };
       }
 
       return { success: true, data: { user: data.user, idToken } };
@@ -116,29 +114,116 @@ export class AuthService {
   }
 
   /**
-   * Send Password Reset Email
+   * Send Password Reset OTP Email
    */
-  static async resetPassword(email: string): Promise<AuthResponse> {
+  static async requestPasswordReset(email: string): Promise<AuthResponse<{ message: string }>> {
     if (!validateEmail(email)) {
-      return { success: false, error: "Invalid email address." };
+      return { success: false, error: "Please enter a valid email address." };
     }
+
     try {
-      await sendPasswordResetEmail(auth, email.trim());
-      return { success: true };
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok && res.status !== 200) {
+        return {
+          success: false,
+          error: data.error || "Failed to process password reset.",
+          code: data.code || "RESET_FAILED",
+        };
+      }
+
+      return { success: true, data: { message: data.message } };
     } catch (err: any) {
       return { success: false, error: formatAuthErrorMessage(err) };
     }
   }
 
   /**
-   * Logout (Clear Session Cookie & Firebase Client Auth)
+   * Verify Reset OTP Code
+   */
+  static async verifyResetCode(email: string, otp: string): Promise<AuthResponse<{ resetToken: string }>> {
+    if (!email || !otp) {
+      return { success: false, error: "Please enter the verification code sent to your email." };
+    }
+
+    try {
+      const res = await fetch("/api/auth/verify-reset-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), otp: otp.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error || "Verification failed. Please check the code.",
+          code: data.code || "VERIFY_FAILED",
+        };
+      }
+
+      return { success: true, data: { resetToken: data.resetToken } };
+    } catch (err: any) {
+      return { success: false, error: formatAuthErrorMessage(err) };
+    }
+  }
+
+  /**
+   * Submit New Password with Reset Authorization Token
+   */
+  static async resetPasswordWithToken(
+    resetToken: string,
+    newPassword: string,
+    confirmPassword?: string
+  ): Promise<AuthResponse<{ message: string }>> {
+    if (!newPassword || newPassword.length < 8) {
+      return { success: false, error: "New password must be at least 8 characters long." };
+    }
+
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resetToken,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error || "Failed to reset password. Please start over.",
+          code: data.code || "RESET_FAILED",
+        };
+      }
+
+      return { success: true, data: { message: data.message } };
+    } catch (err: any) {
+      return { success: false, error: formatAuthErrorMessage(err) };
+    }
+  }
+
+  /**
+   * Password Reset Alias
+   */
+  static async resetPassword(email: string): Promise<AuthResponse<{ message?: string }>> {
+    return this.requestPasswordReset(email);
+  }
+
+  /**
+   * Logout (Clear Session Cookie)
    */
   static async logout(): Promise<AuthResponse> {
     try {
       await fetch("/api/auth/session", { method: "DELETE" });
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || "Logout failed." };

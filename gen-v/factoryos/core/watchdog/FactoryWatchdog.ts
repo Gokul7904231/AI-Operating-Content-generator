@@ -9,6 +9,13 @@ import type { DurableEventBus } from "../events/DurableEventBus";
 import type { CaseManager } from "../cases/CaseManager";
 import type { LeaseManager } from "../leases/LeaseManager";
 import type { MissionManager } from "../missions/MissionManager";
+import { HeartbeatTracker, DEFAULT_WATCHDOG_POLICY } from "./HeartbeatTracker";
+import type {
+  AgentHeartbeatRecord,
+  SubsystemType,
+  WatchdogHealthSweepReport,
+  WatchdogSupervisionPolicy,
+} from "../contracts/WatchdogContracts";
 
 export interface WatchdogHealthReport {
   readonly healthyWorkers: string[];
@@ -38,13 +45,16 @@ export class FactoryWatchdog {
   private failureCounts: Map<string, number> = new Map();
   private staleThresholdMs: number;
 
+  public readonly heartbeatTracker: HeartbeatTracker;
+
   constructor(
     worldState: WorldStateEngine,
     eventBus: DurableEventBus,
     caseManager: CaseManager,
     leaseManager?: LeaseManager,
     staleThresholdMs: number = 15000,
-    missionManager?: MissionManager
+    missionManager?: MissionManager,
+    policy: Partial<WatchdogSupervisionPolicy> = {}
   ) {
     this.worldState = worldState;
     this.eventBus = eventBus;
@@ -52,6 +62,33 @@ export class FactoryWatchdog {
     this.leaseManager = leaseManager;
     this.staleThresholdMs = staleThresholdMs;
     this.missionManager = missionManager;
+    this.heartbeatTracker = new HeartbeatTracker({
+      staleThresholdMs,
+      ...policy,
+    });
+  }
+
+  /**
+   * Registers a direct agent/subsystem for whole-agent supervision.
+   */
+  registerAgent(
+    componentId: string,
+    componentType: SubsystemType,
+    expectedIntervalMs: number = 2000,
+    metadata?: Record<string, unknown>
+  ): AgentHeartbeatRecord {
+    return this.heartbeatTracker.register(componentId, componentType, expectedIntervalMs, metadata);
+  }
+
+  /**
+   * Records a heartbeat signal for a tracked agent.
+   */
+  recordHeartbeat(componentId: string, metadata?: Record<string, unknown>): boolean {
+    const success = this.heartbeatTracker.recordHeartbeat(componentId, metadata);
+    if (this.worldState) {
+      this.worldState.updateWorkerHeartbeat(componentId, "HEALTHY");
+    }
+    return success;
   }
 
   start(intervalMs: number = 2000): void {
@@ -85,7 +122,7 @@ export class FactoryWatchdog {
     let activeSlayersCount = 0;
     let activeHealersCount = 0;
 
-    // 1. Inspect all registered agents and workers
+    // 1. Inspect all registered agents and workers in WorldState
     for (const [workerId, worker] of Object.entries(currentState.workers)) {
       const lastSeenTime = new Date(worker.lastSeen).getTime();
       const elapsed = now - lastSeenTime;
@@ -96,15 +133,35 @@ export class FactoryWatchdog {
       if (worker.role === "SLAYER" && worker.status === "HEALTHY") activeSlayersCount += 1;
       if (worker.role === "HEALER" && worker.status === "HEALTHY") activeHealersCount += 1;
 
+      // Ensure registered in HeartbeatTracker
+      const subType: SubsystemType =
+        worker.role === "OPERATOR"
+          ? "OVERSEER"
+          : worker.role === "GUARDIAN"
+          ? "GUARDIAN"
+          : worker.role === "SLAYER"
+          ? "SLAYER"
+          : worker.role === "HEALER"
+          ? "HEALER"
+          : worker.role === "VALIDATOR"
+          ? "VALIDATOR"
+          : "WORKER";
+
+      this.heartbeatTracker.register(workerId, subType, this.staleThresholdMs / 3);
+
       if (worker.status === "FAILED") {
         failed.push(workerId);
         const count = (this.failureCounts.get(workerId) || 0) + 1;
         this.failureCounts.set(workerId, count);
 
-        if (count >= 3) {
+        const recoveryAttempt = this.heartbeatTracker.attemptRecovery(workerId, now);
+
+        if (count >= 3 || recoveryAttempt.quarantined) {
           // Repeated failure: Quarantine and create system case
           quarantined.push(workerId);
           this.worldState.updateWorkerHeartbeat(workerId, "QUARANTINED");
+          this.heartbeatTracker.quarantine(workerId);
+
           await this.caseManager.createCase({
             title: `[Watchdog] Agent/Worker ${workerId} quarantined due to repeated failures`,
             description: `Agent ${workerId} failed ${count} consecutive health checks. Quarantined for supervisor triage.`,
@@ -113,7 +170,7 @@ export class FactoryWatchdog {
             category: "WORKER_STALL",
             severity: "HIGH",
             detectorId: "factory_watchdog",
-            symptoms: [`Agent ${workerId} repeated failure count: ${count}`],
+            symptoms: [`Agent ${workerId} repeated failure count: ${count}`, recoveryAttempt.reason],
             observedState: { worker, failureCount: count },
           });
 
@@ -122,10 +179,12 @@ export class FactoryWatchdog {
             failureCount: count,
             timestamp: new Date().toISOString(),
           });
-        } else {
+        } else if (recoveryAttempt.allowed) {
           // Auto-recover worker
           recovered.push(workerId);
           this.worldState.updateWorkerHeartbeat(workerId, "HEALTHY");
+          this.heartbeatTracker.markRecovered(workerId);
+
           await this.eventBus.publish("AGENT_RECOVERED", {
             agentId: workerId,
             recoveryAttempt: count,
@@ -138,10 +197,19 @@ export class FactoryWatchdog {
       } else if (worker.status === "HEALTHY") {
         healthy.push(workerId);
         this.failureCounts.delete(workerId);
+        this.heartbeatTracker.recordHeartbeat(workerId);
       }
     }
 
-    // 2. Inspect expired task and resource leases
+    // 2. Evaluate direct HeartbeatTracker records
+    const directHealth = this.heartbeatTracker.evaluateHealth(now);
+    for (const f of directHealth.failed) {
+      if (!failed.includes(f.componentId) && !quarantined.includes(f.componentId)) {
+        failed.push(f.componentId);
+      }
+    }
+
+    // 3. Inspect expired task and resource leases
     if (this.leaseManager) {
       const expiredLeases = await this.leaseManager.getRecoverableTasks();
       for (const lease of expiredLeases) {
@@ -154,7 +222,7 @@ export class FactoryWatchdog {
       }
     }
 
-    // 3. Sweep active mission budgets
+    // 4. Sweep active mission budgets
     let missionBreaches: { missionId: string; breachReason: string }[] | undefined;
     if (this.missionManager && typeof (this.missionManager as any).checkActiveMissionBudgets === "function") {
       const breaches = await (this.missionManager as any).checkActiveMissionBudgets();
@@ -162,12 +230,12 @@ export class FactoryWatchdog {
     }
 
     const report: WatchdogHealthReport = {
-      healthyWorkers: healthy,
-      staleWorkers: stale,
-      failedWorkers: failed,
-      recoveredWorkers: recovered,
-      quarantinedWorkers: quarantined,
-      reclaimedTasks: reclaimed,
+      healthyWorkers: Array.from(new Set(healthy)),
+      staleWorkers: Array.from(new Set(stale)),
+      failedWorkers: Array.from(new Set(failed)),
+      recoveredWorkers: Array.from(new Set(recovered)),
+      quarantinedWorkers: Array.from(new Set(quarantined)),
+      reclaimedTasks: Array.from(new Set(reclaimed)),
       monitoredAgents: {
         overseerOnline,
         activeGuardiansCount,

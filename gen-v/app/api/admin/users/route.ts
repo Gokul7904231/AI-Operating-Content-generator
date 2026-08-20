@@ -1,53 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuthAndRole } from "../../../../lib/auth/auth";
-import { db } from "../../../../lib/firebase-admin";
-import { UserRole } from "../../../../lib/auth/types";
-import { isValidRole } from "../../../../lib/auth/roles";
+import { verifyAuthAndRole } from "@/lib/auth/auth";
+import { UserRepository } from "@/lib/auth/user-repository";
+import { UserRole } from "@/lib/auth/types";
+import { isValidRole } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/users
- * Lists all registered users and their assigned roles. (ADMIN only)
+ * Lists all registered users (sanitized, newest first). Restricted to ADMIN and OWNER.
  */
 export async function GET(request: NextRequest) {
   try {
     const caller = await verifyAuthAndRole(request, "ADMIN");
+    const users = await UserRepository.listAll();
 
-    const users: any[] = [];
-
-    if (db) {
-      const snapshot = await db.collection("admins").get();
-      snapshot.forEach((doc) => {
-        users.push({ id: doc.id, ...doc.data() });
-      });
-    } else {
-      // Mock Store Fallback
-      users.push({
-        uid: "mock_owner_uid",
-        email: "gokul32499@gmail.com",
-        role: "OWNER",
-        active: true,
-        disabled: false,
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    return NextResponse.json({ success: true, callerRole: caller.role, users });
+    return NextResponse.json({
+      success: true,
+      callerRole: caller.role,
+      users,
+    });
   } catch (err: any) {
-    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Role");
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Insufficient permissions");
     const status = isForbidden ? 403 : 401;
-    return NextResponse.json({ success: false, error: err.message }, { status });
+    return NextResponse.json({ success: false, error: err.message || "Unauthorized" }, { status });
   }
 }
 
 /**
  * PATCH /api/admin/users
- * Update a user's role or disabled status. (OWNER only)
+ * Update a user's role or disabled status. Restricted to OWNER.
  */
 export async function PATCH(request: NextRequest) {
   try {
-    // Role management is strictly restricted to OWNER
     const caller = await verifyAuthAndRole(request, "OWNER");
     const body = await request.json();
     const { uid, role, disabled } = body;
@@ -68,22 +53,22 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
+    const updates: any = {};
     if (role) updates.role = role as UserRole;
-    if (typeof disabled === "boolean") updates.disabled = disabled;
-
-    if (db) {
-      await db.collection("admins").doc(uid).update(updates);
+    if (typeof disabled === "boolean") {
+      updates.status = disabled ? "DISABLED" : "ACTIVE";
     }
+
+    const updatedUser = await UserRepository.update(uid, updates);
 
     return NextResponse.json({
       success: true,
       message: `User ${uid} updated successfully.`,
-      updates,
+      user: updatedUser ? { id: updatedUser.id, role: updatedUser.role, status: updatedUser.status } : null,
     });
   } catch (err: any) {
-    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Role");
+    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Insufficient permissions");
     const status = isForbidden ? 403 : 401;
-    return NextResponse.json({ success: false, error: err.message }, { status });
+    return NextResponse.json({ success: false, error: err.message || "Unauthorized" }, { status });
   }
 }

@@ -12,7 +12,7 @@ export function isRoleAtLeast(currentRole: UserRole, requiredRole: UserRole): bo
 }
 
 export function isValidRole(role: string): role is UserRole {
-  return ["OWNER", "ADMIN", "EDITOR", "VIEWER"].includes(role);
+  return ["OWNER", "ADMIN", "USER", "EDITOR", "VIEWER"].includes(role);
 }
 
 export function isOwnerUser(role?: UserRole | string | null): boolean {
@@ -27,7 +27,7 @@ export function isAdminUser(role?: UserRole | string | null): boolean {
 
 export function isBasicUser(role?: UserRole | string | null): boolean {
   if (!role) return true;
-  return role === "EDITOR" || role === "VIEWER";
+  return role === "USER" || role === "EDITOR" || role === "VIEWER";
 }
 
 export function isEditorUser(role?: UserRole | string | null): boolean {

@@ -147,16 +147,29 @@ export async function createSessionCookieServer(idToken: string, expiresInMs: nu
   return `mock_session_cookie_${Date.now()}`;
 }
 
+import { verifySignedSessionToken } from "./jwt-session";
+
 /**
  * Verify Session Cookie Server-Side
  */
 export async function verifySessionCookieServer(sessionCookie: string): Promise<{ uid: string; email: string }> {
-  if (adminAuth) {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    return { uid: decoded.uid, email: decoded.email || "" };
+  // 1. Check signed FactoryOS session token
+  const signedPayload = verifySignedSessionToken(sessionCookie);
+  if (signedPayload) {
+    return { uid: signedPayload.uid, email: signedPayload.email };
   }
 
-  // Dev / Vitest Mock Verification
+  // 2. Check Firebase Admin SDK session cookie if configured
+  if (adminAuth) {
+    try {
+      const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+      return { uid: decoded.uid, email: decoded.email || "" };
+    } catch {
+      // Fall through to mock verification if applicable
+    }
+  }
+
+  // 3. Dev / Vitest Mock Verification
   if (sessionCookie.startsWith("mock_session_cookie_") || sessionCookie.includes("simulated_admin_token")) {
     return { uid: "mock_owner_uid", email: ALLOWED_BOOTSTRAP_OWNER_EMAIL };
   }

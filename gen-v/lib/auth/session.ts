@@ -5,8 +5,10 @@
 import { verifyIdTokenServer, getAdminByUid, createSessionCookieServer } from "./firebase-admin";
 import { getSessionDurationMs, buildSessionCookieHeader, buildLogoutCookieHeader } from "./cookies";
 import { logAuthEvent } from "./audit-logger";
-import { AdminUser, AuthSession } from "./types";
+import { AdminUser, AuthSession, UserAccount, SafeUser } from "./types";
 import { ForbiddenError, AccountDisabledError } from "./errors";
+import { createSignedSessionToken } from "./jwt-session";
+import { toSafeUser } from "./user-repository";
 
 export async function createSessionFromIdToken(
   idToken: string,
@@ -60,6 +62,44 @@ export async function createSessionFromIdToken(
   });
 
   return { cookieHeader, user: adminUser };
+}
+
+export async function createSessionForUserAccount(
+  user: UserAccount | SafeUser,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<{ cookieHeader: string; user: SafeUser }> {
+  const isUserDisabled = user.status === "DISABLED" || ("disabled" in user && (user as any).disabled);
+  const uid = user.id || (user as any).uid;
+
+  if (isUserDisabled) {
+    await logAuthEvent({
+      eventType: "ACCOUNT_DISABLED",
+      uid,
+      email: user.email,
+      role: user.role,
+      ipAddress,
+      userAgent,
+    });
+    throw new AccountDisabledError(`Account ${user.email} is currently disabled.`);
+  }
+
+  // Generate signed session cookie
+  const durationMs = getSessionDurationMs();
+  const sessionToken = createSignedSessionToken(uid, user.email, user.role, durationMs);
+  const cookieHeader = buildSessionCookieHeader(sessionToken);
+
+  await logAuthEvent({
+    eventType: "LOGIN_SUCCESS",
+    uid,
+    email: user.email,
+    role: user.role,
+    ipAddress,
+    userAgent,
+  });
+
+  const safeUser: SafeUser = "passwordHash" in user ? toSafeUser(user as UserAccount) : (user as SafeUser);
+  return { cookieHeader, user: safeUser };
 }
 
 export async function destroySession(

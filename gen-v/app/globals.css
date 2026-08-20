@@ -153,14 +153,14 @@ body {
 }
 
 /* Form Controls — Idle Resting vs Focus */
-input, select, textarea {
+:where(input, select, textarea) {
   border-color: var(--border);
   background-color: var(--input);
   color: var(--text);
-  transition: border-color 0.16s var(--ease-out-apple), box-shadow 0.16s var(--ease-out-apple);
+  transition: border-color 0.16s var(--ease-out-apple), box-shadow 0.16s var(--ease-out-apple), background-color 0.16s var(--ease-out-apple);
 }
 
-input:focus, select:focus, textarea:focus, input:focus-visible {
+:where(input:focus, select:focus, textarea:focus, input:focus-visible) {
   border-color: var(--primary);
   outline: none;
   box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);

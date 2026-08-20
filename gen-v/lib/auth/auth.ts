@@ -8,6 +8,7 @@ import { verifySessionCookieServer, getAdminByUid } from "./firebase-admin";
 import { isRoleAtLeast } from "./roles";
 import { AdminUser, UserRole } from "./types";
 import { UnauthorizedError, ForbiddenError, AccountDisabledError } from "./errors";
+import { UserRepository } from "./user-repository";
 
 /**
  * Step 1: Verify Authentication (Session Cookie or Internal Secret Key)
@@ -49,14 +50,35 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
 
   // Verify Session Cookie
   const { uid, email } = await verifySessionCookieServer(cookieValue);
-  const adminUser = await getAdminByUid(uid, email);
+  
+  // 1. Query canonical UserRepository
+  const canonicalUser = (await UserRepository.findById(uid)) || (await UserRepository.findByNormalizedEmail(email));
+  
+  let adminUser: AdminUser | null = null;
+  if (canonicalUser) {
+    adminUser = {
+      uid: canonicalUser.id,
+      email: canonicalUser.email,
+      name: canonicalUser.name,
+      photoURL: canonicalUser.photoURL,
+      role: canonicalUser.role,
+      active: canonicalUser.status === "ACTIVE",
+      disabled: canonicalUser.status === "DISABLED",
+      createdAt: canonicalUser.createdAt,
+      updatedAt: canonicalUser.updatedAt,
+      lastLogin: canonicalUser.lastLoginAt,
+    };
+  } else {
+    // 2. Fallback to legacy/bootstrap admin lookup
+    adminUser = await getAdminByUid(uid, email);
+  }
 
   if (!adminUser) {
-    throw new ForbiddenError(`Admin record not found for account: ${email}`);
+    throw new ForbiddenError(`User record not found for account: ${email}`);
   }
 
   if (adminUser.disabled || !adminUser.active) {
-    throw new AccountDisabledError(`Admin account ${email} is disabled.`);
+    throw new AccountDisabledError(`Account ${email} is disabled.`);
   }
 
   return { user: adminUser, isSecretKey: false };
