@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/jobs/approve
  * Body: { jobId: string, script?: string }
