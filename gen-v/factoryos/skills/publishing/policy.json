@@ -1,0 +1,9 @@
+{
+  "skillId": "publishing",
+  "allowedRoles": ["EDITOR", "ADMIN", "OWNER"],
+  "riskLevel": "HIGH",
+  "requiresApproval": true,
+  "costLimitUsd": 0.0,
+  "executionTimeoutMs": 30000,
+  "allowLocalFallback": false
+}

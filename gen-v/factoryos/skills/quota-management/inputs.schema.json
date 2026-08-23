@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuotaManagementInput",
+  "type": "object",
+  "properties": {
+    "userId": { "type": "string" },
+    "userRole": { "type": "string" },
+    "action": { "type": "string", "enum": ["RESERVE", "FINALIZE", "RELEASE"] },
+    "slotId": { "type": "string" }
+  },
+  "required": ["userId", "userRole", "action", "slotId"]
+}

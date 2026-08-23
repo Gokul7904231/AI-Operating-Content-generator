@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PublishingOutput",
+  "type": "object",
+  "properties": {
+    "publicationId": { "type": "string" },
+    "platformUrl": { "type": "string" },
+    "status": { "type": "string" },
+    "approvalId": { "type": "string" }
+  },
+  "required": ["publicationId", "platformUrl", "status"]
+}

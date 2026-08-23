@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PublishingInput",
+  "type": "object",
+  "properties": {
+    "videoId": { "type": "string" },
+    "platform": { "type": "string", "enum": ["YOUTUBE", "TIKTOK", "INSTAGRAM"] },
+    "visibility": { "type": "string", "enum": ["PUBLIC", "UNLISTED", "PRIVATE"] },
+    "title": { "type": "string" }
+  },
+  "required": ["videoId", "platform", "visibility", "title"]
+}

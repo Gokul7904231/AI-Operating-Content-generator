@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FailureRecoveryInput",
+  "type": "object",
+  "properties": {
+    "errorPayload": { "type": "object" },
+    "failedTaskId": { "type": "string" },
+    "attemptCount": { "type": "number", "default": 1 }
+  },
+  "required": ["errorPayload", "failedTaskId"]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "failure-recovery",
+  "version": "1.0.0",
+  "name": "Autonomous Failure Recovery & Error Triage",
+  "description": "Classifies runtime faults into deterministic and agentic recovery plans with quota reconciliation.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["failure_recovery", "error_triage"],
+  "requiredTools": ["classify_failure", "apply_deterministic_recovery", "reconcile_quota_reservation"],
+  "requiredPermissions": ["recovery:write"],
+  "triggerConditions": {
+    "taskTypes": ["FAILURE_RECOVERY", "SELF_HEAL"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "MEDIUM",
+    "isolationRequired": false,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Taxonomy Classification", "toolOrAgent": "classify_failure", "deterministic": true },
+    { "stepIndex": 2, "name": "Execute Recovery Plan", "toolOrAgent": "RecoveryAgent", "deterministic": false }
+  ],
+  "decisionRules": [
+    { "condition": "classification == 'TRANSIENT'", "action": "EXPONENTIAL_BACKOFF_RETRY" },
+    { "condition": "classification == 'WORKER'", "action": "FAILOVER_WORKER_AND_RESUME" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.95,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

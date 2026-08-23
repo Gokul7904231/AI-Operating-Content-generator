@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RenderOrchestrationInput",
+  "type": "object",
+  "properties": {
+    "missionId": { "type": "string" },
+    "timeline": { "type": "object" },
+    "userRole": { "type": "string" }
+  },
+  "required": ["missionId", "timeline", "userRole"]
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DriveDeliveryOutput",
+  "type": "object",
+  "properties": {
+    "fileId": { "type": "string" },
+    "webViewLink": { "type": "string" },
+    "sizeBytes": { "type": "number" },
+    "isDuplicate": { "type": "boolean" }
+  },
+  "required": ["fileId", "webViewLink", "sizeBytes"]
+}

@@ -1,0 +1,177 @@
+import { NextResponse } from "next/server";
+import { scriptAgent } from "@/agents/script-agent";
+import { verifySession } from "@/lib/auth/auth";
+import { getUserQuota } from "@/lib/quota/quota-service";
+import { QuizOrchestrator } from "@/lib/quiz/QuizOrchestrator";
+
+export async function POST(req: Request) {
+  try {
+    // 🔒 Quota Gate Check for Basic Users
+    try {
+      const { user } = await verifySession(req);
+      if (user) {
+        const quota = await getUserQuota(user.uid, user.role);
+        if (quota.isExceeded) {
+          return NextResponse.json(
+            {
+              error: `Generation quota exhausted. Basic plan is limited to ${quota.limit} videos (You have used ${quota.totalUsed}/${quota.limit}).`,
+              code: "QUOTA_EXCEEDED",
+              quota,
+            },
+            { status: 429 }
+          );
+        }
+      }
+    } catch (quotaErr: any) {
+      if (quotaErr.name === "QuotaExceededError" || quotaErr.status === 429) {
+        return NextResponse.json(
+          { error: quotaErr.message, code: "QUOTA_EXCEEDED" },
+          { status: 429 }
+        );
+      }
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const engineId = String(body.engineId || body.engine || "quiz").trim();
+    const quizMode = String(body.quizMode || body.engineMode || (body.countryCode ? "geo" : "custom")).trim();
+    const style = String(body.style || body.difficulty || "medium").trim();
+    const durationSeconds = Number(body.durationSeconds || 45);
+
+    // ─── 1. GEO QUIZ GENERATION PATH ──────────────────────────────────────────
+    if (quizMode === "geo") {
+      const countryCode = String(body.countryCode || "IN").toUpperCase().trim();
+      const countryName = body.countryName || countryCode;
+      const topic = `${countryName} Geography & Culture Quiz`;
+
+      console.log(`[Quiz Draft API] Generating Geo Quiz draft for Country: "${countryCode}"...`);
+
+      const draft = await scriptAgent({
+        topic,
+        durationSeconds,
+        style,
+        contentType: "QUIZ_SHORTS",
+        renderProfile: "FAST_QUIZ",
+      });
+
+      if (!draft || !Array.isArray(draft.questions) || draft.questions.length === 0) {
+        throw new Error(`Failed to generate Geo Quiz for country code: ${countryCode}.`);
+      }
+
+      const questions = draft.questions.map((q: any, idx: number) => {
+        const options = Array.isArray(q.options) ? q.options.map(String) : ["Option A", "Option B", "Option C", "Option D"];
+        const answer = typeof q.answer === "string" ? q.answer : options[0];
+        let answerIndex = options.indexOf(answer);
+        if (answerIndex < 0) answerIndex = typeof q.answerIndex === "number" ? q.answerIndex : 0;
+
+        return {
+          questionId: `q${idx + 1}`,
+          revision: 1,
+          question: q.question || `Question ${idx + 1}`,
+          options,
+          answer: options[answerIndex] || answer,
+          answerIndex,
+          difficulty: q.difficulty || "medium",
+          explanation: q.explanation || "",
+          topicId: countryCode.toLowerCase(),
+          topicName: countryName,
+          verificationStatus: "UNVERIFIED",
+        };
+      });
+
+      return NextResponse.json({
+        engineId: "quiz",
+        quizMode: "geo",
+        countryCode,
+        title: draft.title || topic,
+        topic,
+        hook: draft.hook || `Only true citizens of ${countryName} get Question 6 right!`,
+        description: draft.description || `Test your knowledge on ${countryName}!`,
+        hashtags: draft.hashtags || ["#shorts", "#quiz", "#geoquiz", `#${countryCode.toLowerCase()}`],
+        questions,
+        renderProfile: "FAST_QUIZ",
+        durationSeconds,
+      });
+    }
+
+    // ─── 2. CUSTOM QUIZ GENERATION PATH (SINGLE OR MULTI TOPIC) ─────────────
+    const customQuiz = body.customQuiz || {};
+    const mode = customQuiz.mode || (Array.isArray(customQuiz.topics) && customQuiz.topics.length > 1 ? "multiple" : "single");
+    const totalQuestions = Number(customQuiz.totalQuestions || body.totalQuestions || 6);
+
+    let topicList: string[] = [];
+    if (mode === "multiple" && Array.isArray(customQuiz.topics)) {
+      topicList = customQuiz.topics.map((t: any) => (typeof t === "string" ? t : t.name || t.topicId || ""));
+    } else {
+      const singleTopic = String(
+        (Array.isArray(customQuiz.topics) && customQuiz.topics[0]) ||
+        body.topic ||
+        body.topicBrief ||
+        "Artificial Intelligence & Computing Milestones"
+      ).trim();
+      topicList = [singleTopic];
+    }
+
+    // Run deterministic equal allocation
+    const allocations = QuizOrchestrator.calculateEqualAllocation(topicList, totalQuestions);
+    const combinedTopicTitle = topicList.length > 1 ? topicList.join(" & ") : topicList[0];
+
+    console.log(`[Quiz Draft API] Generating Custom Quiz draft for topics: [${topicList.join(", ")}] (Allocations: ${allocations.map(a => `${a.name}:${a.questionBudget}`).join(", ")})`);
+
+    const draft = await scriptAgent({
+      topic: combinedTopicTitle,
+      durationSeconds,
+      style,
+      contentType: "QUIZ_SHORTS",
+      renderProfile: "FAST_QUIZ",
+      topics: allocations,
+    });
+
+    if (!draft || !Array.isArray(draft.questions) || draft.questions.length === 0) {
+      throw new Error("Failed to generate questions for the requested topics. Please try different topics.");
+    }
+
+    const rawQuestions = draft.questions.map((q: any, idx: number) => {
+      const options = Array.isArray(q.options) ? q.options.map(String) : ["Option A", "Option B", "Option C", "Option D"];
+      const answer = typeof q.answer === "string" ? q.answer : options[0];
+      let answerIndex = options.indexOf(answer);
+      if (answerIndex < 0) answerIndex = typeof q.answerIndex === "number" ? q.answerIndex : 0;
+
+      return {
+        question: q.question || `Question ${idx + 1}`,
+        options,
+        answer: options[answerIndex] || answer,
+        answerIndex,
+        difficulty: q.difficulty || "medium",
+        explanation: q.explanation || "",
+        topicId: q.topicId,
+        topicName: q.topicName,
+      };
+    });
+
+    const normalizedQuestions = QuizOrchestrator.attachQuestionMetadata(
+      rawQuestions,
+      allocations[0]?.topicId,
+      allocations[0]?.name
+    );
+
+    return NextResponse.json({
+      engineId,
+      quizMode: mode === "multiple" ? "custom_multiple" : "custom_single",
+      topics: allocations,
+      title: draft.title || combinedTopicTitle,
+      topic: combinedTopicTitle,
+      hook: draft.hook || `Can you score ${totalQuestions}/${totalQuestions} on this quiz?`,
+      description: draft.description || `Test your knowledge on ${combinedTopicTitle}!`,
+      hashtags: draft.hashtags || ["#shorts", "#quiz", "#trivia"],
+      questions: normalizedQuestions,
+      renderProfile: "FAST_QUIZ",
+      durationSeconds,
+    });
+  } catch (err: any) {
+    console.error("[Quiz Draft API Error]:", err.message);
+    return NextResponse.json(
+      { error: err.message || "Failed to generate quiz draft." },
+      { status: 500 }
+    );
+  }
+}

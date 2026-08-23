@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VideoQualityOutput",
+  "type": "object",
+  "properties": {
+    "passed": { "type": "boolean" },
+    "resolution": { "type": "string" },
+    "durationSec": { "type": "number" },
+    "fileSizeBytes": { "type": "number" },
+    "hasAudio": { "type": "boolean" },
+    "diagnostics": { "type": "string" }
+  },
+  "required": ["passed", "resolution", "durationSec", "fileSizeBytes", "hasAudio"]
+}

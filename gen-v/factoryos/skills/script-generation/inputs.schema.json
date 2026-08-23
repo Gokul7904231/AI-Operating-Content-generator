@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ScriptGenerationInput",
+  "type": "object",
+  "properties": {
+    "topic": { "type": "string" },
+    "durationSeconds": { "type": "number", "default": 30 },
+    "style": { "type": "string", "default": "cinematic" }
+  },
+  "required": ["topic"]
+}

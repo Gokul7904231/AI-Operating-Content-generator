@@ -1,0 +1,37 @@
+{
+  "id": "script-generation",
+  "version": "1.0.0",
+  "name": "High-Retention Script Generation",
+  "description": "Generates scene-by-scene viral short video scripts optimized for viewer retention.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["script_generation"],
+  "requiredTools": ["generate_script_text", "validate_retention_rules"],
+  "requiredPermissions": ["content:write"],
+  "triggerConditions": {
+    "intents": ["create_script", "generate_video", "write_story"],
+    "keywords": ["script", "dialogue", "scenes", "storyboard"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "LOW",
+    "isolationRequired": false,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "LLM Script Draft", "toolOrAgent": "ScriptAgent", "deterministic": false },
+    { "stepIndex": 2, "name": "Retention Verification", "toolOrAgent": "validate_retention_rules", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "hookScore < 80", "action": "REGENERATE_HOOK" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.85,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

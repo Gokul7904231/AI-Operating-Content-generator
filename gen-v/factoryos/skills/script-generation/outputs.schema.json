@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ScriptGenerationOutput",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "hook": { "type": "string" },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sceneIndex": { "type": "number" },
+          "narration": { "type": "string" },
+          "visualPrompt": { "type": "string" },
+          "durationSec": { "type": "number" }
+        },
+        "required": ["sceneIndex", "narration", "visualPrompt", "durationSec"]
+      }
+    }
+  },
+  "required": ["title", "hook", "scenes"]
+}

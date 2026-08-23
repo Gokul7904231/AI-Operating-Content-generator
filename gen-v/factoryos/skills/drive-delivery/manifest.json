@@ -1,0 +1,36 @@
+{
+  "id": "drive-delivery",
+  "version": "1.0.0",
+  "name": "Idempotent Google Drive Delivery",
+  "description": "Uploads and verifies completed video artifacts in Google Drive with zero duplicate creation.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["drive_delivery", "storage_upload"],
+  "requiredTools": ["upload_to_drive", "verify_drive_file"],
+  "requiredPermissions": ["storage:write"],
+  "triggerConditions": {
+    "taskTypes": ["DELIVERY", "STORAGE_PERSIST"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "MEDIUM",
+    "isolationRequired": false,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Upload Stream", "toolOrAgent": "upload_to_drive", "deterministic": true },
+    { "stepIndex": 2, "name": "Verify Remote File", "toolOrAgent": "verify_drive_file", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "isDuplicateKey == true", "action": "RETURN_EXISTING_FILE_ID" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.98,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

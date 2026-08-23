@@ -1,0 +1,35 @@
+{
+  "id": "quota-management",
+  "version": "1.0.0",
+  "name": "Atomic Quota & FinOps Governance",
+  "description": "Enforces atomic quota reservations, prevents quota leaks on render failure, and handles race conditions.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["quota_management"],
+  "requiredTools": ["reserve_quota_slot", "finalize_quota_slot", "release_quota_slot"],
+  "requiredPermissions": ["quota:write"],
+  "triggerConditions": {
+    "taskTypes": ["QUOTA_RESERVE", "QUOTA_FINALIZE"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "MEDIUM",
+    "isolationRequired": true,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Atomic Reservation", "toolOrAgent": "reserve_quota_slot", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "completed + reserved >= limit && role == 'VIEWER'", "action": "DENY_QUOTA_EXCEEDED" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.0,
+    "minPassAtK": 0.99,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

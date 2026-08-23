@@ -1,0 +1,39 @@
+{
+  "id": "render-orchestration",
+  "version": "1.0.0",
+  "name": "Distributed Render Orchestration",
+  "description": "Orchestrates multi-worker video rendering with FFmpeg validation and role isolation.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["video_rendering"],
+  "requiredTools": ["dispatch_render_job", "poll_render_status", "verify_mp4_integrity"],
+  "requiredPermissions": ["rendering:write"],
+  "triggerConditions": {
+    "intents": ["render_video", "build_mp4"],
+    "taskTypes": ["RENDER"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "MEDIUM",
+    "isolationRequired": true,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Dispatch Job", "toolOrAgent": "dispatch_render_job", "deterministic": true },
+    { "stepIndex": 2, "name": "Poll Status", "toolOrAgent": "poll_render_status", "deterministic": true },
+    { "stepIndex": 3, "name": "Validate MP4", "toolOrAgent": "verify_mp4_integrity", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "workerHeartbeatLost == true", "action": "ESCALATE_TO_RECOVERY_AGENT" },
+    { "condition": "mp4Corrupt == true", "action": "REJECT_AND_RETRY_RENDER" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.95,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

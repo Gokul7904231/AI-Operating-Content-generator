@@ -1,0 +1,9 @@
+{
+  "skillId": "render-orchestration",
+  "allowedRoles": ["VIEWER", "EDITOR", "ADMIN", "OWNER"],
+  "riskLevel": "MEDIUM",
+  "requiresApproval": false,
+  "costLimitUsd": 0.0,
+  "executionTimeoutMs": 120000,
+  "allowLocalFallback": true
+}

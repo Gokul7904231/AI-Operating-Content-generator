@@ -1,0 +1,37 @@
+{
+  "id": "video-quality",
+  "version": "1.0.0",
+  "name": "Deterministic Video QA & Artifact Verification",
+  "description": "Validates MP4 resolution, bitrate, audio sync, and duration using ffprobe.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["video_validation", "qa_evaluation"],
+  "requiredTools": ["probe_video_metadata", "verify_audio_stream"],
+  "requiredPermissions": ["media:read"],
+  "triggerConditions": {
+    "taskTypes": ["QA_VERIFICATION"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "LOW",
+    "isolationRequired": false,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Container Probe", "toolOrAgent": "probe_video_metadata", "deterministic": true },
+    { "stepIndex": 2, "name": "Audio Verification", "toolOrAgent": "verify_audio_stream", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "fileSizeBytes < 50000", "action": "REJECT_CORRUPT" },
+    { "condition": "hasAudio == false", "action": "REJECT_MISSING_AUDIO" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.95,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

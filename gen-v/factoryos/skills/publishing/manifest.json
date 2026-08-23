@@ -1,0 +1,36 @@
+{
+  "id": "publishing",
+  "version": "1.0.0",
+  "name": "Governed Video Publishing",
+  "description": "Publishes shorts to social channels with mandatory approval gate for public visibility.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["youtube_publish", "social_publish"],
+  "requiredTools": ["dispatch_platform_publish"],
+  "requiredPermissions": ["publishing:write"],
+  "triggerConditions": {
+    "taskTypes": ["PUBLISH"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "HIGH",
+    "isolationRequired": true,
+    "humanApprovalRequired": true
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Policy & Approval Check", "toolOrAgent": "publishing_gate", "deterministic": true },
+    { "stepIndex": 2, "name": "Platform Dispatch", "toolOrAgent": "dispatch_platform_publish", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "visibility == 'PUBLIC' && isApproved != true", "action": "HALT_FOR_APPROVAL" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.99,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

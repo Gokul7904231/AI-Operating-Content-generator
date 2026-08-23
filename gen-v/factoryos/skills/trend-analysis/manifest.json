@@ -1,0 +1,39 @@
+{
+  "id": "trend-analysis",
+  "version": "1.0.0",
+  "name": "Trend Analysis & Topic Intelligence",
+  "description": "Discovers high-retention viral topics with evidence verification and novelty scoring.",
+  "author": "Overseer Core",
+  "lifecycleState": "PROMOTED",
+  "targetCapabilities": ["trend_analysis", "topic_discovery"],
+  "requiredTools": ["search_web", "query_trend_store"],
+  "requiredPermissions": ["external:read"],
+  "triggerConditions": {
+    "intents": ["create_video", "find_trends", "topic_suggestion"],
+    "keywords": ["trend", "viral", "ideas", "topics"]
+  },
+  "safetyBoundaries": {
+    "maxRiskLevel": "LOW",
+    "isolationRequired": false,
+    "humanApprovalRequired": false
+  },
+  "executionSequence": [
+    { "stepIndex": 1, "name": "Fetch Topics", "toolOrAgent": "query_trend_store", "deterministic": true },
+    { "stepIndex": 2, "name": "Novelty Scoring", "toolOrAgent": "TrendAnalysisAgent", "deterministic": false },
+    { "stepIndex": 3, "name": "Evidence Validation", "toolOrAgent": "search_web", "deterministic": true }
+  ],
+  "decisionRules": [
+    { "condition": "noveltyScore < 0.6", "action": "REJECT_AND_FETCH_NEXT" },
+    { "condition": "isDuplicateIn14Days == true", "action": "REJECT_DUPLICATE" }
+  ],
+  "evaluationProfile": {
+    "isCritical": true,
+    "minSkillLift": 0.05,
+    "minPassAtK": 0.80,
+    "tier1Strict": true,
+    "tier2EmbeddingDedup": true,
+    "tier3AgentEval": true
+  },
+  "createdAt": "2026-08-21T00:00:00.000Z",
+  "updatedAt": "2026-08-21T00:00:00.000Z"
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuotaManagementOutput",
+  "type": "object",
+  "properties": {
+    "success": { "type": "boolean" },
+    "remainingSlots": { "type": "number" },
+    "isUnlimited": { "type": "boolean" },
+    "reason": { "type": "string" }
+  },
+  "required": ["success", "remainingSlots", "isUnlimited"]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DriveDeliveryInput",
+  "type": "object",
+  "properties": {
+    "filePath": { "type": "string" },
+    "title": { "type": "string" },
+    "idempotencyKey": { "type": "string" }
+  },
+  "required": ["filePath", "title", "idempotencyKey"]
+}

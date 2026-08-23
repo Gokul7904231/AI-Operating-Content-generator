@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     const userRole = (authenticatedUser.role || "USER").toUpperCase();
     const isAdminOrOwner = userRole === "ADMIN" || userRole === "OWNER";
     const tier = isAdminOrOwner ? "ADMIN" : "BASIC";
-    const targetWorkerPool = isAdminOrOwner ? "azure" : "github-actions";
+    const targetWorkerPool = isAdminOrOwner ? "azure" : "basic-fastapi";
 
     const body = await req.json();
     const parsed = GenerateVideoRequestSchema.safeParse(body);
@@ -381,65 +381,69 @@ export async function POST(req: Request) {
     const executionToken = crypto.randomBytes(32).toString("hex");
     await saveJobManifest(jobId, { executionToken } as any);
 
-    // P0: Immediate dispatch for BASIC
+    // P0: Dispatch for BASIC
     const basicRenderApiUrl = process.env.BASIC_RENDER_API_URL;
     const basicRenderSecret = process.env.BASIC_RENDER_API_SECRET || process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
 
-    if (tier === "BASIC" && basicRenderApiUrl) {
-      fetch(`${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${basicRenderSecret}`,
-        },
-        body: JSON.stringify({
-          jobId,
-          executionToken,
-          tier: "BASIC",
-          topic: parsed.data.topic,
-          renderProfile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
-          contentType: finalPayload.contentType,
-          quizData: finalPayload.quizData,
-          script: finalPayload.script,
-          scenes: finalPayload.scenes,
-        }),
-      })
-        .then(async (r) => {
-          if (!r.ok) {
-            const t = await r.text().catch(() => "");
-            console.warn(`[generate-video] Basic FastAPI dispatch warning (${r.status}): ${t.slice(0, 300)}`);
-          } else {
-            console.log(`[generate-video] Dispatched to Basic FastAPI renderer for ${jobId}`);
-          }
-        })
-        .catch((e) => console.warn(`[generate-video] Basic FastAPI dispatch error: ${e?.message}`));
-    } else if (targetWorkerPool === "github-actions") {
-      const ghToken = process.env.GITHUB_PAT || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-      const ghRepo = process.env.GITHUB_REPO || "Gokul7904231/AI-Operating-Content-generator";
-      if (ghToken) {
-        fetch(`https://api.github.com/repos/${ghRepo}/dispatches`, {
+    if (tier === "BASIC") {
+      if (basicRenderApiUrl) {
+        // Priority 1: Persistent Basic FastAPI Service (sub-60s warm render on Azure VM)
+        fetch(`${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${ghToken}`,
-            Accept: "application/vnd.github.v3+json",
             "Content-Type": "application/json",
+            Authorization: `Bearer ${basicRenderSecret}`,
           },
           body: JSON.stringify({
-            event_type: "factoryos_render_job",
-            client_payload: { jobId, workerPool: targetWorkerPool, executionToken },
+            jobId,
+            executionToken,
+            tier: "BASIC",
+            topic: parsed.data.topic,
+            renderProfile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
+            contentType: finalPayload.contentType,
+            quizData: finalPayload.quizData,
+            script: finalPayload.script,
+            scenes: finalPayload.scenes,
           }),
         })
           .then(async (r) => {
             if (!r.ok) {
               const t = await r.text().catch(() => "");
-              console.warn(`[generate-video] GitHub dispatch failed ${r.status}: ${t.slice(0, 300)}`);
+              console.warn(`[generate-video] Basic FastAPI dispatch warning (${r.status}): ${t.slice(0, 300)}`);
             } else {
-              console.log(`[generate-video] Dispatched immediate render for ${jobId}`);
+              console.log(`[generate-video] Dispatched to Basic FastAPI renderer for ${jobId}`);
             }
           })
-          .catch((e) => console.warn(`[generate-video] GitHub dispatch error: ${e?.message}`));
+          .catch((e) => console.warn(`[generate-video] Basic FastAPI dispatch error: ${e?.message}`));
       } else {
-        console.warn("[generate-video] GITHUB_PAT/GH_TOKEN not set — falling back to 1-min cron poll for", jobId);
+        // Fallback: GitHub Actions repository_dispatch if GITHUB_PAT configured
+        const ghToken = process.env.GITHUB_PAT || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+        const ghRepo = process.env.GITHUB_REPO || "Gokul7904231/AI-Operating-Content-generator";
+        if (ghToken) {
+          fetch(`https://api.github.com/repos/${ghRepo}/dispatches`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${ghToken}`,
+              Accept: "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              event_type: "factoryos_render_job",
+              client_payload: { jobId, workerPool: "github-actions", executionToken },
+            }),
+          })
+            .then(async (r) => {
+              if (!r.ok) {
+                const t = await r.text().catch(() => "");
+                console.warn(`[generate-video] GitHub dispatch failed ${r.status}: ${t.slice(0, 300)}`);
+              } else {
+                console.log(`[generate-video] Dispatched fallback render for ${jobId}`);
+              }
+            })
+            .catch((e) => console.warn(`[generate-video] GitHub dispatch error: ${e?.message}`));
+        } else {
+          console.warn("[generate-video] BASIC_RENDER_API_URL and GITHUB_PAT not set — job remaining queued for Basic worker pool:", jobId);
+        }
       }
     }
 

@@ -1,0 +1,9 @@
+{
+  "skillId": "video-quality",
+  "allowedRoles": ["VIEWER", "EDITOR", "ADMIN", "OWNER"],
+  "riskLevel": "LOW",
+  "requiresApproval": false,
+  "costLimitUsd": 0.0,
+  "executionTimeoutMs": 10000,
+  "allowLocalFallback": true
+}

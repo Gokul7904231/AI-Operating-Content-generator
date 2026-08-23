@@ -1,0 +1,9 @@
+{
+  "skillId": "quota-management",
+  "allowedRoles": ["VIEWER", "EDITOR", "ADMIN", "OWNER"],
+  "riskLevel": "MEDIUM",
+  "requiresApproval": false,
+  "costLimitUsd": 0.0,
+  "executionTimeoutMs": 5000,
+  "allowLocalFallback": false
+}

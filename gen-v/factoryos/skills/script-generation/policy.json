@@ -1,0 +1,9 @@
+{
+  "skillId": "script-generation",
+  "allowedRoles": ["VIEWER", "EDITOR", "ADMIN", "OWNER"],
+  "riskLevel": "LOW",
+  "requiresApproval": false,
+  "costLimitUsd": 0.0,
+  "executionTimeoutMs": 30000,
+  "allowLocalFallback": true
+}
