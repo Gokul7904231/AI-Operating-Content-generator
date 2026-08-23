@@ -195,9 +195,9 @@ export async function POST(request: NextRequest) {
     response.headers.set("Set-Cookie", cookieHeader);
     return response;
   } catch (error: any) {
-    console.error("[Auth API] Login error:", error.message, error.stack);
+    console.error("[Auth API] Login error:", error.message);
     return NextResponse.json(
-      { success: false, error: error.message || "Authentication failed. Please try again later.", code: "INTERNAL_ERROR" },
+      { success: false, error: "Authentication failed. Please try again later.", code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

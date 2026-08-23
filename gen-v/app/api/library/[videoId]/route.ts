@@ -25,8 +25,8 @@ export async function GET(
     const d = doc.data() || {};
     const isAdmin = isAdminUser(user.role);
 
-    // Multi-user isolation
-    if (!isAdmin && d.userId && d.userId !== user.uid) {
+    // Multi-user isolation — deny by default when ownership cannot be proven (orphan → 403 for non-admin)
+    if (!isAdmin && d.userId !== user.uid) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

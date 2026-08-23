@@ -107,7 +107,9 @@ export class ApiConfigManager {
       }
 
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${keyToUse}`);
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models`, {
+          headers: { "x-goog-api-key": keyToUse },
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.models && Array.isArray(data.models)) {
