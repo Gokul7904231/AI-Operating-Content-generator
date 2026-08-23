@@ -22,7 +22,7 @@
   "meta-llama/llama-3.1-8b-instruct": {
     "script": 88,
     "critic": 85,
-    "speed": 30,
+    "speed": 38,
     "reasoning": 82
   },
   "flux": {
