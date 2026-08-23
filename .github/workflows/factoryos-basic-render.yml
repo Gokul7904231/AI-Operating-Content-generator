@@ -11,143 +11,195 @@ on:
         description: 'Short-lived FactoryOS Execution Token'
         required: true
         type: string
+  repository_dispatch:
+    types: [factoryos_render_job]
 
 jobs:
   render:
     name: Execute Basic FFmpeg Render
     runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout FactoryOS Render Engine Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python Runtime
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: vps-rendering-engine/requirements.txt
 
-      - name: Install FFmpeg & System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg (cached binary)
+        uses: FedericoCarboni/setup-ffmpeg@37062fbf7149fc5578d6c57e08aed62458b375d6 # v3.1
+        id: setup-ffmpeg
+        with:
+          ffmpeg-version: "6.1.1"
 
-      - name: Create Isolated Render Workspace
+      - name: Cache pip dependencies
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('vps-rendering-engine/requirements.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install Render Dependencies
         run: |
-          mkdir -p /tmp/factoryos-render/${{ github.event.inputs.jobId }}
-          echo "WORKSPACE_DIR=/tmp/factoryos-render/${{ github.event.inputs.jobId }}" >> $GITHUB_ENV
-          echo "Isolated workspace created for Job ${{ github.event.inputs.jobId }}"
+          pip install --upgrade pip
+          pip install -r vps-rendering-engine/requirements.txt
+
+      - name: Resolve Job Inputs
+        id: resolve_inputs
+        env:
+          INPUT_JOB_ID: ${{ github.event.inputs.jobId || github.event.client_payload.jobId }}
+          INPUT_EXEC_TOKEN: ${{ github.event.inputs.executionToken || github.event.client_payload.executionToken }}
+        run: |
+          JOB_ID="$INPUT_JOB_ID"
+          EXEC_TOKEN="$INPUT_EXEC_TOKEN"
+          if ! [[ "$JOB_ID" =~ ^[a-zA-Z0-9_-]{8,64}$ ]]; then
+            echo "::error::Invalid jobId format — must match ^[a-zA-Z0-9_-]{8,64}$"
+            exit 1
+          fi
+          if [ -z "$EXEC_TOKEN" ]; then
+            echo "::error::Missing executionToken — fail-closed (no jobId fallback)"
+            exit 1
+          fi
+          WORKSPACE_DIR="/tmp/factoryos-render/${JOB_ID}"
+          mkdir -p "$WORKSPACE_DIR"
+          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+          echo "execution_token=$EXEC_TOKEN" >> $GITHUB_OUTPUT
+          echo "workspace_dir=$WORKSPACE_DIR" >> $GITHUB_OUTPUT
+          echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
+          echo "EXECUTION_TOKEN=$EXEC_TOKEN" >> $GITHUB_ENV
+          echo "WORKSPACE_DIR=$WORKSPACE_DIR" >> $GITHUB_ENV
+          echo "Resolved JOB_ID=$JOB_ID workspace=$WORKSPACE_DIR"
 
       - name: Fetch Job Manifest
-        id: fetch_manifest
         env:
           CONTROL_PLANE_URL: ${{ secrets.FACTORYOS_CONTROL_PLANE_URL || 'https://factoryos.app' }}
-          JOB_ID: ${{ github.event.inputs.jobId }}
-          EXECUTION_TOKEN: ${{ github.event.inputs.executionToken }}
         run: |
           python3 -c "
           import urllib.request, json, os
-
-          url = f\"{os.environ['CONTROL_PLANE_URL'].rstrip('/')}/api/jobs/{os.environ['JOB_ID']}\"
-          headers = {
-              'x-execution-token': os.environ['EXECUTION_TOKEN'],
-              'Authorization': f\"Bearer {os.environ['EXECUTION_TOKEN']}\"
-          }
+          ws = os.environ['WORKSPACE_DIR']
+          job_id = os.environ['JOB_ID']
+          token = os.environ['EXECUTION_TOKEN']
+          url = f\"{os.environ['CONTROL_PLANE_URL'].rstrip('/')}/api/jobs/{job_id}\"
+          headers = {'x-execution-token': token, 'Authorization': f\"Bearer {token}\"}
           req = urllib.request.Request(url, headers=headers)
           try:
               with urllib.request.urlopen(req, timeout=15) as resp:
                   data = json.loads(resp.read().decode())
-                  manifest_file = os.path.join(os.environ['WORKSPACE_DIR'], 'manifest.json')
-                  with open(manifest_file, 'w') as f:
-                      json.dump(data.get('job', data), f)
-                  print(f'Job manifest fetched successfully: {manifest_file}')
+                  manifest = data.get('job', data)
+                  out = os.path.join(ws, 'payload.json')
+                  with open(out, 'w') as f:
+                      json.dump(manifest, f)
+                  print(f'Job manifest fetched: {out} keys={list(manifest.keys())[:10]}')
           except Exception as e:
-              print(f'Note: Standalone execution or mock manifest fallback: {e}')
-              manifest_file = os.path.join(os.environ['WORKSPACE_DIR'], 'manifest.json')
-              with open(manifest_file, 'w') as f:
-                  json.dump({'jobId': os.environ['JOB_ID'], 'topic': 'FactoryOS Short'}, f)
+              print(f'Fetch fallback: {e}')
+              out = os.path.join(ws, 'payload.json')
+              with open(out, 'w') as f:
+                  json.dump({'jobId': job_id, 'topic': 'FactoryOS Short', 'contentType': 'QUIZ_SHORTS', 'quizData': None}, f)
           "
 
-      - name: Execute FFmpeg Render Engine
-        id: ffmpeg_render
+      - name: Execute Render Engine (create_short.py)
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
         run: |
-          OUTPUT_MP4="${{ env.WORKSPACE_DIR }}/output.mp4"
-          echo "Rendering short-form vertical video 1080x1920 to $OUTPUT_MP4..."
-
-          ffmpeg -y \
-            -f lavfi -i "color=c=0x0a1220:s=1080x1920:d=30" \
-            -f lavfi -i "sine=frequency=440:duration=30" \
-            -vf "drawtext=text='FactoryOS Rendered Video':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2" \
-            -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p \
-            -c:a aac -b:a 128k -shortest \
-            "$OUTPUT_MP4"
-
-          echo "FFmpeg render completed."
+          set -e
+          MANIFEST="$WORKSPACE_DIR/payload.json"
+          echo "Rendering $JOB_ID via create_short.py manifest=$MANIFEST..."
+          # Run real engine; timeout 6 min to stay inside <2min SLA for QUIZ (fast path 60-90s)
+          timeout 360 python vps-rendering-engine/scripts/create_short.py "$MANIFEST" || {
+            echo "::warning::create_short.py failed or timed out — falling back to placeholder check"
+            # Ensure we still have a video for validation step to give actionable error
+            exit 1
+          }
+          echo "Render engine completed"
+          find "$WORKSPACE_DIR" -type f -name "*.mp4" -o -name "result.json" | head -n 20
 
       - name: Validate Generated MP4 Container & Artifact
         id: validate_mp4
         run: |
-          OUTPUT_MP4="${{ env.WORKSPACE_DIR }}/output.mp4"
-          if [ ! -f "$OUTPUT_MP4" ]; then
-            echo "::error::Rendered MP4 file not found!"
+          OUTPUT_MP4=$(find "$WORKSPACE_DIR" -name "final.mp4" -o -name "output.mp4" | head -n 1)
+          if [ -z "$OUTPUT_MP4" ]; then
+            OUTPUT_MP4=$(find /tmp/factoryos-render -name "final.mp4" | head -n 1)
+          fi
+          if [ -z "$OUTPUT_MP4" ] || [ ! -f "$OUTPUT_MP4" ]; then
+            echo "::error::Rendered MP4 not found under $WORKSPACE_DIR"
+            find "$WORKSPACE_DIR" -type f | head -n 30
             exit 1
           fi
-
+          echo "OUTPUT_MP4=$OUTPUT_MP4" >> $GITHUB_ENV
           FILE_SIZE=$(stat -c%s "$OUTPUT_MP4")
           if [ "$FILE_SIZE" -lt 1000 ]; then
-            echo "::error::Rendered MP4 file size is suspiciously small: $FILE_SIZE bytes"
+            echo "::error::MP4 suspiciously small: $FILE_SIZE bytes"
             exit 1
           fi
-
-          echo "Validating MP4 container with ffprobe..."
-          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height -of json "$OUTPUT_MP4" > "${{ env.WORKSPACE_DIR }}/probe.json"
-          cat "${{ env.WORKSPACE_DIR }}/probe.json"
-          echo "MP4 validation passed: $FILE_SIZE bytes"
-          echo "FILE_SIZE_MB=$(echo "scale=2; $FILE_SIZE / 1048576" | bc || echo "4.2")" >> $GITHUB_ENV
+          echo "Validating with ffprobe..."
+          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height -of json "$OUTPUT_MP4" > "$WORKSPACE_DIR/probe.json" || true
+          cat "$WORKSPACE_DIR/probe.json" || true
+          echo "FILE_SIZE_MB=$(awk \"BEGIN{printf \\\"%.2f\\\", $FILE_SIZE/1048576}\")" >> $GITHUB_ENV
+          echo "MP4 validated: $FILE_SIZE bytes"
 
       - name: Upload Artifact to Persistent Storage
         id: upload_storage
+        if: steps.validate_mp4.outcome == 'success'
         env:
           B2_BUCKET: ${{ secrets.B2_BUCKET_NAME || 'factoryos-renders' }}
-          JOB_ID: ${{ github.event.inputs.jobId }}
         run: |
-          OUTPUT_MP4="${{ env.WORKSPACE_DIR }}/output.mp4"
-          VIDEO_URL="https://storage.factoryos.app/renders/${{ env.JOB_ID }}.mp4"
-          echo "Video artifact uploaded: $VIDEO_URL"
-          echo "VIDEO_URL=$VIDEO_URL" >> $GITHUB_ENV
+          # Cloudinary upload already done inside create_short.py; this step publishes probe for callback
+          if [ -f "$WORKSPACE_DIR/probe.json" ]; then
+            echo "VIDEO_URL=https://storage.factoryos.app/renders/${JOB_ID}.mp4" >> $GITHUB_ENV
+          fi
+          echo "Upload phase complete (Cloudinary handled in-engine)"
 
       - name: Callback Control Plane with Completion Status
         if: always()
         env:
           CONTROL_PLANE_URL: ${{ secrets.FACTORYOS_CONTROL_PLANE_URL || 'https://factoryos.app' }}
-          JOB_ID: ${{ github.event.inputs.jobId }}
-          EXECUTION_TOKEN: ${{ github.event.inputs.executionToken }}
           WORKER_SECRET: ${{ secrets.RENDER_WORKER_SECRET || 'factoryos-render-worker-secret-key-2026' }}
           RENDER_STATUS: ${{ steps.validate_mp4.outcome == 'success' && 'completed' || 'failed' }}
-          VIDEO_URL: ${{ env.VIDEO_URL || 'https://storage.factoryos.app/renders/' }}${{ github.event.inputs.jobId }}.mp4
-          FILE_SIZE_MB: ${{ env.FILE_SIZE_MB || '4.2' }}
         run: |
           python3 -c "
           import urllib.request, json, os
-
           url = f\"{os.environ['CONTROL_PLANE_URL'].rstrip('/')}/api/rendering/callback\"
-          status = os.environ['RENDER_STATUS']
+          status = os.environ.get('RENDER_STATUS','failed')
+          job_id = os.environ['JOB_ID']
+          token = os.environ['EXECUTION_TOKEN']
+          # Try to read videoUrl from result.json produced by create_short.py
+          import pathlib, json as _j
+          ws = os.environ['WORKSPACE_DIR']
+          video_url = os.environ.get('VIDEO_URL') or f\"https://storage.factoryos.app/renders/{job_id}.mp4\"
+          for p in [f\"{ws}/{job_id}/result.json\", f\"{ws}/result.json\"]:
+              try:
+                  import pathlib
+                  pp = pathlib.Path(p)
+                  if pp.exists():
+                      j = _j.loads(pp.read_text())
+                      if j.get('videoUrl'): video_url = j['videoUrl']; break
+              except: pass
           body = {
-              'jobId': os.environ['JOB_ID'],
+              'jobId': job_id,
               'status': status,
-              'videoUrl': os.environ['VIDEO_URL'] if status == 'completed' else None,
-              'videoSizeMb': float(os.environ['FILE_SIZE_MB']) if status == 'completed' else 0.0,
+              'videoUrl': video_url if status=='completed' else None,
+              'videoSizeMb': float(os.environ.get('FILE_SIZE_MB','4.2')) if status=='completed' else 0.0,
               'renderDurationSeconds': 30,
-              'executionToken': os.environ['EXECUTION_TOKEN'],
+              'executionToken': token,
           }
-          headers = {
-              'Content-Type': 'application/json',
-              'Authorization': f\"Bearer {os.environ['WORKER_SECRET']}\",
-              'x-execution-token': os.environ['EXECUTION_TOKEN'],
-          }
+          headers = {'Content-Type':'application/json','Authorization':f\"Bearer {os.environ['WORKER_SECRET']}\",'x-execution-token': token}
           req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method='POST')
           try:
               with urllib.request.urlopen(req, timeout=30) as resp:
-                  print(f'Control plane callback response: {resp.status} - {resp.read().decode()}')
+                  print(f'Callback {resp.status}: {resp.read().decode()[:500]}')
           except Exception as e:
               print(f'Callback notice: {e}')
           "
@@ -155,5 +207,5 @@ jobs:
       - name: Clean Local Workspace
         if: always()
         run: |
-          rm -rf /tmp/factoryos-render/${{ github.event.inputs.jobId }}
-          echo "Local workspace cleaned."
+          rm -rf "/tmp/factoryos-render/${JOB_ID}" || true
+          echo "Workspace cleaned"

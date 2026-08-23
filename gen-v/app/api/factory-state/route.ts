@@ -104,15 +104,18 @@ export async function GET(request: Request) {
     const runningCount = jobs.filter(j => j.status === "processing").length;
     const queuedCount = jobs.filter(j => j.status === "queued").length;
 
+    const diskUsagePct = 0; // honest: disk telemetry unavailable — 0 until measured (was 45 fake)
+    const healthPct = totalJobsCount === 0 ? 100 : Math.round((completedCount / totalJobsCount) * 100);
+
     return NextResponse.json({
       success: true,
       timestamp: Date.now(),
       system: {
         cpuUsagePct,
         memUsagePct,
-        diskUsagePct: 45, // default
+        diskUsagePct,
         hardware: capReport,
-        healthPct: 96,
+        healthPct,
       },
       jobsSummary: {
         total: totalJobsCount,

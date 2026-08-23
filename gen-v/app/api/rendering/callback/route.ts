@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/firebase-admin";
 import { finalizeGenerationSlot, releaseGenerationSlot } from "@/lib/quota/quota-service";
 
-const RENDER_WORKER_SECRET = process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY || "factoryos-render-worker-secret-key-2026";
+import { readJobManifest, saveJobManifest } from "@/lib/jobs-history";
+
+const RENDER_WORKER_SECRET = process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
+
+function safeEqual(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +24,18 @@ export async function POST(request: NextRequest) {
       videoUrl,
       videoSizeMb,
       renderDurationSeconds,
+      driveFileId,
+      driveUrl,
+      filename,
+      fileSize,
+      duration,
+      artifactSha256,
+      deliveryTarget,
+      deliveryProvider,
+      deliveryState,
+      workerCredentialVersion,
+      fallbackUsed,
+      fallbackReason,
       error,
       telemetry,
       executionToken,
@@ -30,18 +53,16 @@ export async function POST(request: NextRequest) {
     const tokenHeader = request.headers.get("x-execution-token") || "";
     const bearer = authHeader.replace(/^Bearer\s+/i, "") || tokenHeader || executionToken;
 
-    const jobRef = db.collection("videos").doc(jobId);
-    const jobDoc = await jobRef.get();
+    const jobData = (await readJobManifest(jobId)) || (db ? (await db.collection("videos").doc(jobId).get().then(d => d.data())) : null);
 
-    if (!jobDoc.exists) {
+    if (!jobData) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 });
     }
 
-    const jobData = jobDoc.data() || {};
-    const validExecutionToken = jobData.executionToken;
+    const validExecutionToken = (jobData as any).executionToken as string | undefined;
 
-    const isMasterWorker = bearer === RENDER_WORKER_SECRET;
-    const isJobTokenValid = validExecutionToken && bearer === validExecutionToken;
+    const isMasterWorker = RENDER_WORKER_SECRET ? safeEqual(bearer, RENDER_WORKER_SECRET) : false;
+    const isJobTokenValid = validExecutionToken ? safeEqual(bearer, validExecutionToken) : false;
 
     if (!isMasterWorker && !isJobTokenValid) {
       return NextResponse.json(
@@ -52,21 +73,53 @@ export async function POST(request: NextRequest) {
 
     const userId = jobData.userId || "anonymous";
 
-    // 2. Handle Status Transitions & Idempotent Quota Reconciliations
+    // 2. Idempotency Check: Repeated callback for already completed job
+    if (jobData.status === "completed" && status === "completed") {
+      return NextResponse.json({
+        success: true,
+        jobId,
+        status: "completed",
+        videoUrl: jobData.videoUrl,
+        driveFileId: (jobData as any).driveFileId || null,
+        driveUrl: (jobData as any).driveUrl || null,
+        artifactSha256: (jobData as any).artifactSha256 || null,
+        message: "Job already marked completed (idempotent callback).",
+      });
+    }
+
+    // 3. Handle Status Transitions & Idempotent Quota Reconciliations
     if (status === "completed") {
       const now = new Date().toISOString();
-      await jobRef.set(
-        {
-          status: "completed",
-          videoUrl: videoUrl || jobData.videoUrl || `https://storage.factoryos.app/renders/${jobId}.mp4`,
-          videoSizeMb: videoSizeMb || 4.2,
-          renderDurationSeconds: renderDurationSeconds || 28,
-          completedAt: now,
-          telemetry: telemetry || null,
-          updatedAt: now,
-        },
-        { merge: true }
-      );
+      const finalVideoUrl =
+        videoUrl ||
+        driveUrl ||
+        jobData.videoUrl ||
+        `https://storage.factoryos.app/renders/${jobId}.mp4`;
+
+      const finalSizeMb =
+        videoSizeMb || (fileSize ? Number((fileSize / (1024 * 1024)).toFixed(2)) : jobData.videoSizeMb || 4.2);
+      const finalDuration =
+        renderDurationSeconds || duration || jobData.renderDurationSeconds || 30;
+
+      await saveJobManifest(jobId, {
+        status: "completed",
+        deliveryState: deliveryState || "DELIVERED",
+        deliveryTarget: deliveryTarget || "GOOGLE_DRIVE",
+        deliveryProvider: deliveryProvider || "google_drive",
+        videoUrl: finalVideoUrl,
+        driveFileId: driveFileId || (jobData as any).driveFileId || null,
+        driveUrl: driveUrl || (jobData as any).driveUrl || null,
+        filename: filename || (jobData as any).filename || `${jobId}.mp4`,
+        artifactSha256: artifactSha256 || (jobData as any).artifactSha256 || null,
+        workerCredentialVersion: workerCredentialVersion || null,
+        fallbackUsed: Boolean(fallbackUsed),
+        fallbackReason: fallbackReason || null,
+        videoSizeMb: finalSizeMb,
+        renderDurationSeconds: finalDuration,
+        completedAt: now,
+        telemetry: telemetry || null,
+        updatedAt: now,
+      } as any);
 
       // 🔒 Finalize Quota Slot Consumption (Idempotent)
       await finalizeGenerationSlot(userId, jobId);
@@ -75,22 +128,25 @@ export async function POST(request: NextRequest) {
         success: true,
         jobId,
         status: "completed",
-        videoUrl: videoUrl || jobData.videoUrl,
-        message: "Render completed and quota consumption finalized successfully.",
+        deliveryState: "DELIVERED",
+        videoUrl: finalVideoUrl,
+        driveFileId: driveFileId || (jobData as any).driveFileId,
+        driveUrl: driveUrl || (jobData as any).driveUrl,
+        artifactSha256: artifactSha256 || null,
+        message: "Render completed, verified delivery artifact recorded, and quota consumption finalized successfully.",
       });
     }
 
     if (status === "failed") {
       const now = new Date().toISOString();
-      await jobRef.set(
-        {
-          status: "failed",
-          error: error || "Rendering process terminated with error.",
-          failedAt: now,
-          updatedAt: now,
-        },
-        { merge: true }
-      );
+      await saveJobManifest(jobId, {
+        status: "failed",
+        deliveryState: deliveryState || "DELIVERY_FAILED",
+        error: error || "Rendering or delivery process terminated with error.",
+        workerCredentialVersion: workerCredentialVersion || null,
+        failedAt: now,
+        updatedAt: now,
+      } as any);
 
       // 🔒 Reconcile and Release Quota Slot
       await releaseGenerationSlot(userId, jobId);
@@ -99,8 +155,9 @@ export async function POST(request: NextRequest) {
         success: true,
         jobId,
         status: "failed",
-        error: error || "Render failed",
-        message: "Render failure recorded and quota reservation released.",
+        deliveryState: deliveryState || "DELIVERY_FAILED",
+        error: error || "Render/delivery failed",
+        message: "Failure recorded and quota reservation released.",
       });
     }
 

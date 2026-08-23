@@ -103,13 +103,13 @@ export default function FactoryQueuePage() {
         </button>
       </div>
 
-      {/* Queue Stats block */}
+      {/* Queue Stats block — honest: only real queue counters, no fake workers/throughput */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         {[
           { label: "Queue Health", value: totalDead > 0 ? "Degraded" : "Healthy", color: totalDead > 0 ? "text-amber-400" : "text-emerald-400" },
-          { label: "Workers Active", value: "3", color: "text-zinc-150" },
-          { label: "Throughput", value: "1.4/min", color: "text-zinc-150" },
-          { label: "Average Wait", value: "12s", color: "text-zinc-150" },
+          { label: "Running", value: String(jobsSummary.running), color: "text-zinc-150" },
+          { label: "Queued", value: String(jobsSummary.queued), color: "text-zinc-150" },
+          { label: "Completed", value: String(jobsSummary.completed), color: "text-zinc-150" },
           { label: "Retries Count", value: queues.storageQueue.reduce((sum, j) => sum + j.attempts, 0), color: "text-zinc-150" },
           { label: "Dead Letters", value: totalDead, color: totalDead > 0 ? "text-red-400" : "text-zinc-550" },
         ].map(stat => (

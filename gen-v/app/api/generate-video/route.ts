@@ -5,6 +5,8 @@ import crypto from "crypto";
 
 import { saveJobManifest } from "../../../lib/jobs-history";
 import { validateContent } from "../../../lib/content-pipeline";
+import { EngineRegistry } from "@/lib/core/EngineRegistry";
+import { EngineJobSnapshot } from "@/lib/core/EngineContracts";
 
 const SceneInputSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
@@ -33,9 +35,30 @@ const GenerateVideoRequestSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   hashtags: z.array(z.string()).optional(),
+  engineId: z.string().optional(),
+  engineMode: z.string().optional(),
+  difficulty: z.string().optional(),
+  tone: z.string().optional(),
+  voice: z.string().optional(),
+  ratio: z.string().optional(),
+  provider: z.string().optional(),
+  quizContext: z.any().optional(),
   // YouTube Shorts target duration (clamped server-side to 30–60 s)
   durationSeconds: z.number().optional(),
 });
+
+function mapQuizErrorToCode(errors: string[]): string {
+  const msg = errors.join(" ").toLowerCase();
+  if (msg.includes("missing hook")) return "HOOK_MISSING";
+  if (msg.includes("hook score")) return "HOOK_SCORE_LOW";
+  if (msg.includes("scene quality")) return "SCENE_QUALITY_LOW";
+  if (msg.includes("hashtags")) return "HASHTAGS_INVALID";
+  if (msg.includes("title too generic") || msg.includes("generic title")) return "TITLE_GENERIC";
+  if (msg.includes("duplicate") && msg.includes("topic")) return "TOPIC_DUPLICATE";
+  if (msg.includes("duplicate question")) return "QUESTION_DUPLICATE";
+  if (msg.includes("thumbnail")) return "THUMBNAIL_NOT_READY";
+  return "QUESTION_INVALID";
+}
 
 function validateQuizContent(quiz: { hook?: string; questions?: any[] }) {
   const errors: string[] = [];
@@ -61,12 +84,10 @@ function validateQuizContent(quiz: { hook?: string; questions?: any[] }) {
         if (!hasAnswer && !hasAnswerIndex) {
           errors.push(`Question ${num} is missing a valid answer or answerIndex`);
         } else if (hasAnswer && !hasAnswerIndex && !q.options.includes(q.answer)) {
-          // Only reject if answer string doesn't match any option AND no answerIndex fallback
           errors.push(`Question ${num} answer "${q.answer}" must match one of the options`);
         }
       }
 
-      // Difficulty is optional for geo-quiz; only enforce for strict 10-question format
       if (expectedLength === 10) {
         const diff = String(q.difficulty ?? "").toLowerCase();
         if (i >= 0 && i <= 2 && diff !== "easy") {
@@ -85,7 +106,7 @@ function validateQuizContent(quiz: { hook?: string; questions?: any[] }) {
       seen.add(qText);
     }
   }
-  return { approved: errors.length === 0, errors };
+  return { approved: errors.length === 0, errors, code: errors.length ? mapQuizErrorToCode(errors) : undefined as string | undefined };
 }
 
 import { verifySession, verifyWritePermission } from "../../../lib/auth/auth";
@@ -117,7 +138,10 @@ export async function POST(req: Request) {
     }
 
     userId = authenticatedUser.uid;
-    const userRole = authenticatedUser.role || "USER";
+    const userRole = (authenticatedUser.role || "USER").toUpperCase();
+    const isAdminOrOwner = userRole === "ADMIN" || userRole === "OWNER";
+    const tier = isAdminOrOwner ? "ADMIN" : "BASIC";
+    const targetWorkerPool = isAdminOrOwner ? "azure" : "github-actions";
 
     const body = await req.json();
     const parsed = GenerateVideoRequestSchema.safeParse(body);
@@ -181,13 +205,15 @@ export async function POST(req: Request) {
       });
       if (!validate.approved) {
         return NextResponse.json(
-          { error: "Content rejected", details: validate },
+          { error: "Content rejected", details: validate, code: (validate as any).code ?? "VALIDATION_FAILED" },
           { status: 422 }
         );
       }
 
       finalPayload = {
         userId,
+        tier,
+        targetWorkerPool,
         topic: parsed.data.topic,
         style: parsed.data.style ?? "",
         script: quizHook,
@@ -274,6 +300,8 @@ export async function POST(req: Request) {
 
       finalPayload = {
         userId,
+        tier,
+        targetWorkerPool,
         topic: parsed.data.topic,
         style: parsed.data.style ?? "",
         script: finalScript,
@@ -287,6 +315,30 @@ export async function POST(req: Request) {
         videoSizeMb: 0.0,
       };
     }
+
+    // Build immutable engine configuration snapshot for runtime safety
+    const engineId = parsed.data.engineId || (parsed.data.contentType === "QUIZ_SHORTS" ? "quiz" : "facts");
+    const engineDef = await EngineRegistry.getEngine(engineId);
+    const engineSnapshot: EngineJobSnapshot = {
+      jobId,
+      engineId,
+      manifestVersion: engineDef?.manifestVersion || "1.0",
+      engineConfigVersion: engineDef?.configVersion || 1,
+      engineStatusAtCreation: engineDef?.status || "ACTIVE",
+      effectiveConfig: {
+        difficulty: parsed.data.difficulty || engineDef?.defaults.difficulty || "medium",
+        tone: parsed.data.tone || engineDef?.defaults.tone || "Challenging",
+        voice: parsed.data.voice || engineDef?.defaults.voice || "neutral",
+        ratio: parsed.data.ratio || engineDef?.defaults.ratio || "9:16",
+        renderProfile: parsed.data.renderProfile || engineDef?.generationConfig.renderProfile || "FAST_QUIZ",
+        provider: parsed.data.provider || engineDef?.generationConfig.provider,
+        durationSeconds,
+      },
+      quizContext: parsed.data.quizContext,
+    };
+
+    finalPayload.engineId = engineId;
+    finalPayload.engineSnapshot = engineSnapshot;
 
     // Initialize document in Firestore
     await saveJobManifest(jobId, finalPayload);
@@ -307,9 +359,11 @@ export async function POST(req: Request) {
       jobId,
       payload: {
         jobId,
-        engine: parsed.data.style || "quiz",
+        engine: engineId,
+        engineId,
+        engineSnapshot,
         topic: parsed.data.topic,
-        profile: parsed.data.renderProfile || "FAST_QUIZ",
+        profile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
         platforms: ["youtube"],
         options: {
           humanApproval: false
@@ -322,6 +376,72 @@ export async function POST(req: Request) {
       priority: 0,
       maxAttempts: 3
     });
+
+    // Execution token: strong crypto — never jobId fallback (const-time compared in callback)
+    const executionToken = crypto.randomBytes(32).toString("hex");
+    await saveJobManifest(jobId, { executionToken } as any);
+
+    // P0: Immediate dispatch for BASIC
+    const basicRenderApiUrl = process.env.BASIC_RENDER_API_URL;
+    const basicRenderSecret = process.env.BASIC_RENDER_API_SECRET || process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
+
+    if (tier === "BASIC" && basicRenderApiUrl) {
+      fetch(`${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${basicRenderSecret}`,
+        },
+        body: JSON.stringify({
+          jobId,
+          executionToken,
+          tier: "BASIC",
+          topic: parsed.data.topic,
+          renderProfile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
+          contentType: finalPayload.contentType,
+          quizData: finalPayload.quizData,
+          script: finalPayload.script,
+          scenes: finalPayload.scenes,
+        }),
+      })
+        .then(async (r) => {
+          if (!r.ok) {
+            const t = await r.text().catch(() => "");
+            console.warn(`[generate-video] Basic FastAPI dispatch warning (${r.status}): ${t.slice(0, 300)}`);
+          } else {
+            console.log(`[generate-video] Dispatched to Basic FastAPI renderer for ${jobId}`);
+          }
+        })
+        .catch((e) => console.warn(`[generate-video] Basic FastAPI dispatch error: ${e?.message}`));
+    } else if (targetWorkerPool === "github-actions") {
+      const ghToken = process.env.GITHUB_PAT || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+      const ghRepo = process.env.GITHUB_REPO || "Gokul7904231/AI-Operating-Content-generator";
+      if (ghToken) {
+        fetch(`https://api.github.com/repos/${ghRepo}/dispatches`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${ghToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event_type: "factoryos_render_job",
+            client_payload: { jobId, workerPool: targetWorkerPool, executionToken },
+          }),
+        })
+          .then(async (r) => {
+            if (!r.ok) {
+              const t = await r.text().catch(() => "");
+              console.warn(`[generate-video] GitHub dispatch failed ${r.status}: ${t.slice(0, 300)}`);
+            } else {
+              console.log(`[generate-video] Dispatched immediate render for ${jobId}`);
+            }
+          })
+          .catch((e) => console.warn(`[generate-video] GitHub dispatch error: ${e?.message}`));
+      } else {
+        console.warn("[generate-video] GITHUB_PAT/GH_TOKEN not set — falling back to 1-min cron poll for", jobId);
+      }
+    }
 
     return NextResponse.json({ jobId, videoId: jobId, status: "queued" });
   } catch (err: any) {

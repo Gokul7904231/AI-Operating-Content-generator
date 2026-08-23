@@ -105,8 +105,8 @@ export class EventCenter {
       activeWorkerCount: workers.filter(w => w.status === "READY" || w.status === "BUSY").length,
       queueDepth: queue.length,
       storagePressureState: storageTelemetry.pressureState,
-      avgAiLatencyMs: 186,
-      avgRenderTimeMs: 14200,
+      avgAiLatencyMs: 0, // honest: no AI latency telemetry yet — 0 until measured
+      avgRenderTimeMs: 0, // honest: no render timing telemetry yet — 0 until measured
       timestamp: new Date().toISOString(),
     };
   }

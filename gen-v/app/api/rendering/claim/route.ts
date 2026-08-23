@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/firebase-admin";
+import { getInMemoryJobs } from "@/lib/jobs-history";
 
-const RENDER_WORKER_SECRET = process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY || "factoryos-render-worker-secret-key-2026";
+const RENDER_WORKER_SECRET = process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
+const STALE_JOB_LEASE_MS = 15 * 60 * 1000; // 15 minutes stale lease recovery
 
 export async function POST(request: NextRequest) {
   try {
+    if (!RENDER_WORKER_SECRET) {
+      console.error("[Rendering Claim API] Missing RENDER_WORKER_SECRET in server environment.");
+      return NextResponse.json(
+        { success: false, error: "Server Misconfiguration: RENDER_WORKER_SECRET is not configured." },
+        { status: 500 }
+      );
+    }
+
     // 1. Authenticate Render Worker
     const authHeader = request.headers.get("authorization") || "";
     const workerSecretHeader = request.headers.get("x-worker-secret") || "";
@@ -19,71 +29,216 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const workerId = body.workerId || `worker-gh-${crypto.randomBytes(4).toString("hex")}`;
+    const workerPool = (body.workerPool || request.headers.get("x-worker-pool") || "").toLowerCase();
+
+    // Enforce allowed worker pools
+    if (workerPool !== "azure" && workerPool !== "github-actions" && workerPool !== "basic-fastapi" && workerPool !== "basic") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid or missing workerPool. Allowed values: 'azure', 'github-actions', 'basic-fastapi'. Received: '${workerPool}'`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const workerId = body.workerId || `worker-${workerPool}-${crypto.randomBytes(4).toString("hex")}`;
 
     // 2. Concurrency-Safe Atomic Job Claim via Firestore Transaction
     const claimResult = await db.runTransaction(async (transaction: any) => {
-      // Find oldest queued video job
+      // Find candidate queued video jobs
       const snapshot = await db
         .collection("videos")
-        .where("status", "==", "queued")
+        .where("status", "in", ["queued", "processing"])
         .orderBy("createdAt", "asc")
-        .limit(1)
+        .limit(25)
         .get();
 
       if (snapshot.empty) {
         return null;
       }
 
-      const doc = snapshot.docs[0];
-      const jobRef = db.collection("videos").doc(doc.id);
-      const jobData = doc.data();
+      const nowMs = Date.now();
+      let targetDoc: any = null;
+      let targetJobData: any = null;
 
-      // Ensure job hasn't been claimed in race condition
-      if (jobData.status !== "queued") {
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const jobStatus = data.status;
+        const jobTier = data.tier || (data.targetWorkerPool === "azure" ? "ADMIN" : "BASIC");
+
+        // Stale job detection
+        const isStaleProcessing =
+          jobStatus === "processing" &&
+          data.startedAt &&
+          nowMs - new Date(data.startedAt).getTime() > STALE_JOB_LEASE_MS;
+
+        // Candidate must be newly queued or recovered from stale crash
+        if (jobStatus !== "queued" && !isStaleProcessing) {
+          continue;
+        }
+
+        // STRICT TIER ISOLATION SECURITY BOUNDARY:
+        // Azure workers claim ONLY tier === "ADMIN"
+        // Basic FastAPI & GitHub Actions workers claim ONLY tier === "BASIC"
+        if (workerPool === "azure") {
+          if (jobTier === "ADMIN") {
+            targetDoc = doc;
+            targetJobData = data;
+            break;
+          }
+        } else if (workerPool === "github-actions" || workerPool === "basic-fastapi" || workerPool === "basic") {
+          if (jobTier === "BASIC" || !data.tier) {
+            targetDoc = doc;
+            targetJobData = data;
+            break;
+          }
+        }
+      }
+
+      if (!targetDoc || !targetJobData) {
         return null;
       }
+
+      const jobRef = db.collection("videos").doc(targetDoc.id);
 
       // Generate cryptographically secure short-lived execution token
       const executionToken = `exec_${crypto.randomBytes(24).toString("hex")}`;
       const startedAt = new Date().toISOString();
+      const currentAttempts = typeof targetJobData.attempts === "number" ? targetJobData.attempts : 0;
 
       transaction.update(jobRef, {
         status: "processing",
         workerId,
+        workerPool,
         startedAt,
+        claimedAt: startedAt,
         executionToken,
+        attempts: currentAttempts + 1,
         updatedAt: startedAt,
       });
 
       return {
-        id: doc.id,
-        jobId: doc.id,
-        userId: jobData.userId || "anonymous",
-        topic: jobData.topic || "Untitled Short",
-        script: jobData.script || "",
-        scenes: jobData.scenes || [],
-        quizData: jobData.quizData || null,
-        renderProfile: jobData.renderProfile || "FAST_QUIZ",
-        contentType: jobData.contentType || "QUIZ_SHORTS",
+        id: targetDoc.id,
+        jobId: targetDoc.id,
+        userId: targetJobData.userId || "anonymous",
+        tier: targetJobData.tier || (workerPool === "azure" ? "ADMIN" : "BASIC"),
+        targetWorkerPool: targetJobData.targetWorkerPool || workerPool,
+        workerPool,
+        topic: targetJobData.topic || "Untitled Short",
+        style: targetJobData.style || "",
+        script: targetJobData.script || "",
+        scenes: targetJobData.scenes || [],
+        quizData: targetJobData.quizData || null,
+        renderProfile: targetJobData.renderProfile || "FAST_QUIZ",
+        contentType: targetJobData.contentType || "QUIZ_SHORTS",
+        durationSeconds: targetJobData.durationSeconds || 45,
         executionToken,
         workerId,
         startedAt,
       };
     });
 
-    if (!claimResult) {
+    let finalClaim = claimResult;
+
+    if (!finalClaim) {
+      const inMemoryJobs = getInMemoryJobs();
+      const nowMs = Date.now();
+      for (const [id, data] of inMemoryJobs.entries()) {
+        const jobTier = (data as any).tier || ((data as any).targetWorkerPool === "azure" ? "ADMIN" : "BASIC");
+        const jobStatus = data.status;
+        const isStale = jobStatus === "processing" && (data as any).startedAt && nowMs - new Date((data as any).startedAt).getTime() > STALE_JOB_LEASE_MS;
+
+        if (jobStatus === "queued" || isStale) {
+          if (workerPool === "azure" && jobTier === "ADMIN") {
+            const executionToken = `exec_${crypto.randomBytes(24).toString("hex")}`;
+            const startedAt = new Date().toISOString();
+            const updatedJob = {
+              ...data,
+              status: "processing" as const,
+              workerId,
+              workerPool,
+              startedAt,
+              claimedAt: startedAt,
+              executionToken,
+              attempts: ((data as any).attempts || 0) + 1,
+              updatedAt: startedAt,
+            };
+            inMemoryJobs.set(id, updatedJob as any);
+            finalClaim = {
+              id,
+              jobId: id,
+              userId: updatedJob.userId || "anonymous",
+              tier: "ADMIN",
+              targetWorkerPool: "azure",
+              workerPool: "azure",
+              topic: (updatedJob as any).topic || "Untitled Short",
+              style: (updatedJob as any).style || "",
+              script: updatedJob.script || "",
+              scenes: (updatedJob as any).scenes || [],
+              quizData: (updatedJob as any).quizData || null,
+              renderProfile: (updatedJob as any).renderProfile || "FAST_QUIZ",
+              contentType: updatedJob.contentType || "QUIZ_SHORTS",
+              durationSeconds: (updatedJob as any).durationSeconds || 45,
+              executionToken,
+              workerId,
+              startedAt,
+            };
+            break;
+          }
+          if ((workerPool === "github-actions" || workerPool === "basic-fastapi" || workerPool === "basic") && (jobTier === "BASIC" || !(data as any).tier)) {
+            const executionToken = `exec_${crypto.randomBytes(24).toString("hex")}`;
+            const startedAt = new Date().toISOString();
+            const updatedJob = {
+              ...data,
+              status: "processing" as const,
+              workerId,
+              workerPool,
+              startedAt,
+              claimedAt: startedAt,
+              executionToken,
+              attempts: ((data as any).attempts || 0) + 1,
+              updatedAt: startedAt,
+            };
+            inMemoryJobs.set(id, updatedJob as any);
+            finalClaim = {
+              id,
+              jobId: id,
+              userId: updatedJob.userId || "anonymous",
+              tier: "BASIC",
+              targetWorkerPool: "github-actions",
+              workerPool,
+              topic: (updatedJob as any).topic || "Untitled Short",
+              style: (updatedJob as any).style || "",
+              script: updatedJob.script || "",
+              scenes: (updatedJob as any).scenes || [],
+              quizData: (updatedJob as any).quizData || null,
+              renderProfile: (updatedJob as any).renderProfile || "FAST_QUIZ",
+              contentType: updatedJob.contentType || "QUIZ_SHORTS",
+              durationSeconds: (updatedJob as any).durationSeconds || 45,
+              executionToken,
+              workerId,
+              startedAt,
+            };
+            break;
+          }
+        }
+      }
+    }
+
+    if (!finalClaim) {
       return NextResponse.json({
         success: true,
         claimed: false,
-        message: "No queued video jobs available.",
+        workerPool,
+        message: `No queued video jobs available for worker pool '${workerPool}'.`,
       });
     }
 
     return NextResponse.json({
       success: true,
       claimed: true,
-      job: claimResult,
+      job: finalClaim,
     });
   } catch (err: any) {
     console.error("[Rendering Claim API Error]:", err.message);
