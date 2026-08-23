@@ -1,19 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthAndRole } from "@/lib/auth/auth";
 import { ApiConfigManager } from "@/lib/api-config/api-config-manager";
+import { OverseerCognitivePipeline } from "@/factoryos/core/cognition/OverseerCognitivePipeline";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
     // 🔐 Must be logged in (ADMIN or EDITOR)
-    await verifyAuthAndRole(request);
+    const user = await verifyAuthAndRole(request);
 
     const body = await request.json();
-    const { providerId, apiKey: rawKey, baseUrl: overrideUrl, mode, localType } = body;
+    const { providerId, apiKey: rawKey, baseUrl: overrideUrl, mode, localType, isCognitiveTest } = body;
 
     if (!providerId) {
       return NextResponse.json({ success: false, error: "Missing required parameter: providerId" }, { status: 400 });
+    }
+
+    // 1. Dedicated Overseer Cognitive Engine Test
+    if (providerId === "overseer_cognitive" || isCognitiveTest) {
+      const pipeline = new OverseerCognitivePipeline();
+      const testResult = await pipeline.processUserQuery("How many floors do we have?", {
+        userId: user.uid,
+        userRole: user.role,
+      });
+
+      const latencyMs = Date.now() - startTime;
+      return NextResponse.json({
+        success: true,
+        latencyMs,
+        message: `Connected. Replied in ${latencyMs} ms — 'ok'`,
+        cognitiveTest: {
+          intent: testResult.intent,
+          sourceUsed: testResult.sourceUsed,
+          answer: testResult.answer,
+        },
+      });
     }
 
     // Resolve credentials if raw key not provided
@@ -22,9 +44,9 @@ export async function POST(request: NextRequest) {
     const urlToUse = overrideUrl && overrideUrl.trim() !== "" ? overrideUrl.trim() : resolved.endpoint;
     const isLocal = mode === "local" || resolved.isLocal;
 
-    // 1. Local AI Connection Test (Ollama / LM Studio / Local OpenAI)
+    // 2. Local AI Connection Test (Ollama / LM Studio / vLLM)
     if (isLocal) {
-      const pingUrl = localType === "ollama" 
+      const pingUrl = (localType === "ollama" || providerId.includes("ollama"))
         ? `${urlToUse.replace(/\/$/, "")}/api/tags` 
         : `${urlToUse.replace(/\/$/, "")}/models`;
 
@@ -41,7 +63,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({
             success: true,
             latencyMs,
-            message: `Local AI service at ${urlToUse} is reachable.`,
+            message: `Connected. Replied in ${latencyMs} ms — 'ok'`,
           });
         }
 
@@ -49,15 +71,15 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `Local service returned HTTP ${res.status}`,
         });
-      } catch (err: any) {
+      } catch {
         return NextResponse.json({
           success: false,
-          error: `Could not connect to local AI endpoint at ${urlToUse}. Ensure the local server is running.`,
+          error: `Could not reach ${urlToUse}. Ensure the local runtime is running.`,
         });
       }
     }
 
-    // 2. Cloud API Connection Test
+    // 3. Cloud API Connection Test (Google Gemini, Gemini TTS, Groq, OpenRouter, OpenAI, etc.)
     if (!keyToUse) {
       return NextResponse.json({
         success: false,
@@ -65,23 +87,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Provider-specific lightweight health check
     let testUrl = `${urlToUse.replace(/\/$/, "")}/models`;
     let headers: Record<string, string> = {
       "Authorization": `Bearer ${keyToUse}`,
     };
 
-    if (providerId === "gemini") {
+    if (providerId === "gemini" || providerId === "gemini_tts") {
       testUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${keyToUse}`;
       headers = {};
-    } else if (providerId === "elevenlabs") {
-      testUrl = "https://api.elevenlabs.io/v1/voices";
-      headers = { "xi-api-key": keyToUse };
+    } else if (providerId === "anthropic") {
+      testUrl = "https://api.anthropic.com/v1/models";
+      headers = { "x-api-key": keyToUse, "anthropic-version": "2023-06-01" };
     }
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(testUrl, { headers, signal: controller.signal });
       clearTimeout(timeoutId);
@@ -92,27 +113,28 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           latencyMs,
-          message: `Connection successful (${latencyMs}ms).`,
+          message: `Connected. Replied in ${latencyMs} ms — 'ok'`,
         });
       }
 
-      const statusText = res.status === 401 ? "Invalid API Key" : res.status === 429 ? "Rate Limit Exceeded" : `HTTP ${res.status}`;
+      const statusText = res.status === 401 ? "Unauthorized (Invalid API Key)" : res.status === 429 ? "Rate Limit Exceeded" : `HTTP ${res.status}`;
 
       return NextResponse.json({
         success: false,
-        error: `Connection test failed: ${statusText}`,
+        latencyMs,
+        error: statusText,
       });
-    } catch (err: any) {
+    } catch {
+      const latencyMs = Date.now() - startTime;
       return NextResponse.json({
         success: false,
-        error: "Connection test timed out or failed to reach host endpoint.",
+        latencyMs,
+        error: "Connection timed out or network error.",
       });
     }
   } catch (err: any) {
     console.error("[API /settings/api/test POST] Error:", err.message);
-    return NextResponse.json({
-      success: false,
-      error: "Authorization failed or invalid request payload.",
-    }, { status: 400 });
+    const status = err.status || err.name === "UnauthorizedError" ? 401 : err.name === "ForbiddenError" ? 403 : 500;
+    return NextResponse.json({ success: false, error: err.message }, { status });
   }
 }

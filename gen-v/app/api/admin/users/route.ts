@@ -1,27 +1,133 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthAndRole } from "@/lib/auth/auth";
 import { UserRepository } from "@/lib/auth/user-repository";
-import { UserRole } from "@/lib/auth/types";
-import { isValidRole } from "@/lib/auth/roles";
+import { getUserQuota } from "@/lib/quota/quota-service";
+import { db } from "@/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/users
- * Lists all registered users (sanitized, newest first). Restricted to ADMIN and OWNER.
+ * Lists all registered users with paginated quota, Drive status, and usage metrics.
+ * Restricted to ADMIN and OWNER.
  */
 export async function GET(request: NextRequest) {
   try {
     const caller = await verifyAuthAndRole(request, "ADMIN");
-    const users = await UserRepository.listAll();
+    const { searchParams } = new URL(request.url);
+
+    const search = searchParams.get("search")?.toLowerCase().trim() || "";
+    const roleFilter = searchParams.get("role")?.toUpperCase().trim() || "";
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)));
+
+    const rawUsers = await UserRepository.listAll();
+
+    // Filter by search & role
+    let filtered = rawUsers.filter((u) => {
+      const matchesSearch =
+        !search ||
+        u.email?.toLowerCase().includes(search) ||
+        u.name?.toLowerCase().includes(search) ||
+        u.id?.toLowerCase().includes(search);
+      const matchesRole = !roleFilter || u.role?.toUpperCase() === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+
+    const totalCount = filtered.length;
+    const startIndex = (page - 1) * limit;
+    const paginated = filtered.slice(startIndex, startIndex + limit);
+
+    // Enrich with live quota, drive status, and video count
+    const enrichedUsers = await Promise.all(
+      paginated.map(async (u) => {
+        let quota = null;
+        let driveStatus = "NOT_CONFIGURED";
+        let activeSchedulesCount = 0;
+        let totalVideosCount = 0;
+        let lastVideoCreatedAt = null;
+
+        try {
+          quota = await getUserQuota(u.id, u.role);
+        } catch {}
+
+        try {
+          // Check drive connection
+          const driveDoc = await db.collection("drive_connections").doc(u.id).get();
+          if (driveDoc.exists) {
+            driveStatus = driveDoc.data()?.status || "CONNECTED";
+          }
+        } catch {}
+
+        try {
+          // Check active schedules
+          const schedulesSnap = await db
+            .collection("schedules")
+            .where("ownerId", "==", u.id)
+            .where("enabled", "==", true)
+            .get();
+          activeSchedulesCount = schedulesSnap.docs.length;
+        } catch {}
+
+        try {
+          // Check video count & last video
+          const videosSnap = await db
+            .collection("videos")
+            .where("userId", "==", u.id)
+            .orderBy("createdAt", "desc")
+            .limit(1)
+            .get();
+          if (!videosSnap.empty) {
+            lastVideoCreatedAt = videosSnap.docs[0].data()?.createdAt || null;
+          }
+          const countSnap = await db.collection("videos").where("userId", "==", u.id).get();
+          totalVideosCount = countSnap.docs.length;
+        } catch {}
+
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name || u.email.split("@")[0],
+          role: u.role,
+          tier: u.role === "ADMIN" || u.role === "OWNER" ? "ADMIN" : (u.role as string) === "PRO" ? "PRO" : "BASIC",
+          status: u.status || "ACTIVE",
+          createdAt: u.createdAt,
+          lastLoginAt: u.lastLoginAt || u.createdAt,
+          quota: quota
+            ? {
+                limit: quota.limit === Infinity ? "Unlimited" : quota.limit,
+                completed: quota.completed,
+                reserved: quota.reserved,
+                totalUsed: quota.totalUsed,
+                remaining: quota.remaining === Infinity ? "Unlimited" : quota.remaining,
+                periodType: quota.periodType,
+                isUnlimited: quota.isUnlimited,
+              }
+            : null,
+          driveStatus,
+          activeSchedulesCount,
+          totalVideosCount,
+          lastVideoCreatedAt,
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
       callerRole: caller.role,
-      users,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+      users: enrichedUsers,
     });
   } catch (err: any) {
-    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Insufficient permissions") || err.message?.includes("Access denied");
+    const isForbidden =
+      err.message?.includes("Forbidden") ||
+      err.message?.includes("Insufficient permissions") ||
+      err.message?.includes("Access denied");
     const status = isForbidden ? 403 : 401;
     return NextResponse.json({ success: false, error: err.message || "Unauthorized" }, { status });
   }
@@ -30,7 +136,6 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/admin/users
  * Grants/promotes an email address to ADMIN role with a specific allowed time duration.
- * Restricted to ADMIN and OWNER.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -48,7 +153,6 @@ export async function POST(request: NextRequest) {
       const minutes = Number(durationMinutes) || 0;
       const totalMinutes = hours * 60 + minutes;
       if (totalMinutes <= 0) {
-        // Default to 24 hours if duration not provided and not permanent
         durationMs = 24 * 60 * 60 * 1000;
       } else {
         durationMs = totalMinutes * 60 * 1000;
@@ -78,67 +182,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err: any) {
-    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Insufficient permissions") || err.message?.includes("Access denied");
-    const status = isForbidden ? 403 : 401;
-    return NextResponse.json({ success: false, error: err.message || "Unauthorized" }, { status });
-  }
-}
-
-/**
- * PATCH /api/admin/users
- * Update a user's role, expiration, or disabled status. Restricted to ADMIN and OWNER.
- */
-export async function PATCH(request: NextRequest) {
-  try {
-    const caller = await verifyAuthAndRole(request, "ADMIN");
-    const body = await request.json();
-    const { uid, role, disabled, adminExpiresAt, durationHours, isPermanent } = body;
-
-    if (!uid || typeof uid !== "string") {
-      return NextResponse.json({ success: false, error: "uid is required" }, { status: 400 });
-    }
-
-    if (role && !isValidRole(role)) {
-      return NextResponse.json({ success: false, error: `Invalid role: ${role}` }, { status: 400 });
-    }
-
-    // Safety guard: prevent demoting or disabling self
-    if (uid === caller.uid && (role !== caller.role || disabled === true)) {
-      return NextResponse.json(
-        { success: false, error: "Administrators cannot demote or disable their own account." },
-        { status: 400 }
-      );
-    }
-
-    const updates: any = {};
-    if (role) updates.role = role as UserRole;
-    if (typeof disabled === "boolean") {
-      updates.status = disabled ? "DISABLED" : "ACTIVE";
-    }
-
-    if (role === "ADMIN") {
-      if (isPermanent) {
-        updates.adminExpiresAt = null;
-      } else if (durationHours) {
-        updates.adminExpiresAt = new Date(Date.now() + Number(durationHours) * 60 * 60 * 1000).toISOString();
-      } else if (adminExpiresAt !== undefined) {
-        updates.adminExpiresAt = adminExpiresAt;
-      }
-      updates.proxyAdminGrantedBy = caller.email;
-      updates.proxyAdminGrantedAt = new Date().toISOString();
-    } else if (role && role !== "ADMIN") {
-      updates.adminExpiresAt = null;
-    }
-
-    const updatedUser = await UserRepository.update(uid, updates);
-
-    return NextResponse.json({
-      success: true,
-      message: `User ${uid} updated successfully.`,
-      user: updatedUser ? { id: updatedUser.id, role: updatedUser.role, status: updatedUser.status, adminExpiresAt: updatedUser.adminExpiresAt } : null,
-    });
-  } catch (err: any) {
-    const isForbidden = err.message?.includes("Forbidden") || err.message?.includes("Insufficient permissions") || err.message?.includes("Access denied");
+    const isForbidden =
+      err.message?.includes("Forbidden") ||
+      err.message?.includes("Insufficient permissions") ||
+      err.message?.includes("Access denied");
     const status = isForbidden ? 403 : 401;
     return NextResponse.json({ success: false, error: err.message || "Unauthorized" }, { status });
   }

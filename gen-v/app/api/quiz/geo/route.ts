@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
 import Groq from "groq-sdk";
+import { verifySession } from "../../../../lib/auth/auth";
+import { getUserQuota, QuotaExceededError } from "../../../../lib/quota/quota-service";
 
 const COUNTRY_MAP: Record<string, { name: string; voice: string }> = {
   US: { name: "United States", voice: "en-US-AriaNeural" },
@@ -57,6 +59,31 @@ const COUNTRY_MAP: Record<string, { name: string; voice: string }> = {
 
 export async function POST(req: Request) {
   try {
+    // 🔒 Quota Gate Check for Basic Users
+    try {
+      const { user } = await verifySession(req);
+      if (user) {
+        const quota = await getUserQuota(user.uid, user.role);
+        if (quota.isExceeded) {
+          return NextResponse.json(
+            {
+              error: `Generation quota exhausted. Basic user plan is limited to ${quota.limit} videos (You have used ${quota.totalUsed}/${quota.limit}).`,
+              code: "QUOTA_EXCEEDED",
+              quota,
+            },
+            { status: 429 }
+          );
+        }
+      }
+    } catch (quotaCheckErr: any) {
+      if (quotaCheckErr.name === "QuotaExceededError" || quotaCheckErr.status === 429) {
+        return NextResponse.json(
+          { error: quotaCheckErr.message, code: "QUOTA_EXCEEDED" },
+          { status: 429 }
+        );
+      }
+    }
+
     const body = await req.json();
     const countryCode = String(body?.countryCode ?? "US").toUpperCase().trim();
     const tone = String(body?.tone ?? "challenging").trim();

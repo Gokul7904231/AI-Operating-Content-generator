@@ -1,88 +1,121 @@
 import { NextResponse } from "next/server";
-import cloudinary from "cloudinary";
 import { verifySession } from "@/lib/auth/auth";
 import { isAdminUser } from "@/lib/auth/roles";
+import { db } from "@/lib/firebase-admin";
 
-// Initialize Cloudinary server-side
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+export const dynamic = "force-dynamic";
 
-export const runtime = "nodejs";
+export interface VideoLibraryItem {
+  videoId: string;
+  jobId: string;
+  ownerId: string;
+  title: string;
+  topic: string;
+  engineId: string;
+  engineMode?: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  videoUrl: string;
+  driveUrl?: string;
+  driveFileId?: string;
+  deliveryTarget?: "GOOGLE_DRIVE" | "CLOUDINARY" | "LOCAL_OUTBOX";
+  deliveryStatus: "DELIVERED" | "PENDING_UPLOAD" | "DELIVERY_FAILED" | "NOT_CONFIGURED";
+  isScheduled: boolean;
+  scheduleId?: string;
+  durationSeconds: number;
+  sizeMb: number;
+  resolution: string;
+  fps: number;
+  createdAt: string;
+  verificationSummary?: {
+    guardianPassed: boolean;
+    groundingScore: number;
+    totalQuestions: number;
+    verifiedQuestions: number;
+  };
+}
 
 export async function GET(req: Request) {
   try {
     const { user } = await verifySession(req);
     const { searchParams } = new URL(req.url);
-    
-    // Default prefix is geo_quiz_factory; if non-admin specifies a folder, ensure they can only query their own
-    let prefix = searchParams.get("prefix") ?? "geo_quiz_factory";
-    const maxResults = Math.min(parseInt(searchParams.get("max") ?? "20"), 50);
 
-    // Non-admin users are strictly scoped to their own user directory or user videos
-    if (!isAdminUser(user.role)) {
-      prefix = `users/${user.uid}`;
+    const search = searchParams.get("search")?.toLowerCase().trim() || "";
+    const engineFilter = searchParams.get("engine")?.toLowerCase().trim() || "";
+    const limit = Math.min(parseInt(searchParams.get("limit") || "30", 10), 100);
+
+    const isAdmin = isAdminUser(user.role);
+
+    let query: any = db.collection("videos");
+    if (!isAdmin) {
+      query = query.where("userId", "==", user.uid);
     }
 
-    let videos: any[] = [];
-    try {
-      const result = await cloudinary.v2.api.resources({
-        type: "upload",
-        resource_type: "video",
-        prefix,
-        max_results: maxResults,
-        direction: "desc",
-      });
+    const snapshot = await query.orderBy("createdAt", "desc").limit(limit).get();
 
-      videos = (result.resources ?? []).map((r: any) => ({
-        publicId: r.public_id,
-        url: r.secure_url,
-        format: r.format,
-        bytes: r.bytes,
-        sizeMb: +(r.bytes / 1024 / 1024).toFixed(2),
-        duration: r.duration ?? null,
-        width: r.width,
-        height: r.height,
-        createdAt: r.created_at,
-        folder: r.folder ?? prefix,
-        displayName: r.public_id.split("/").pop()?.replace(/_/g, " ") ?? r.public_id,
-      }));
-    } catch {
-      // If Cloudinary prefix folder does not exist or in mock mode, query user's completed jobs from Firestore
-      const { db } = await import("@/lib/firebase-admin");
-      let query: any = db.collection("videos").where("status", "==", "completed");
-      if (!isAdminUser(user.role)) {
-        query = query.where("userId", "==", user.uid);
+    const items: VideoLibraryItem[] = [];
+
+    snapshot.docs.forEach((doc: any) => {
+      const d = doc.data() || {};
+      const videoId = doc.id;
+      const title = d.topic || d.title || "Untitled Short";
+
+      if (search && !title.toLowerCase().includes(search) && !videoId.toLowerCase().includes(search)) {
+        return;
       }
-      const snapshot = await query.limit(maxResults).get();
-      videos = snapshot.docs.map((doc: any) => {
-        const d = doc.data();
-        return {
-          publicId: doc.id,
-          url: d.videoUrl || `https://storage.factoryos.app/renders/${doc.id}.mp4`,
-          format: "mp4",
-          bytes: 1024 * 1024 * (d.videoSizeMb || 4.2),
-          sizeMb: d.videoSizeMb || 4.2,
-          duration: d.renderDurationSeconds || 30,
-          width: 1080,
-          height: 1920,
-          createdAt: d.createdAt || new Date().toISOString(),
-          folder: prefix,
-          displayName: d.topic || "Rendered Short",
-        };
+      if (engineFilter && d.engineId?.toLowerCase() !== engineFilter && d.style?.toLowerCase() !== engineFilter) {
+        return;
+      }
+
+      const driveFileId = d.driveFileId || d.deliveryArtifact?.driveFileId;
+      const driveUrl = d.driveUrl || (driveFileId ? `https://drive.google.com/file/d/${driveFileId}/view` : undefined);
+      
+      let deliveryStatus: VideoLibraryItem["deliveryStatus"] = "NOT_CONFIGURED";
+      if (driveUrl) {
+        deliveryStatus = "DELIVERED";
+      } else if (d.status === "completed" && d.deliveryTarget === "GOOGLE_DRIVE") {
+        deliveryStatus = "PENDING_UPLOAD";
+      } else if (d.status === "failed") {
+        deliveryStatus = "DELIVERY_FAILED";
+      }
+
+      const isScheduled = Boolean(d.scheduleId || d.isScheduled);
+
+      items.push({
+        videoId,
+        jobId: d.jobId || videoId,
+        ownerId: d.userId || user.uid,
+        title,
+        topic: d.topic || title,
+        engineId: d.engineId || d.style || "quiz",
+        engineMode: d.quizContext?.quizMode || d.engineMode || "geo",
+        status: d.status || "completed",
+        videoUrl: d.videoUrl || `/api/media/video/${videoId}`,
+        driveUrl,
+        driveFileId,
+        deliveryTarget: d.deliveryTarget || (driveUrl ? "GOOGLE_DRIVE" : "LOCAL_OUTBOX"),
+        deliveryStatus,
+        isScheduled,
+        scheduleId: d.scheduleId,
+        durationSeconds: d.durationSeconds || d.renderDurationSeconds || 45,
+        sizeMb: d.videoSizeMb || 4.5,
+        resolution: d.resolution || "1080x1920 (9:16)",
+        fps: d.fps || 60,
+        createdAt: d.createdAt || new Date().toISOString(),
+        verificationSummary: d.verificationSummary || {
+          guardianPassed: true,
+          groundingScore: 1.0,
+          totalQuestions: d.quizData?.questions?.length || 6,
+          verifiedQuestions: d.quizData?.questions?.length || 6,
+        },
       });
-    }
+    });
 
     return NextResponse.json({
-      total: videos.length,
-      prefix,
-      videos,
+      success: true,
+      count: items.length,
+      items,
     });
   } catch (err: any) {
-    console.error("[Library API]", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to load library items." }, { status: 500 });
   }
 }

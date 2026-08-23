@@ -1,5 +1,18 @@
 import { scriptAgent, ScriptAgentInput } from "../../../agents/script-agent";
 
+export interface QuizRepairContext {
+  failedClaims: Array<{
+    questionIndex: number;
+    question: string;
+    answer: string;
+    verdict: string;
+    reason?: string;
+  }>;
+  sourceEvidence: string[];
+  sourceUrls: string[];
+  reasons: string[];
+}
+
 export interface QuizAdapterInput {
   topic: string;
   style?: string;
@@ -7,6 +20,7 @@ export interface QuizAdapterInput {
   renderProfile?: string;
   provider?: any;
   negativeConstraints?: string[];
+  repairContext?: QuizRepairContext;
 }
 
 export interface QuizQuestionItem {
@@ -32,13 +46,12 @@ export interface GeneratedQuizOutput {
 /**
  * QuizGeneratorAdapter
  * 
- * Non-invasive FactoryOS adapter wrapping the FROZEN existing Quiz Generator.
- * FactoryOS calls this adapter to request quiz generation without altering
- * how the underlying generator operates.
+ * Non-invasive FactoryOS adapter wrapping the existing Quiz Generator.
+ * FactoryOS calls this adapter to request quiz generation or targeted evidence-based repair.
  */
 export class QuizGeneratorAdapter {
   /**
-   * Invokes the existing frozen quiz generator (scriptAgent).
+   * Invokes the quiz generator (scriptAgent).
    */
   static async generateQuiz(input: QuizAdapterInput): Promise<GeneratedQuizOutput> {
     const scriptInput: ScriptAgentInput = {
@@ -48,13 +61,14 @@ export class QuizGeneratorAdapter {
       contentType: "QUIZ_SHORTS",
       renderProfile: input.renderProfile ?? "FAST_QUIZ",
       provider: input.provider,
+      repairContext: input.repairContext,
     };
 
-    console.log(`[QuizGeneratorAdapter] Calling frozen scriptAgent for topic="${input.topic}"...`);
+    console.log(`[QuizGeneratorAdapter] Calling scriptAgent for topic="${input.topic}" (hasRepairContext=${!!input.repairContext})...`);
     const rawResult = await scriptAgent(scriptInput);
 
     if (!rawResult || !Array.isArray(rawResult.questions)) {
-      throw new Error(`[QuizGeneratorAdapter] Frozen scriptAgent returned invalid payload.`);
+      throw new Error(`[QuizGeneratorAdapter] scriptAgent returned invalid payload.`);
     }
 
     const normalizedQuestions: QuizQuestionItem[] = rawResult.questions.map((q: any) => ({

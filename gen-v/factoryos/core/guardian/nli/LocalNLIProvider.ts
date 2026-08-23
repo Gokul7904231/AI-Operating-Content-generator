@@ -16,6 +16,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
       return {
         label: "NEUTRAL",
         confidence: 0.5,
+        engine: "HEURISTIC_NLI",
         reason: "Empty premise or hypothesis text.",
       };
     }
@@ -35,6 +36,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
       return {
         label: "CONTRADICTION",
         confidence: 0.90,
+        engine: "HEURISTIC_NLI",
         reason: `Premise contradicts claim entity (negation or conflicting subject entity in evidence).`,
       };
     }
@@ -56,6 +58,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
       return {
         label: "ENTAILMENT",
         confidence: 0.90,
+        engine: "HEURISTIC_NLI",
         reason: `Candidate claim entity "${candEnt}" and context tokens grounded in evidence.`,
       };
     }
@@ -64,6 +67,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
       return {
         label: "ENTAILMENT",
         confidence: Math.min(0.95, sim * 0.5 + tokenOverlapRatio * 0.5),
+        engine: "HEURISTIC_NLI",
         reason: `High semantic embedding similarity (${sim.toFixed(2)}) and token grounding (${(tokenOverlapRatio * 100).toFixed(0)}%).`,
       };
     }
@@ -72,6 +76,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
       return {
         label: "NEUTRAL",
         confidence: 0.80,
+        engine: "HEURISTIC_NLI",
         reason: `Premise does not contain sufficient semantic overlap to evaluate claim (sim: ${sim.toFixed(2)}).`,
       };
     }
@@ -81,6 +86,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
       return {
         label: "ENTAILMENT",
         confidence: 0.70,
+        engine: "HEURISTIC_NLI",
         reason: `Moderate grounding found in evidence.`,
       };
     }
@@ -88,6 +94,7 @@ export class LocalNLIProvider implements FactualEntailmentProvider {
     return {
       label: "NEUTRAL",
       confidence: 0.60,
+      engine: "HEURISTIC_NLI",
       reason: `Insufficient evidence to affirm or deny hypothesis.`,
     };
   }

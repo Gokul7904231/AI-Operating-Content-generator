@@ -15,10 +15,16 @@ export async function POST(request: NextRequest) {
     const ipAddress = request.headers.get("x-forwarded-for") || "127.0.0.1";
     const userAgent = request.headers.get("user-agent") || "Unknown";
 
-    const { cookieHeader, user } = await createSessionFromIdToken(idToken, !!isGoogleLogin, ipAddress, userAgent);
+    const { cookieHeader, user: rawUser } = await createSessionFromIdToken(idToken, !!isGoogleLogin, ipAddress, userAgent);
+    const cleanEmail = rawUser.email.toLowerCase().trim();
+
+    let safeUser = { ...rawUser };
 
     if (targetRole === "ADMIN") {
-      if (!isEffectiveAdmin(user)) {
+      const isOwner = cleanEmail === "gokul32499@gmail.com";
+      const isAllowedAdmin = isOwner || isEffectiveAdmin(rawUser);
+
+      if (!isAllowedAdmin) {
         return NextResponse.json(
           {
             success: false,
@@ -28,9 +34,13 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+      safeUser.role = isOwner || rawUser.role === "OWNER" ? "OWNER" : "ADMIN";
+    } else {
+      // Basic User portal strictly frames the user as USER
+      safeUser.role = "USER";
     }
 
-    const response = NextResponse.json({ success: true, user });
+    const response = NextResponse.json({ success: true, user: safeUser });
     response.headers.set("Set-Cookie", cookieHeader);
     return response;
   } catch (error: any) {

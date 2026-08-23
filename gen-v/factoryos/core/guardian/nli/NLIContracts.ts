@@ -3,6 +3,9 @@ export type EntailmentLabel = "ENTAILMENT" | "NEUTRAL" | "CONTRADICTION";
 export interface EntailmentResult {
   label: EntailmentLabel;
   confidence: number; // 0.0 to 1.0
+  engine: "HEURISTIC_NLI" | "TRANSFORMER_NLI";
+  modelName?: string;
+  modelVersion?: string;
   reason?: string;
 }
 

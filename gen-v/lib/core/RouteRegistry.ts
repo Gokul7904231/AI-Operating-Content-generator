@@ -35,7 +35,7 @@ export const ROUTE_SECTIONS: RouteSection[] = [
     icon: "Factory",
     basePath: "/factory",
     routes: [
-      { id: "factory-jobs",      label: "Jobs",       href: "/factory/jobs",      section: "Factory", icon: "ListOrdered",  description: "View and manage all generation jobs",          keywords: ["jobs", "queue", "history"] },
+      { id: "factory-jobs",      label: "Jobs",       href: "/factory/jobs",      section: "Factory", icon: "ListOrdered",  description: "View and manage all generation jobs",          keywords: ["jobs", "queue", "history"], minRole: "ADMIN" },
       { id: "factory-templates", label: "Templates",  href: "/factory/templates", section: "Factory", icon: "FileCode",     description: "Browse and manage workflow templates",          keywords: ["templates", "presets", "workflow"] },
       { id: "factory-queue",     label: "Queue",      href: "/factory/queue",     section: "Factory", icon: "Loader2",      description: "Live job queue with retry controls",            keywords: ["queue", "pending", "workers"], minRole: "ADMIN" },
       { id: "factory-scheduler", label: "Scheduler",  href: "/factory/scheduler", section: "Factory", icon: "Calendar",     description: "Schedule recurring content generation jobs",    keywords: ["cron", "schedule", "recurring"], minRole: "ADMIN" },
@@ -125,8 +125,16 @@ export const ROUTE_SECTIONS: RouteSection[] = [
       { id: "sre-profiler",     label: "Profiler",      href: "/dashboard/profiler",     section: "SRE", icon: "BarChart2",  description: "Waterfall profiler for every pipeline run",              keywords: ["profiler", "waterfall", "timing"], minRole: "ADMIN" },
       { id: "sre-workers",      label: "Workers",       href: "/dashboard/workers",      section: "SRE", icon: "Terminal",   description: "Queue workers, dead letters, retry controls",            keywords: ["workers", "queue", "dead letter"], minRole: "ADMIN" },
       { id: "sre-simulation",   label: "Simulation",    href: "/dashboard/simulation",   section: "SRE", icon: "Flame",      description: "Chaos engineering simulation controls",                 keywords: ["simulation", "chaos", "testing"], minRole: "ADMIN" },
-      { id: "sre-capabilities", label: "Capabilities",  href: "/dashboard/capabilities", section: "SRE", icon: "Cpu",        description: "System capability and hardware detection report",        keywords: ["capabilities", "hardware", "gpu"], minRole: "ADMIN" },
       { id: "admin-users",      label: "User Directory", href: "/admin/users",           section: "SRE", icon: "UserCheck",  description: "Manage authenticated users and assigned roles",          keywords: ["users", "admin", "roles", "rbac"], minRole: "ADMIN" },
+    ],
+  },
+  {
+    id: "pricing",
+    title: "Plans & Pricing",
+    icon: "Sparkles",
+    basePath: "/pricing",
+    routes: [
+      { id: "plans-pricing", label: "Plans & Pricing", href: "/pricing", section: "Plans & Pricing", icon: "Sparkles", description: "View Basic, Pro, and Enterprise subscription plans", keywords: ["pricing", "plans", "upgrade", "pro", "enterprise", "quota", "billing"] },
     ],
   },
 ];

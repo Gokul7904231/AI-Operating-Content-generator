@@ -1,12 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactCompiler: true,
+  // Windows CI: sharp native binary may be missing — avoid Image Optimization requiring it during prerender
+  images: { unoptimized: true },
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,
     pagesBufferLength: 5,
   },
   experimental: {
     optimizePackageImports: ['lucide-react'],
+    serverComponentsExternalPackages: ['sharp', 'sqlite3'],
   },
   turbopack: {},
   outputFileTracingExcludes: {
@@ -46,6 +49,9 @@ const nextConfig = {
     config.externals = config.externals || [];
     if (isServer) {
       config.externals.push('sqlite3');
+      config.externals.push('sharp');
+      config.externals.push('@img/sharp-win32-x64');
+      config.externals.push('@img/sharp-libvips-win32-x64');
     }
     // Suppress "critical dependency" warnings from dynamic require()
     config.module.exprContextCritical = false;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
 import { ServiceRegistry } from "../../../../lib/core/ServiceRegistry";
-import "../../../../lib/core/ServiceRegistryInit";
+// ServiceRegistryInit pulls sharp transitively — load lazily inside GET so build collection doesn't DLOPEN the native binary
 
 export async function GET(
   _req: Request,

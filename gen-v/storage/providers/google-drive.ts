@@ -228,10 +228,24 @@ export class GoogleDriveStorageProvider implements StorageProvider {
 
   // ─── Upload ────────────────────────────────────────────────────────────────
 
-  async upload(sourcePath: string, options: UploadOptions = {}): Promise<UploadResult> {
+  async upload(
+    sourcePath: string,
+    options: UploadOptions & {
+      refreshToken?: string;
+      clientId?: string;
+      clientSecret?: string;
+      folderId?: string;
+    } = {}
+  ): Promise<UploadResult> {
     const start = Date.now();
     const traceId = `drive_up_${Date.now()}`;
-    const drive = this.getDrive();
+    
+    let drive = this.getDrive();
+    if (options.refreshToken && options.clientId && options.clientSecret) {
+      const oauth2Client = new google.auth.OAuth2(options.clientId, options.clientSecret);
+      oauth2Client.setCredentials({ refresh_token: options.refreshToken });
+      drive = google.drive({ version: "v3", auth: oauth2Client });
+    }
 
     const fileName =
       options.fileName ?? path.basename(sourcePath);
@@ -246,9 +260,11 @@ export class GoogleDriveStorageProvider implements StorageProvider {
 
     try {
       // Resolve destination folder
-      const subPath =
-        options.subFolder ?? this.buildDateSubPath(options.engine);
-      const folderId = await this.ensureFolderPath(subPath);
+      let folderId = options.folderId;
+      const subPath = options.subFolder ?? this.buildDateSubPath(options.engine);
+      if (!folderId) {
+        folderId = await this.ensureFolderPath(subPath);
+      }
 
       const stat = fs.statSync(sourcePath);
       const fileStream = fs.createReadStream(sourcePath);

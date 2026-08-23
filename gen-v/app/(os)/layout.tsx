@@ -1,9 +1,17 @@
+export const dynamic = 'force-dynamic';
+
 import React from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNav from "@/components/TopNav";
 import { Providers } from "../providers";
 import GlobalOverlays from "@/components/GlobalOverlays";
-import "@/lib/core/ServiceRegistryInit";
+import MobileBottomNav from "@/components/MobileBottomNav";
+// ServiceRegistryInit pulls sharp transitively (RenderPlanner/step-registry) which breaks Windows prerender gathering.
+// Defer to runtime only — skip during production build collection.
+if (process.env.NEXT_PHASE !== 'phase-production-build') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("@/lib/core/ServiceRegistryInit");
+}
 
 export default function OSLayout({
   children,
@@ -20,10 +28,13 @@ export default function OSLayout({
         <div className="flex-1 flex flex-col min-w-0 h-full relative">
           <TopNav title="ShortFactory Command Center" />
           
-          <main className="flex-1 overflow-y-auto p-6 md:p-8 terminal-scroll relative z-10 page-transition-entrance">
+          <main className="flex-1 overflow-y-auto p-6 md:p-8 pb-24 md:pb-8 terminal-scroll relative z-10 page-transition-entrance">
             {children}
           </main>
         </div>
+
+        {/* Mobile bottom nav (P0-10) — hidden on desktop */}
+        <MobileBottomNav />
 
         {/* Global Quick Generate & Command Palette Overlays */}
         <GlobalOverlays />

@@ -49,22 +49,50 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
   }
 
   // Verify Session Cookie
-  const { uid, email } = await verifySessionCookieServer(cookieValue);
+  const { uid, email, sessionRole } = await verifySessionCookieServer(cookieValue);
+  const cleanEmail = email.toLowerCase().trim();
   
+  // Fast path for bootstrap Owner
+  if (uid === "mock_owner_uid" || cleanEmail === "gokul32499@gmail.com") {
+    const ownerRole: UserRole = sessionRole === "USER" ? "USER" : "OWNER";
+    const adminUser: AdminUser = {
+      uid: "mock_owner_uid",
+      email: cleanEmail,
+      name: "Gokul (Owner)",
+      role: ownerRole,
+      active: true,
+      disabled: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return { user: adminUser, isSecretKey: false };
+  }
+
   // 1. Query canonical UserRepository
-  const canonicalUser = (await UserRepository.findById(uid)) || (await UserRepository.findByNormalizedEmail(email));
+  const canonicalUser = (await UserRepository.findById(uid)) || (await UserRepository.findByNormalizedEmail(cleanEmail));
   
   let adminUser: AdminUser | null = null;
   if (canonicalUser) {
     const isProxy = !!(canonicalUser.role === "ADMIN" && canonicalUser.adminExpiresAt);
     const isExpired = !!(canonicalUser.adminExpiresAt && new Date(canonicalUser.adminExpiresAt).getTime() <= Date.now());
 
+    // Determine effective session role:
+    // If session was issued as USER, framed strictly as USER
+    let effectiveRole: UserRole = sessionRole || canonicalUser.role;
+    if (sessionRole === "USER" || sessionRole === "VIEWER" || sessionRole === "EDITOR") {
+      effectiveRole = sessionRole;
+    } else if (sessionRole === "ADMIN" || sessionRole === "OWNER") {
+      // Must be authorized owner or active admin
+      const isAllowedAdmin = cleanEmail === "gokul32499@gmail.com" || canonicalUser.role === "OWNER" || (canonicalUser.role === "ADMIN" && !isExpired);
+      effectiveRole = isAllowedAdmin ? (cleanEmail === "gokul32499@gmail.com" || canonicalUser.role === "OWNER" ? "OWNER" : "ADMIN") : "USER";
+    }
+
     adminUser = {
       uid: canonicalUser.id,
       email: canonicalUser.email,
       name: canonicalUser.name,
       photoURL: canonicalUser.photoURL,
-      role: canonicalUser.role,
+      role: effectiveRole,
       active: canonicalUser.status === "ACTIVE",
       disabled: canonicalUser.status === "DISABLED",
       createdAt: canonicalUser.createdAt,
@@ -78,7 +106,10 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
     };
   } else {
     // 2. Fallback to legacy/bootstrap admin lookup
-    adminUser = await getAdminByUid(uid, email);
+    adminUser = await getAdminByUid(uid, cleanEmail);
+    if (adminUser && sessionRole === "USER") {
+      adminUser.role = "USER";
+    }
   }
 
   if (!adminUser) {

@@ -1,5 +1,5 @@
 /**
- * FactoryOS v1 — Master Barrel Export
+ * FactoryOS v3 — Master Barrel Export
  */
 
 export * from "./contracts/WorldStateContracts";
@@ -9,6 +9,13 @@ export * from "./contracts/SlayerContracts";
 export * from "./contracts/HealerContracts";
 export * from "./contracts/ValidatorContracts";
 export * from "./contracts/OverseerThinkingContracts";
+export * from "./contracts/MissionContracts";
+export * from "./contracts/ArtifactContracts";
+export * from "./contracts/CreativeStateContracts";
+export * from "./contracts/AgentContracts";
+export * from "./contracts/SkillContracts";
+export * from "./contracts/PolicyContracts";
+export * from "./contracts/EvidenceContracts";
 
 export * from "./database/DatabaseContracts";
 export * from "./database/InMemoryDatabase";
@@ -70,7 +77,6 @@ export * from "./integrations/AgentReachAdapter";
 export * from "./integrations/GStackTrigger";
 export * from "./controller/AutonomousFactoryController";
 
-export * from "./contracts/MissionContracts";
 export * from "./missions/MissionManager";
 export * from "./missions/MissionStateMachine";
 export * from "./missions/MissionBudgetManager";
@@ -79,24 +85,17 @@ export * from "./missions/MissionConcurrencyController";
 export * from "./missions/MissionEventPublisher";
 export * from "./missions/MissionErrors";
 
-// Cognitive Operating Plane (Frontier v2)
-export * from "./cognitive/CognitiveContracts";
-export * from "./cognitive/rlm/ContextIndexer";
-export * from "./cognitive/rlm/ContextRetriever";
-export * from "./cognitive/rlm/TerminationController";
-export * from "./cognitive/rlm/RecursiveInvestigator";
-export * from "./cognitive/context/ActiveContextManager";
-export * from "./cognitive/memory/IndexedExperienceMemory";
-export * from "./cognitive/graph/EvidenceGraphEngine";
-export * from "./cognitive/conflict/ContradictionResolver";
-export * from "./cognitive/meta/StrategicMetaThinker";
-export * from "./cognitive/economics/AgentEconomicsEngine";
-export * from "./cognitive/predictive/PredictiveFactoryEngine";
-export * from "./cognitive/routing/CapabilityRouter";
-export * from "./cognitive/simulation/SimulationDecisionEngine";
-export * from "./cognitive/telemetry/CognitiveTelemetryTracker";
-export * from "./cognitive/replay/CaseReplayEngine";
-export * from "./cognitive/CognitivePlaneEngine";
+// Frontier v3 Core Primitives & Subsystems
+export * from "./context/ContextEngine";
+export * from "./verification/VerificationEngine";
+export * from "./creative/CreativeBibleManager";
+export * from "./artifacts/ArtifactManager";
+export * from "./recovery/RecoveryEngine";
+export * from "./governor/CostGovernor";
+export * from "./routing/CapabilityFirstRouter";
+export * from "./routing/ProviderTester";
+export * from "./evaluation/SkillEvaluatorRunner";
+export * from "./evaluation/SkillPromotionEngine";
 
-// Presence Subsystem (Frontier v2 — Give the Overseer a Life)
+// Presence Subsystem
 export * from "./overseer/presence";

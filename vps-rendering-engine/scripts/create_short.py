@@ -48,6 +48,16 @@ def _init_firebase() -> None:
     bucket_name = os.environ.get("FIREBASE_STORAGE_BUCKET")
     sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
     
+    sa_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if sa_file and Path(sa_file).exists():
+        try:
+            cred = credentials.Certificate(sa_file)
+            firebase_admin.initialize_app(cred, {"storageBucket": bucket_name})
+            print("[Firebase] Initialized with GOOGLE_APPLICATION_CREDENTIALS file.")
+            return
+        except Exception as e:
+            print(f"[Firebase] GOOGLE_APPLICATION_CREDENTIALS init failed: {e}")
+
     if sa_json:
         try:
             cred = credentials.Certificate(json.loads(sa_json))
@@ -1529,8 +1539,15 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         date_folder = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H-%M-%S")
         
-        country_clean = str(job.get("country") or job.get("quizData", {}).get("country") or "Default").strip().replace(" ", "_")
+        quiz_data_dict = job.get("quizData") if isinstance(job.get("quizData"), dict) else {}
+        country_clean = str(
+            job.get("country")
+            or quiz_data_dict.get("country")
+            or "Default"
+        ).strip().replace(" ", "_")
         country_clean = re.sub(r'[^a-zA-Z0-9_]', '', country_clean)
+        if not country_clean:
+            country_clean = "Default"
         
         difficulty_clean = str(job.get("difficulty") or (questions[0].get("difficulty") if questions and len(questions) > 0 else None) or "Medium").strip().capitalize()
         difficulty_clean = re.sub(r'[^a-zA-Z0-9_]', '', difficulty_clean)

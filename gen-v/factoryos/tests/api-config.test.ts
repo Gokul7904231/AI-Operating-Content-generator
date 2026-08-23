@@ -22,7 +22,7 @@ describe("FactoryOS — API & Local AI Configuration Control Center Suite", () =
 
     expect(ollama?.primary.hasKey).toBe(true);
     expect(ollama?.primary.maskedKey).toBe("LOCAL_NO_KEY_REQUIRED");
-    expect(ollama?.primary.endpoint).toBe("http://localhost:11434");
+    expect(ollama?.primary.endpoint).toBe("http://127.0.0.1:11434");
   });
 
   it("03: Encrypts API keys with AES-256-GCM and never returns raw secrets", async () => {
@@ -53,6 +53,6 @@ describe("FactoryOS — API & Local AI Configuration Control Center Suite", () =
 
     expect(credential.isLocal).toBe(true);
     expect(credential.apiKey).toBe("");
-    expect(credential.endpoint).toContain("http://localhost:11434");
+    expect(credential.endpoint).toContain("http://127.0.0.1:11434");
   });
 });

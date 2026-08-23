@@ -220,4 +220,47 @@ describe("FactoryOS v1 — Production Authentication & Authorization Suite", () 
       expect(res.status).toBe(200);
     });
   });
+
+  // 6. Basic User vs Admin Portal Portal Separation
+  describe("Basic User vs Admin Portal Separation", () => {
+    it("assigns role USER when gokul32499@gmail.com logs in via Basic User portal", async () => {
+      const { createSessionForUserAccount } = await import("../../lib/auth/session");
+      const { user } = await createSessionForUserAccount(
+        {
+          id: "usr_gokul_owner",
+          email: "gokul32499@gmail.com",
+          role: "OWNER",
+          status: "ACTIVE",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        "127.0.0.1",
+        "Vitest",
+        "USER"
+      );
+
+      expect(user.role).toBe("USER");
+      expect(user.email).toBe("gokul32499@gmail.com");
+    });
+
+    it("assigns role OWNER when gokul32499@gmail.com logs in via Admin portal", async () => {
+      const { createSessionForUserAccount } = await import("../../lib/auth/session");
+      const { user } = await createSessionForUserAccount(
+        {
+          id: "usr_gokul_owner",
+          email: "gokul32499@gmail.com",
+          role: "OWNER",
+          status: "ACTIVE",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        "127.0.0.1",
+        "Vitest",
+        "OWNER"
+      );
+
+      expect(user.role).toBe("OWNER");
+      expect(user.email).toBe("gokul32499@gmail.com");
+    });
+  });
 });

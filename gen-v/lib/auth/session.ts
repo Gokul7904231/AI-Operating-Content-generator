@@ -5,7 +5,7 @@
 import { verifyIdTokenServer, getAdminByUid, createSessionCookieServer } from "./firebase-admin";
 import { getSessionDurationMs, buildSessionCookieHeader, buildLogoutCookieHeader } from "./cookies";
 import { logAuthEvent } from "./audit-logger";
-import { AdminUser, AuthSession, UserAccount, SafeUser } from "./types";
+import { AdminUser, AuthSession, UserAccount, SafeUser, UserRole } from "./types";
 import { ForbiddenError, AccountDisabledError } from "./errors";
 import { createSignedSessionToken } from "./jwt-session";
 import { toSafeUser } from "./user-repository";
@@ -67,38 +67,44 @@ export async function createSessionFromIdToken(
 export async function createSessionForUserAccount(
   user: UserAccount | SafeUser,
   ipAddress?: string,
-  userAgent?: string
+  userAgent?: string,
+  overrideRole?: UserRole
 ): Promise<{ cookieHeader: string; user: SafeUser }> {
   const isUserDisabled = user.status === "DISABLED" || ("disabled" in user && (user as any).disabled);
   const uid = user.id || (user as any).uid;
+  const activeRole: UserRole = overrideRole || user.role || "USER";
 
   if (isUserDisabled) {
     await logAuthEvent({
       eventType: "ACCOUNT_DISABLED",
       uid,
       email: user.email,
-      role: user.role,
+      role: activeRole,
       ipAddress,
       userAgent,
     });
     throw new AccountDisabledError(`Account ${user.email} is currently disabled.`);
   }
 
-  // Generate signed session cookie
+  // Generate signed session cookie with activeRole
   const durationMs = getSessionDurationMs();
-  const sessionToken = createSignedSessionToken(uid, user.email, user.role, durationMs);
+  const sessionToken = createSignedSessionToken(uid, user.email, activeRole, durationMs);
   const cookieHeader = buildSessionCookieHeader(sessionToken);
 
-  await logAuthEvent({
+  logAuthEvent({
     eventType: "LOGIN_SUCCESS",
     uid,
     email: user.email,
-    role: user.role,
+    role: activeRole,
     ipAddress,
     userAgent,
-  });
+  }).catch(() => {});
 
-  const safeUser: SafeUser = "passwordHash" in user ? toSafeUser(user as UserAccount) : (user as SafeUser);
+  const baseSafeUser: SafeUser = "passwordHash" in user ? toSafeUser(user as UserAccount) : { ...(user as SafeUser) };
+  const safeUser: SafeUser = {
+    ...baseSafeUser,
+    role: activeRole,
+  };
   return { cookieHeader, user: safeUser };
 }
 

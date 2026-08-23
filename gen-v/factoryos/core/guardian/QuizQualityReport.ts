@@ -16,6 +16,7 @@ export interface QuizQualityReportData {
   ambiguityScore: number;
   semanticScore: number;
   factualityScore: number;
+  insufficientEvidenceCount?: number;
   summaryReasons: string[];
   structureValidation: QuizOutputValidationResult;
   duplicateCheck: QuizDuplicateCheckResult;

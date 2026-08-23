@@ -34,13 +34,15 @@ export async function logAuthEvent(params: {
     inMemoryAuditLogs.pop();
   }
 
-  // Persist to Firestore if available
+  // Persist to Firestore asynchronously in background if available
   if (db) {
-    try {
-      await db.collection("auth_audit").doc(event.id).set(event);
-    } catch (err: any) {
-      console.error("[AuthAuditLogger] Failed to persist audit event to Firestore:", err.message);
-    }
+    const firestoreData = JSON.parse(JSON.stringify(event));
+    db.collection("auth_audit")
+      .doc(event.id)
+      .set(firestoreData)
+      .catch((err: any) => {
+        console.warn("[AuthAuditLogger] Failed to persist audit event to Firestore:", err.message);
+      });
   }
 
   console.log(`[AuthAudit] ${event.timestamp} | ${event.eventType} | Email: ${event.email || "N/A"} | Role: ${event.role || "N/A"}`);

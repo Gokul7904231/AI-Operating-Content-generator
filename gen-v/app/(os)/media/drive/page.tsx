@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import CreatorEmptyState from "@/components/creator/CreatorEmptyState";
 import {
   Cloud,
   HardDrive,
@@ -563,13 +564,12 @@ export default function DriveMediaPage() {
               <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl animate-pulse h-52" />
             ))
           ) : sorted.length === 0 ? (
-            <div className="col-span-full py-20 text-center">
-              <Cloud className="w-12 h-12 mx-auto text-zinc-700 mb-4" />
-              <div className="text-sm font-bold text-zinc-400">No files found</div>
-              <div className="text-xs text-zinc-600 mt-1">
-                {search ? "Try a different search term." : "Upload videos via the Factory pipeline."}
-              </div>
-            </div>
+            <CreatorEmptyState
+              title={search ? "No matching files" : "No Drive files yet"}
+              description={search ? "Try a different search term." : "Your delivered videos will appear here once Drive sync completes. Create a video to get started."}
+              primaryAction={{ label: "Create Video" }}
+              secondaryAction={{ label: "Go to Library", href: "/media/library" }}
+            />
           ) : (
             sorted.map((file) => (
               <VideoCard

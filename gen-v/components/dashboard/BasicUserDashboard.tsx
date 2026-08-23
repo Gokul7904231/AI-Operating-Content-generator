@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { 
   Sparkles, Video, CheckCircle2, Clock, 
   Film, ArrowUpFromLine, RefreshCw,
-  AlertCircle, ChevronRight
+  AlertCircle, ChevronRight, HardDrive,
+  Download, HelpCircle, Lightbulb, Play
 } from "lucide-react";
 import Link from "next/link";
 import { useFactoryStore } from "@/lib/factory-store";
@@ -16,7 +17,7 @@ interface BasicUserDashboardProps {
 }
 
 export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDashboardProps) {
-  const { jobs, jobsSummary, fetchState, isLoading, queues } = useFactoryStore();
+  const { jobs, fetchState, isLoading, queues } = useFactoryStore();
   const toggleQuickGenerate = useOSStore((state) => state.toggleQuickGenerate);
 
   const [activeTab, setActiveTab] = useState<"all" | "completed" | "processing">("all");
@@ -61,20 +62,20 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16 select-none font-sans text-[#111827] dark:text-[#F5F7FA]">
-      {/* 1. ⚡ 5-Video Server-Authoritative Quota Bar */}
-      <div className="bg-white dark:bg-[#0A1220] border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-xs space-y-3">
+      
+      {/* 1. ⚡ Server-Authoritative Quota Bar with No-Dead-End Recovery */}
+      <div className="bg-white dark:bg-[#0A1220] border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-5 sm:p-6 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
-              Basic User Video Generation Quota
+              Video Generation Quota
             </span>
             <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${isQuotaReached ? "bg-[#FF5A67]/10 text-[#FF5A67] border border-[#FF5A67]/20" : "bg-[#19C37D]/10 text-[#19C37D] border border-[#19C37D]/20"}`}>
-              {isQuotaReached ? "● QUOTA REACHED" : "● ACTIVE"}
+              {isQuotaReached ? "● QUOTA EXHAUSTED" : "● ACTIVE PLAN"}
             </span>
           </div>
           <div className="text-xs font-mono font-bold text-[#111827] dark:text-[#F5F7FA]">
             {quota ? `${quota.completed} / ${quota.limit} Videos Rendered` : `${completedJobs.length} / 5 Videos Rendered`}
-            {quota && quota.reserved > 0 ? ` (${quota.reserved} Reserved)` : ""}
           </div>
         </div>
 
@@ -92,9 +93,24 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
           />
         </div>
 
-        <div className="flex justify-between items-center text-[11px] text-[#667085] dark:text-[#A8B2C1] font-mono">
-          <span>Tier: <strong>Basic Free Creator (Max 5 Videos)</strong></span>
-          <span>Remaining: <strong>{quota ? `${quota.remaining} slots` : `${Math.max(0, 5 - completedJobs.length)} slots`}</strong></span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-[#667085] dark:text-[#A8B2C1] font-mono gap-2 pt-1 border-t border-black/[0.04] dark:border-white/[0.04]">
+          <span>Tier: <strong>Basic Free Creator (5 Videos Limit)</strong></span>
+          <div className="flex items-center gap-3">
+            {isQuotaReached ? (
+              <span className="text-[#FF5A67] font-semibold">
+                All 5 slots used.
+              </span>
+            ) : (
+              <span>Remaining: <strong>{quota ? `${quota.remaining} slots` : `${Math.max(0, 5 - completedJobs.length)} slots`}</strong></span>
+            )}
+            <Link
+              href="/pricing"
+              className="px-2.5 py-1 rounded-lg bg-[#1677FF] hover:bg-[#0F63D8] text-white font-bold text-[10px] transition-colors inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>{isQuotaReached ? "Upgrade to Pro" : "View Plans"}</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -126,17 +142,17 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
             bg: "bg-white dark:bg-[#0A1220]" 
           },
           { 
-            label: "Delivery Outbox", 
-            value: activeOutboxCount, 
-            sub: "Queued for Drive/Publish", 
-            icon: ArrowUpFromLine, 
+            label: "Google Drive Delivery", 
+            value: completedJobs.filter(j => (j as any).driveUrl || (j as any).driveFileId).length, 
+            sub: "Synced to cloud drive", 
+            icon: HardDrive, 
             color: "text-[#1677FF]", 
             bg: "bg-white dark:bg-[#0A1220]" 
           },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className={`${stat.bg} border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col justify-between transition-colors`}>
+            <div key={stat.label} className={`${stat.bg} border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col justify-between transition-colors`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">{stat.label}</span>
                 <div className="w-8 h-8 rounded-xl bg-black/[0.03] dark:bg-[#0E1728] border border-black/[0.06] dark:border-white/[0.08] flex items-center justify-center">
@@ -152,7 +168,7 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
         })}
       </div>
 
-      {/* 3. ⚡ Active Generations Section */}
+      {/* 4. ⚡ Active Generations Section */}
       {activeJobs.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -170,7 +186,7 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeJobs.map((job) => (
-              <div key={job.id} className="bg-white dark:bg-[#0A1220] border border-[#1677FF]/30 rounded-2xl p-5 shadow-xs space-y-4 relative overflow-hidden">
+              <div key={job.id} className="bg-white dark:bg-[#0A1220] border border-[#1677FF]/30 rounded-3xl p-5 shadow-xs space-y-4 relative overflow-hidden">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="px-2.5 py-0.5 rounded-full bg-[#1677FF]/10 text-[#1677FF] text-[10px] font-semibold uppercase tracking-wider border border-[#1677FF]/20">
@@ -183,17 +199,18 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
                   </span>
                 </div>
 
-                {/* Pipeline Progress Indicator */}
+                {/* Pipeline Progress Indicator — real status only, never fake 2/3 */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-[#667085] dark:text-[#A8B2C1]">
-                    <span>Current Stage: <strong className="text-[#111827] dark:text-[#F5F7FA]">{(job as any).stage || "Rendering"}</strong></span>
-                    <span>{(job as any).progress ? `${(job as any).progress}%` : "In Progress"}</span>
+                    <span>Stage: <strong className="text-[#111827] dark:text-[#F5F7FA]">{(job as any).stage || (job as any).detailedStatus || job.status}</strong></span>
+                    <span className="font-mono">{(job as any).progress != null || (job as any).progress_percentage != null ? `${Math.round((job as any).progress ?? (job as any).progress_percentage)}%` : "In Progress"}</span>
                   </div>
                   <div className="w-full bg-black/[0.04] dark:bg-[#070D18] h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-[#1677FF] h-full rounded-full transition-all duration-300"
-                      style={{ width: `${(job as any).progress || 60}%` }}
-                    />
+                    {((job as any).progress != null || (job as any).progress_percentage != null) ? (
+                      <div className="bg-[#1677FF] h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, Math.round((job as any).progress ?? (job as any).progress_percentage)))}%` }} />
+                    ) : (
+                      <div className="bg-[#1677FF]/60 h-full rounded-full w-1/3 animate-pulse" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -202,12 +219,12 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
         </div>
       )}
 
-      {/* 4. 🎬 Recent Projects & Renders Grid */}
+      {/* 5. 🎬 Recent Projects & Renders Grid */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-[#111827] dark:text-[#F5F7FA]">My Video Projects</h2>
-            <p className="text-xs text-[#667085] mt-0.5">Manage and inspect your short video production assets</p>
+            <h2 className="text-lg font-bold tracking-tight text-[#111827] dark:text-[#F5F7FA]">My Videos</h2>
+            <p className="text-xs text-[#667085] mt-0.5">Browse and download your generated video shorts</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -234,22 +251,22 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
         {/* Empty State */}
         {filteredJobs.length === 0 ? (
           <div className="bg-white dark:bg-[#0A1220] border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-10 sm:p-14 text-center space-y-4 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-[#1677FF]/10 border border-[#1677FF]/20 flex items-center justify-center mx-auto text-[#1677FF]">
+            <div className="w-16 h-16 rounded-3xl bg-[#1677FF]/10 border border-[#1677FF]/20 flex items-center justify-center mx-auto text-[#1677FF]">
               <Video className="w-8 h-8" />
             </div>
             <div className="max-w-sm mx-auto space-y-1">
-              <h3 className="text-lg font-bold text-[#111827] dark:text-[#F5F7FA]">No video projects yet</h3>
+              <h3 className="text-lg font-bold text-[#111827] dark:text-[#F5F7FA]">No videos created yet</h3>
               <p className="text-xs text-[#667085] dark:text-[#A8B2C1]">
-                Start by creating your first automated short video with AI topic brief and quality validation.
+                Start by creating your first automated short with AI topic brief and instant video rendering.
               </p>
             </div>
             {!isViewer && (
               <button
                 onClick={toggleQuickGenerate}
-                className="px-6 py-2.5 rounded-xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-2 shadow-xs"
+                className="px-6 py-2.5 rounded-2xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 shadow-xs"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>+ Create Your First Short</span>
+                <span>Create Video</span>
               </button>
             )}
           </div>
@@ -259,9 +276,10 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
             {filteredJobs.map((job) => {
               const isCompleted = (job.status as string) === "completed" || (job.status as string) === "rendered";
               const isFailed = (job.status as string) === "failed";
+              const driveUrl = (job as any).driveUrl;
 
               return (
-                <div key={job.id} className="bg-white dark:bg-[#0A1220] border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-4">
+                <div key={job.id} className="bg-white dark:bg-[#0A1220] border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-5 shadow-xs flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="px-2.5 py-0.5 rounded-md bg-black/[0.03] dark:bg-[#0E1728] border border-black/[0.06] dark:border-white/[0.08] text-[#667085] dark:text-[#A8B2C1] text-[10px] font-semibold uppercase tracking-wider">
@@ -292,18 +310,30 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between text-xs">
+                  <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between text-xs">
                     <span className="text-[#667085] font-medium text-[11px] font-mono">
                       {(job as any).renderProfile || "FAST_QUIZ"}
                     </span>
                     <div className="flex items-center gap-2">
-                      {isCompleted && (
+                      {driveUrl && (
+                        <a
+                          href={driveUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 rounded-xl bg-[#19C37D]/10 text-[#19C37D] hover:bg-[#19C37D]/20 font-bold text-[11px] transition-colors inline-flex items-center gap-1"
+                        >
+                          <HardDrive className="w-3 h-3" />
+                          <span>Drive</span>
+                        </a>
+                      )}
+                      {isCompleted && !driveUrl && (
                         <a
                           href={`/api/download/${job.id}`}
                           download
-                          className="px-2.5 py-1 rounded-lg bg-[#1677FF]/10 text-[#1677FF] hover:bg-[#1677FF]/20 font-semibold text-[11px] transition-colors inline-flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-xl bg-[#1677FF]/10 text-[#1677FF] hover:bg-[#1677FF]/20 font-semibold text-[11px] transition-colors inline-flex items-center gap-1"
                         >
-                          <span>Download MP4</span>
+                          <Download className="w-3 h-3" />
+                          <span>MP4</span>
                         </a>
                       )}
                       <Link
@@ -321,7 +351,6 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
           </div>
         )}
       </div>
-
     </div>
   );
 }

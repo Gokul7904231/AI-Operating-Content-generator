@@ -12,6 +12,13 @@ export type ScriptAgentInput = {
   provider?: LLMProvider;
   contentType?: string;
   renderProfile?: string;
+  topics?: Array<{ topicId: string; name: string; questionBudget: number }>;
+  repairContext?: {
+    failedClaims?: any[];
+    sourceEvidence?: string[];
+    sourceUrls?: string[];
+    reasons?: string[];
+  };
 };
 
 function safeJsonParse<T>(text: string): T | null {
@@ -108,13 +115,33 @@ export async function scriptAgent(
 
     console.log(`[ScriptAgent] Selected Expected Question Count: ${expectedCount} (Mode: ${normProfile})`);
 
+    const repairDirective = input.repairContext
+      ? `
+CRITICAL FACTUAL REPAIR DIRECTIVE:
+A previous draft was rejected for factual or ambiguity defects:
+Reasons: ${input.repairContext.reasons?.join("; ") || "Factual grounding issue."}
+External Evidence References:
+${input.repairContext.sourceEvidence?.slice(0, 3).map((e: string, i: number) => `[Source ${i + 1}]: ${e}`).join("\n") || "Ensure factual consensus."}
+Ensure all questions and answers are 100% verified against external factual consensus.`
+      : "";
+
     const system =
       "You are a quiz generation script engine. Output MUST be valid JSON only. No markdown. No code blocks.";
+
+    const topicAllocationDirective = input.topics && input.topics.length > 0
+      ? `
+MULTI-TOPIC QUESTION ALLOCATION:
+You must distribute the questions across the following topic budgets:
+${input.topics.map((t) => `- Topic: "${t.name}" (topicId: "${t.topicId}") -> generate ${t.questionBudget} question(s)`).join("\n")}
+Every question in the "questions" array MUST include "topicId" set to the matching topic's topicId.`
+      : "";
 
     const prompt = `
 Generate exactly ${expectedCount} quiz questions optimized for YouTube Shorts / TikTok.
 Topic: ${input.topic}
 Style: ${input.style ?? "(not specified)"}
+${repairDirective}
+${topicAllocationDirective}
 
 The hook must create strong curiosity and encourage completion. Use or adapt one of these high-performing hook templates:
 - "Only 1% get Question ${expectedCount} right."
@@ -128,6 +155,7 @@ Every question MUST contain exactly:
 - "options": ["Option A text", "Option B text", "Option C text"]
 - "answer": "The correct option text exactly (must match one of the options)"
 - "explanation": "A short 1-sentence educational explanation or fun fact about the correct answer (max 15 words)"
+- "topicId": "${input.topics && input.topics.length > 0 ? "one of the requested topicIds" : "topic"}"
 
 Also generate automated social media metadata:
 - "title": A high-converting curiosity title (e.g., "Most people fail Question ${expectedCount - 1}")
@@ -191,7 +219,7 @@ Return JSON ONLY in this exact format:
         const seen = new Set<string>();
         for (let i = 0; i < expectedCount; i++) {
           const q = parsedQuestions[i];
-          if (!q || !q.question || !Array.isArray(q.options) || q.options.length !== 3 || !q.answer || !q.difficulty || !q.explanation) {
+          if (!q || !q.question || !Array.isArray(q.options) || q.options.length < 2 || !q.answer || !q.difficulty || !q.explanation) {
             valid = false;
             break;
           }
@@ -205,11 +233,23 @@ Return JSON ONLY in this exact format:
         }
 
         if (valid) {
+          if (input.topics && input.topics.length > 0) {
+            let assignedIdx = 0;
+            for (const topic of input.topics) {
+              for (let b = 0; b < topic.questionBudget; b++) {
+                if (assignedIdx < parsedQuestions.length) {
+                  parsedQuestions[assignedIdx].topicId = parsedQuestions[assignedIdx].topicId || topic.topicId;
+                  parsedQuestions[assignedIdx].topicName = parsedQuestions[assignedIdx].topicName || topic.name;
+                  assignedIdx++;
+                }
+              }
+            }
+          }
           parsed.questions = parsedQuestions;
           return parsed;
         }
       } catch (err) {
-        // ignore and retry
+        console.error("[ScriptAgent Error]:", err);
       }
     }
     throw new Error(`ScriptAgent failed to generate a valid ${expectedCount}-question quiz script after 3 attempts.`);

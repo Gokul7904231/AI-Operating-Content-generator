@@ -1,398 +1,1279 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  X, 
-  Globe2, 
-  Settings2, 
-  Sparkles, 
-  Play, 
-  Download, 
-  Clock, 
-  HelpCircle,
-  FileVideo,
+import {
+  X,
+  Sparkles,
+  Play,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  ExternalLink,
+  ChevronRight,
+  ChevronLeft,
   FileText,
-  CheckCircle2
+  Video,
+  Film,
+  Layers,
+  HelpCircle,
+  Clock,
+  HardDrive,
+  Trash2,
+  Globe,
+  Sliders,
+  Edit3,
+  Check,
+  Plus,
+  ShieldCheck,
+  ChevronDown,
+  Share2,
 } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useOSStore } from "@/lib/os-store";
+import { useAuth } from "@/lib/auth/hooks";
+import { mapValidationError } from "@/lib/creator/error-map";
+import { QuizOrchestrator } from "@/lib/quiz/QuizOrchestrator";
 
-const GEO_COUNTRIES = [
-  { code: "US", label: "🇺🇸 United States (US)" },
-  { code: "GB", label: "🇬🇧 United Kingdom (UK)" },
-  { code: "IN", label: "🇮🇳 India (IN)" },
-  { code: "JP", label: "🇯🇵 Japan (JP)" },
-  { code: "IT", label: "🇮🇹 Italy (IT)" },
-  { code: "BR", label: "🇧🇷 Brazil (BR)" },
-  { code: "DE", label: "🇩🇪 Germany (DE)" },
-  { code: "FR", label: "🇫🇷 France (FR)" },
-  { code: "CA", label: "🇨🇦 Canada (CA)" },
-  { code: "AU", label: "🇦🇺 Australia (AU)" },
+const SAMPLE_TOPICS = [
+  "Artificial Intelligence & Computing Milestones",
+  "Quantum Computing Breakthroughs",
+  "Fascinating Facts About Cats",
+  "History of the Internet",
+  "Deep Space Exploration & Black Holes",
 ];
 
+const GEO_COUNTRIES = [
+  { code: "IN", name: "India", flag: "🇮🇳" },
+  { code: "US", name: "United States", flag: "🇺🇸" },
+  { code: "JP", name: "Japan", flag: "🇯🇵" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "FR", name: "France", flag: "🇫🇷" },
+  { code: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "AU", name: "Australia", flag: "🇦🇺" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷" },
+  { code: "IT", name: "Italy", flag: "🇮🇹" },
+  { code: "ES", name: "Spain", flag: "🇪🇸" },
+];
+
+export type CreateStep = "IDEA" | "REVIEW" | "RENDER" | "READY";
+
+const STEP_NUM: Record<CreateStep, number> = { IDEA: 1, REVIEW: 2, RENDER: 3, READY: 4 };
+const NUM_STEP: Record<number, CreateStep> = { 1: "IDEA", 2: "REVIEW", 3: "RENDER", 4: "READY" };
+const STORAGE_KEY = "factoryos:create:draft";
+
+function humanStageLabel(status?: string, detailedStatus?: string): string {
+  const s = (detailedStatus || status || "").toLowerCase();
+  if (s.includes("completed") || s.includes("ready")) return "Ready";
+  if (s.includes("upload")) return "Uploading";
+  if (s.includes("validat")) return "Validating";
+  if (s.includes("running") || s.includes("render")) return "Rendering";
+  if (s.includes("claimed") || s.includes("generat")) return "Generating assets";
+  if (s.includes("queued") || s.includes("prepar")) return "Preparing your video";
+  if (s.includes("retry")) return "Retrying";
+  if (s.includes("failed")) return "Failed — retryable";
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : "Queued";
+}
+
+function isDriveDelivered(job: any): boolean {
+  return Boolean(job?.driveFileId && job?.driveUrl && job?.deliveryTarget === "GOOGLE_DRIVE");
+}
+
 export default function QuickGenerateOverlay() {
+  const { user } = useAuth();
   const isOpen = useOSStore((state) => state.quickGenerateOpen);
   const setOpen = useOSStore((state) => state.setQuickGenerateOpen);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const [topicBrief, setTopicBrief] = useState("");
-  const [quizCountry, setQuizCountry] = useState("US");
-  const [engagementTone, setEngagementTone] = useState("Challenging & Provocative");
-  const [quizFormat, setQuizFormat] = useState("6_rapid");
-  const [batchNumber, setBatchNumber] = useState("1");
-  const [mockMode, setMockMode] = useState(false);
+  // Stepper State — persisted to URL ?step= and localStorage
+  const [step, setStep] = useState<CreateStep>("IDEA");
 
-  const [loading, setLoading] = useState(false);
+  // Dynamic Engine List from canonical API
+  const [availableEngines, setAvailableEngines] = useState<any[]>([]);
+  const [selectedEngineId, setSelectedEngineId] = useState<string>("quiz");
+
+  // Quiz Engine Specific Modes: "geo" (Default) vs "custom"
+  const [quizMode, setQuizMode] = useState<"geo" | "custom">("geo");
+  const [selectedCountry, setSelectedCountry] = useState<string>("IN");
+
+  // Custom Quiz Sub-mode: "single" vs "multiple"
+  const [customMode, setCustomMode] = useState<"single" | "multiple">("single");
+  const [topicBrief, setTopicBrief] = useState("Artificial Intelligence & Computing Milestones");
+  const [multiTopics, setMultiTopics] = useState<string[]>([
+    "Space Exploration",
+    "Black Holes",
+    "Mars",
+  ]);
+  const [newTopicInput, setNewTopicInput] = useState("");
+  const [totalQuestions, setTotalQuestions] = useState<number>(6);
+
+  // Progressive Disclosure: Advanced Job-Level Overrides
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [difficulty, setDifficulty] = useState("medium");
+  const [durationSeconds, setDurationSeconds] = useState(45);
+  const [voice, setVoice] = useState("neutral");
+  const [ratio, setRatio] = useState("9:16");
+
+  // Draft State
+  const [loadingDraft, setLoadingDraft] = useState(false);
+  const [draft, setDraft] = useState<any>(null);
   const [error, setError] = useState("");
-  const [quizData, setQuizData] = useState<any>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, ReturnType<typeof mapValidationError> | null>>({});
 
-  // Video Rendering State
-  const [generatingVideo, setGeneratingVideo] = useState(false);
-  const [videoStatus, setVideoStatus] = useState<any>(null);
+  // Question Inline Editing State
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [reverifyingIndex, setReverifyingIndex] = useState<number | null>(null);
+
+  // Quota State
+  const [quota, setQuota] = useState<{
+    completed: number;
+    limit: number;
+    remaining: number;
+    isUnlimited: boolean;
+    isExceeded: boolean;
+  } | null>(null);
+
+  const isBasicUser = user?.role !== "ADMIN" && user?.role !== "OWNER";
+  const isQuotaExceeded = isBasicUser && quota !== null && (quota.isExceeded || quota.remaining <= 0);
+
+  // Video Rendering & Polling State
+  const [rendering, setRendering] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<any>(null);
   const [polling, setPolling] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const pollingStartRef = useRef<any>(null);
 
+  // Fetch available active engines
   useEffect(() => {
-    if (!isOpen) {
-      // Defer state resets to satisfy ESLint effect rule
-      setTimeout(() => {
-        setQuizData(null);
-        setVideoStatus(null);
-        setError("");
-      }, 0);
+    async function loadEngines() {
+      try {
+        const res = await fetch("/api/engines/available");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.engines)) {
+          setAvailableEngines(data.engines);
+          const defaultEng = data.engines.find((e: any) => e.isDefault) || data.engines[0];
+          if (defaultEng) setSelectedEngineId(defaultEng.engineId);
+        }
+      } catch (err) {
+        console.warn("[QuickGenerate] Failed to load available engines:", err);
+      }
+    }
+    if (isOpen) {
+      loadEngines();
+      fetchQuota();
     }
   }, [isOpen]);
 
-  async function generateDraft() {
-    setLoading(true);
-    setError("");
-    setVideoStatus(null);
+  const fetchQuota = async () => {
     try {
-      const endpoint = mockMode ? "/api/quiz/mock" : "/api/quiz/geo";
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ 
-          countryCode: quizCountry, 
-          tone: engagementTone, 
-          format: quizFormat, 
-          version: parseInt(batchNumber) || 1 
-        }),
-      });
+      const res = await fetch("/api/user/quota");
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to generate geo-quiz draft");
+      if (json.success && json.quota) {
+        setQuota(json.quota);
+      }
+    } catch {}
+  };
 
-      setQuizData({
-        hook: json.hook,
-        questions: (json.questions || []).map((q: any) => ({
-          question: q.question,
-          options: q.options,
-          answer: q.options[q.answerIndex ?? 0],
-          answerIndex: q.answerIndex ?? 0,
-          difficulty: "medium",
-        })),
-        title: `${GEO_COUNTRIES.find((c) => c.code === quizCountry)?.label ?? quizCountry} Quiz`,
-        description: `How well do you know ${GEO_COUNTRIES.find((c) => c.code === quizCountry)?.label ?? quizCountry}? Take the challenge!`,
-        hashtags: ["quiz", "geoquiz", quizCountry.toLowerCase(), "shorts"],
+  // Restore draft/step from URL + localStorage on mount / open
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const urlStep = searchParams.get("step");
+      if (urlStep) {
+        const n = parseInt(urlStep, 10);
+        if (n >= 1 && n <= 4 && NUM_STEP[n]) setStep(NUM_STEP[n]);
+      }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.draft) setDraft(saved.draft);
+        if (saved.topicBrief) setTopicBrief(saved.topicBrief);
+        if (saved.jobId) setJobId(saved.jobId);
+        if (saved.jobStatus) setJobStatus(saved.jobStatus);
+        if (saved.selectedEngineId) setSelectedEngineId(saved.selectedEngineId);
+        if (saved.quizMode) setQuizMode(saved.quizMode);
+        if (saved.selectedCountry) setSelectedCountry(saved.selectedCountry);
+        if (saved.customMode) setCustomMode(saved.customMode);
+        if (saved.multiTopics) setMultiTopics(saved.multiTopics);
+        if (!urlStep && saved.step && NUM_STEP[saved.step]) setStep(NUM_STEP[saved.step]);
+      }
+    } catch {}
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist draft/step to URL + localStorage whenever they change while open
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          step: STEP_NUM[step],
+          draft,
+          topicBrief,
+          jobId,
+          jobStatus,
+          selectedEngineId,
+          quizMode,
+          selectedCountry,
+          customMode,
+          multiTopics,
+        })
+      );
+    } catch {}
+    const current = searchParams.get("step");
+    const desired = String(STEP_NUM[step]);
+    if (current !== desired) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("step", desired);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+  }, [
+    step,
+    draft,
+    topicBrief,
+    jobId,
+    jobStatus,
+    selectedEngineId,
+    quizMode,
+    selectedCountry,
+    customMode,
+    multiTopics,
+    isOpen,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clearDraft = useCallback(() => {
+    setDraft(null);
+    setJobId(null);
+    setJobStatus(null);
+    setError("");
+    setFieldErrors({});
+    setEditingIndex(null);
+    setStep("IDEA");
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("step");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [router, pathname, searchParams]);
+
+  // Compute live equal allocation preview
+  const liveAllocation = React.useMemo(() => {
+    if (selectedEngineId === "quiz" && quizMode === "custom" && customMode === "multiple") {
+      try {
+        return QuizOrchestrator.calculateEqualAllocation(multiTopics, totalQuestions);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [selectedEngineId, quizMode, customMode, multiTopics, totalQuestions]);
+
+  // Step 1 -> Step 2: Generate Draft
+  async function handleGenerateDraft() {
+    setLoadingDraft(true);
+    setError("");
+    setFieldErrors({});
+
+    try {
+      let payload: any = {
+        engineId: selectedEngineId,
+        difficulty,
+        durationSeconds,
+      };
+
+      if (selectedEngineId === "quiz") {
+        if (quizMode === "geo") {
+          const cObj = GEO_COUNTRIES.find((c) => c.code === selectedCountry) || GEO_COUNTRIES[0];
+          payload.quizMode = "geo";
+          payload.countryCode = cObj.code;
+          payload.countryName = cObj.name;
+        } else {
+          payload.quizMode = "custom";
+          if (customMode === "multiple") {
+            if (multiTopics.length > totalQuestions) {
+              throw new Error(`Topic count (${multiTopics.length}) cannot exceed total questions (${totalQuestions}).`);
+            }
+            payload.customQuiz = {
+              mode: "multiple",
+              topics: multiTopics,
+              totalQuestions,
+            };
+          } else {
+            if (!topicBrief.trim()) throw new Error("Please enter a video topic or concept brief.");
+            payload.customQuiz = {
+              mode: "single",
+              topics: [topicBrief.trim()],
+              totalQuestions: 6,
+            };
+          }
+        }
+      } else {
+        if (!topicBrief.trim()) throw new Error("Please enter a video topic or concept brief.");
+        payload.topic = topicBrief.trim();
+      }
+
+      const res = await fetch("/api/quiz/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const mapped = mapValidationError(
+          data.code || data.error || "Failed to generate draft.",
+          data.details || data.error
+        );
+        setError(`${mapped.title}: ${mapped.why}`);
+        // P0-8: surface actionable field error inline (hook/question) instead of only banner
+        if (mapped.code === "HOOK_MISSING" || mapped.code === "HOOK_SCORE_LOW") {
+          setFieldErrors({ hook: mapped });
+        } else if (mapped.code === "QUESTION_DUPLICATE" || mapped.code === "QUESTION_INVALID") {
+          setFieldErrors({ questions: mapped as any });
+        }
+        return;
+      }
+
+      setDraft(data);
+      setFieldErrors({});
+      setStep("REVIEW");
     } catch (e: any) {
-      setError(e?.message ?? "Failed to generate draft");
+      const mapped = mapValidationError(e.message || "Draft generation failed.");
+      setError(`${mapped.title}: ${mapped.why}`);
+      if (mapped.code === "HOOK_MISSING" || mapped.code === "HOOK_SCORE_LOW") setFieldErrors({ hook: mapped });
     } finally {
-      setLoading(false);
+      setLoadingDraft(false);
     }
   }
 
-  async function renderVideo() {
-    setGeneratingVideo(true);
-    setVideoStatus(null);
-    setError("");
+  // Question Inline Edit Handlers
+  function startEditing(index: number) {
+    const q = draft.questions[index];
+    setEditingIndex(index);
+    setEditForm({
+      question: q.question,
+      options: [...(q.options || [])],
+      answer: q.answer,
+      explanation: q.explanation || "",
+    });
+  }
+
+  function saveEditing(index: number) {
+    if (!draft || !draft.questions) return;
+    const updated = [...draft.questions];
+    const original = updated[index];
+
+    const editedQ = QuizOrchestrator.markQuestionEdited({
+      ...original,
+      question: editForm.question,
+      options: editForm.options,
+      answer: editForm.answer,
+      explanation: editForm.explanation,
+    });
+
+    updated[index] = editedQ;
+    setDraft({ ...draft, questions: updated });
+    setEditingIndex(null);
+  }
+
+  async function handleReverifyQuestion(index: number) {
+    if (!draft || !draft.questions[index]) return;
+    const q = draft.questions[index];
+    setReverifyingIndex(index);
+
     try {
+      const res = await fetch("/api/quiz/verify-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: q,
+          topic: q.topicName || draft.topic || topicBrief,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const updated = [...draft.questions];
+        updated[index] = {
+          ...q,
+          verificationStatus: data.status,
+          evidence: data.evidence,
+          nliResult: data.nliResult,
+          score: data.score,
+        };
+        setDraft({ ...draft, questions: updated });
+      }
+    } catch (err) {
+      console.error("[Reverify Error]:", err);
+    } finally {
+      setReverifyingIndex(null);
+    }
+  }
+
+  // Step 2 -> Step 3: Start Render
+  async function handleStartRender() {
+    if (!draft) return;
+
+    setRendering(true);
+    setError("");
+    setStep("RENDER");
+    setJobStatus({ status: "queued", stage: "Preparing video synthesis..." });
+
+    try {
+      const quizContext = {
+        quizMode: draft.quizMode || (selectedEngineId === "quiz" ? (quizMode === "geo" ? "geo" : customMode === "multiple" ? "custom_multiple" : "custom_single") : undefined),
+        countryCode: draft.countryCode || (quizMode === "geo" ? selectedCountry : undefined),
+        topics: draft.topics,
+        totalQuestions: draft.questions?.length,
+        allocationStrategy: "EQUAL",
+      };
+
       const payload = {
-        topic: `${GEO_COUNTRIES.find((c) => c.code === quizCountry)?.label ?? quizCountry} Geo Quiz`,
-        style: "quiz",
+        topic: draft.topic || topicBrief || "FactoryOS Short",
+        style: selectedEngineId || "quiz",
+        engineId: selectedEngineId || "quiz",
+        engineMode: quizMode,
+        difficulty,
+        tone: "Challenging",
+        voice,
+        ratio,
         contentType: "QUIZ_SHORTS",
-        hook: quizData?.hook,
-        questions: quizData?.questions,
-        title: quizData?.title,
-        description: quizData?.description,
-        hashtags: quizData?.hashtags,
-        renderProfile: "FAST_QUIZ",
-        durationSeconds: 45,
+        hook: draft.hook,
+        questions: draft.questions,
+        title: draft.title,
+        description: draft.description,
+        hashtags: draft.hashtags,
+        renderProfile: draft.renderProfile || "FAST_QUIZ",
+        durationSeconds: draft.durationSeconds || durationSeconds,
+        quizContext,
+        delivery: {
+          target: "GOOGLE_DRIVE",
+          authMode: "OAUTH_USER",
+          artifactVersion: "v1",
+          allowFallback: false,
+        },
       };
 
       const res = await fetch("/api/generate-video", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Video generation failed");
-      setVideoStatus({ videoId: json.jobId || json.videoId, status: json.status });
+      if (!res.ok) {
+        const mapped = mapValidationError(
+          json.code || json.error || "Video generation request failed.",
+          json.details || json.error
+        );
+        setError(`${mapped.title}: ${mapped.why}`);
+        setStep("REVIEW");
+        setJobStatus({ status: "failed", error: mapped.title });
+        throw new Error(mapped.title);
+      }
+
+      const activeJobId = json.jobId || json.id || json.videoId;
+      setJobId(activeJobId);
+      setJobStatus({ status: "queued", jobId: activeJobId, stage: humanStageLabel("queued") });
+      startPolling(activeJobId);
     } catch (e: any) {
-      setError(e?.message ?? "Video generation failed");
+      if (!error) setError(e.message || "Failed to start render.");
+      setJobStatus((prev: any) => prev ?? { status: "failed", error: e.message });
     } finally {
-      setGeneratingVideo(false);
+      setRendering(false);
     }
   }
 
-  // Polling Status
-  useEffect(() => {
-    if (!videoStatus?.videoId) return;
-    if (polling) return;
+  // Polling Job Status
+  const pollingRef = useRef<boolean>(false);
+  function startPolling(id: string) {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+    setPolling(true);
 
-    let cancelled = false;
-    const id = videoStatus.videoId;
-    
-    // Defer state updates to satisfy react-hooks/set-state-in-effect
-    setTimeout(() => {
-      setPolling(true);
-      setElapsedSeconds(0);
-    }, 0);
-    
-    pollingStartRef.current = Date.now();
-
-    const elapsedTimerId = setInterval(() => {
-      if (cancelled) return;
-      setElapsedSeconds(Math.floor((Date.now() - pollingStartRef.current) / 1000));
-    }, 1000);
-
-    async function tick() {
-      if (cancelled) return;
+    const check = async () => {
+      if (!pollingRef.current) return;
       try {
         const res = await fetch(`/api/job-status/${id}`);
-        const json = await res.json();
+        const data = await res.json();
         if (res.ok) {
-          setVideoStatus((prev: any) => {
-            if (!prev?.videoId || prev.videoId !== id) return prev;
-            return {
-              videoId: id,
-              status: json.status,
-              output: json.output || (json.videoUrl ? { videoUrl: json.videoUrl, thumbnailUrl: json.thumbnailUrl } : null),
-            };
-          });
-          if (json.status === "completed" || json.status === "failed") {
-            clearInterval(elapsedTimerId);
-            setTimeout(() => setPolling(false), 0);
-            if (json.status === "failed" && json.error) {
-              setError(`Video rendering failed: ${json.error}`);
-            }
+          setJobStatus(data);
+          if (data.status === "completed") {
+            pollingRef.current = false;
+            setPolling(false);
+            setStep("READY");
+            fetchQuota();
+            return;
+          }
+          if (data.status === "failed") {
+            pollingRef.current = false;
+            setPolling(false);
+            setError(data.error || "Render execution failed.");
             return;
           }
         }
-      } catch (e) {}
-      if (!cancelled) setTimeout(tick, elapsedSeconds < 60 ? 3000 : 5000);
-    }
-    tick();
-    return () => { cancelled = true; clearInterval(elapsedTimerId); setTimeout(() => setPolling(false), 0); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoStatus?.videoId]);
+      } catch {}
+      if (pollingRef.current) setTimeout(check, 2500);
+    };
+    check();
+  }
+
+  const handleClose = () => {
+    pollingRef.current = false;
+    setOpen(false);
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
-          {/* Overlay Box */}
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-            className="w-full max-w-4xl max-h-[85vh] bg-white border border-[#e8e8ed] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
-          >
-            {/* Header */}
-            <div className="p-4 border-b border-[#e8e8ed] flex justify-between items-center bg-[#f5f5f7] shrink-0">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#0071e3]" />
-                <h3 className="text-sm font-display font-semibold text-[#1d1d1f] tracking-display">Quick Generate Short</h3>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-[#86868b] hover:text-[#1d1d1f] p-1.5 rounded-lg hover:bg-[#e8e8ed] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-[#070D18] border border-black/[0.08] dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Top Header & Quota Bar */}
+        <div className="px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between bg-black/[0.02] dark:bg-[#0E1728]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#1677FF]/10 text-[#1677FF] flex items-center justify-center font-bold">
+              <Sparkles className="w-4 h-4" />
             </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#111827] dark:text-[#F5F7FA]">Create Video</h3>
+              <p className="text-[11px] text-[#667085] dark:text-[#A8B2C1]">Fast autonomous creation pipeline</p>
+            </div>
+          </div>
 
-            {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-12 gap-6 terminal-scroll">
-              {/* Form Config Left */}
-              <div className="md:col-span-5 space-y-4">
-                {/* Topic / Concept Brief Input */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Topic Brief / Concept</label>
+          <div className="flex items-center gap-3">
+            {quota && isBasicUser && (
+              <span className="text-[11px] px-2.5 py-1 rounded-full bg-black/[0.04] dark:bg-[#121E32] text-[#667085] font-mono">
+                {quota.remaining} / {quota.limit} videos left today
+              </span>
+            )}
+            <button
+              onClick={handleClose}
+              className="p-1.5 rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] text-[#667085] hover:text-[#111827] dark:hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 4-Step Stepper Header */}
+        <div className="px-6 py-3 border-b border-black/[0.04] dark:border-white/[0.04] bg-black/[0.01] dark:bg-[#070D18] flex items-center justify-between text-xs">
+          {(["IDEA", "REVIEW", "RENDER", "READY"] as CreateStep[]).map((s, idx) => {
+            const num = idx + 1;
+            const active = step === s;
+            const done = STEP_NUM[step] > num;
+            return (
+              <div
+                key={s}
+                className={`flex items-center gap-2 font-semibold transition-colors ${
+                  active
+                    ? "text-[#1677FF]"
+                    : done
+                    ? "text-[#19C37D]"
+                    : "text-[#667085] dark:text-[#667085]"
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold font-mono ${
+                    active
+                      ? "bg-[#1677FF] text-white"
+                      : done
+                      ? "bg-[#19C37D]/20 text-[#19C37D]"
+                      : "bg-black/[0.05] dark:bg-white/[0.05] text-[#667085]"
+                  }`}
+                >
+                  {done ? "✓" : num}
+                </span>
+                <span className="hidden sm:inline">{s}</span>
+                {idx < 3 && <ChevronRight className="w-3.5 h-3.5 text-[#667085]/40 ml-2 hidden sm:inline" />}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Modal Body Container */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {error && (
+            <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* STEP 1: IDEA — Engine Selector & Content Inputs */}
+          {step === "IDEA" && (
+            <div className="space-y-6">
+              {/* Engine Selector Dropdown */}
+              {(() => {
+                const engineList =
+                  availableEngines.length > 0
+                    ? availableEngines
+                    : [
+                        { engineId: "quiz", name: "Quiz Engine", description: "Viral trivia challenges, Geo Quizzes, and multi-topic knowledge tests.", category: "QUIZ" },
+                        { engineId: "facts", name: "Facts Engine", description: "Curiosity-driven fast educational shorts and shocking facts.", category: "EDUCATION" },
+                        { engineId: "history", name: "History Engine", description: "Cinematic narratives of pivotal historical events and figures.", category: "STORY" },
+                        { engineId: "motivation", name: "Motivation Engine", description: "High-energy inspiring speeches, quotes, and mindsets.", category: "MOTIVATION" },
+                        { engineId: "coding", name: "Coding Engine", description: "Developer tips, programming trivia, and software engineering insights.", category: "EDUCATION" },
+                        { engineId: "news", name: "News Engine", description: "Breaking stories and news digest shorts.", category: "OTHER" },
+                        { engineId: "psychology", name: "Psychology Engine", description: "Cognitive biases, mind tricks, and behavioral psychology breakdowns.", category: "EXPLAINER" },
+                        { engineId: "reddit", name: "Reddit Engine", description: "Community anecdotes, top stories, and social commentary shorts.", category: "OTHER" },
+                        { engineId: "story", name: "Story Engine", description: "Engaging narrative storytelling with suspenseful retention hooks.", category: "STORY" },
+                      ];
+                const activeEngine = engineList.find((e: any) => e.engineId === selectedEngineId) || engineList[0];
+
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
+                        1. Select Content Engine
+                      </label>
+                      {activeEngine && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#1677FF]/10 text-[#1677FF] font-mono uppercase font-bold">
+                          {activeEngine.category || "OTHER"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <select
+                        value={selectedEngineId}
+                        onChange={(e) => setSelectedEngineId(e.target.value)}
+                        className="w-full rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-4 py-3 text-xs font-bold text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none cursor-pointer appearance-none pr-10 transition-all hover:border-black/[0.2] dark:hover:border-white/[0.2]"
+                      >
+                        {engineList.map((eng: any) => (
+                          <option
+                            key={eng.engineId}
+                            value={eng.engineId}
+                            className="bg-white dark:bg-[#070D18] text-[#111827] dark:text-[#F5F7FA] py-1"
+                          >
+                            {eng.name} ({eng.category || "OTHER"})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
+                        <ChevronDown className="w-4 h-4" />
+                      </div>
+                    </div>
+
+                    {activeEngine?.description && (
+                      <p className="text-[11px] text-[#667085] dark:text-[#A8B2C1] px-1">
+                        {activeEngine.description}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* QUIZ ENGINE CONFIGURATION (GEO DEFAULT + CUSTOM SINGLE/MULTI) */}
+              {selectedEngineId === "quiz" && (
+                <div className="p-5 rounded-2xl bg-black/[0.02] dark:bg-[#0E1728] border border-black/[0.08] dark:border-white/[0.08] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
+                      2. Quiz Mode
+                    </label>
+                    <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.04] dark:bg-[#070D18]">
+                      <button
+                        type="button"
+                        onClick={() => setQuizMode("geo")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                          quizMode === "geo"
+                            ? "bg-[#1677FF] text-white shadow-xs"
+                            : "text-[#667085] hover:text-[#111827] dark:hover:text-white"
+                        }`}
+                      >
+                        <Globe className="w-3.5 h-3.5" /> Geo Quiz (Default)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuizMode("custom")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                          quizMode === "custom"
+                            ? "bg-[#1677FF] text-white shadow-xs"
+                            : "text-[#667085] hover:text-[#111827] dark:hover:text-white"
+                        }`}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> Custom Quiz
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mode: Geo Quiz */}
+                  {quizMode === "geo" && (
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#F5F7FA]">
+                        Select Target Country:
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {GEO_COUNTRIES.map((c) => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => setSelectedCountry(c.code)}
+                            className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                              selectedCountry === c.code
+                                ? "bg-[#1677FF]/10 border-[#1677FF] text-[#1677FF] font-bold"
+                                : "bg-white dark:bg-[#070D18] border-black/[0.06] dark:border-white/[0.06] text-[#667085] hover:border-black/[0.2]"
+                            }`}
+                          >
+                            <span className="text-base">{c.flag}</span>
+                            <span>{c.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode: Custom Quiz */}
+                  {quizMode === "custom" && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4 text-xs font-semibold">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="customSubMode"
+                            checked={customMode === "single"}
+                            onChange={() => setCustomMode("single")}
+                            className="text-[#1677FF]"
+                          />
+                          <span>Single Topic</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="customSubMode"
+                            checked={customMode === "multiple"}
+                            onChange={() => setCustomMode("multiple")}
+                            className="text-[#1677FF]"
+                          />
+                          <span>Multiple Topics (Equal Allocation)</span>
+                        </label>
+                      </div>
+
+                      {customMode === "single" ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={topicBrief}
+                            onChange={(e) => setTopicBrief(e.target.value)}
+                            placeholder="Enter quiz topic (e.g. Fascinating Facts About Cats)"
+                            className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#070D18] px-4 py-2.5 text-xs text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none"
+                          />
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            <span className="text-[11px] text-[#667085] self-center mr-1">Popular:</span>
+                            {SAMPLE_TOPICS.map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setTopicBrief(t)}
+                                className="px-2.5 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] text-[11px] text-[#667085] hover:text-[#1677FF] hover:bg-[#1677FF]/10 transition-colors"
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={newTopicInput}
+                              onChange={(e) => setNewTopicInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && newTopicInput.trim()) {
+                                  e.preventDefault();
+                                  setMultiTopics([...multiTopics, newTopicInput.trim()]);
+                                  setNewTopicInput("");
+                                }
+                              }}
+                              placeholder="Type a topic and press Add (e.g. Quantum Physics)"
+                              className="flex-1 rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#070D18] px-4 py-2.5 text-xs text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (newTopicInput.trim()) {
+                                  setMultiTopics([...multiTopics, newTopicInput.trim()]);
+                                  setNewTopicInput("");
+                                }
+                              }}
+                              className="px-4 py-2.5 rounded-xl bg-[#1677FF] text-white text-xs font-bold cursor-pointer"
+                            >
+                              Add Topic
+                            </button>
+                          </div>
+
+                          {/* Topic Tags */}
+                          <div className="flex flex-wrap gap-2">
+                            {multiTopics.map((t, idx) => (
+                              <div
+                                key={idx}
+                                className="px-3 py-1.5 rounded-xl bg-[#1677FF]/10 border border-[#1677FF]/30 text-xs font-medium text-[#1677FF] flex items-center gap-1.5"
+                              >
+                                <span>{t}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setMultiTopics(multiTopics.filter((_, i) => i !== idx))}
+                                  className="p-0.5 rounded-full hover:bg-[#1677FF]/20 text-[#1677FF]"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Allocation preview */}
+                          {liveAllocation.length > 0 && (
+                            <div className="p-3 rounded-xl bg-black/[0.03] dark:bg-[#070D18] border border-black/[0.06] dark:border-white/[0.06] text-xs space-y-1">
+                              <span className="font-bold text-[#667085] uppercase tracking-wider text-[10px]">
+                                Equal Allocation Preview ({totalQuestions} Total Questions):
+                              </span>
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {liveAllocation.map((a) => (
+                                  <span
+                                    key={a.topicId}
+                                    className="px-2 py-0.5 rounded-md bg-black/[0.05] dark:bg-white/[0.05] font-mono text-[11px]"
+                                  >
+                                    {a.name}: <strong>{a.questionBudget} Qs</strong>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* NON-QUIZ ENGINES (FACTS, HISTORY, STORY, ETC) */}
+              {selectedEngineId !== "quiz" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
+                    2. Topic or Narrative Concept Brief
+                  </label>
                   <input
                     type="text"
                     value={topicBrief}
                     onChange={(e) => setTopicBrief(e.target.value)}
-                    placeholder="e.g. Quantum Computing Decryption & Cyber Warfare"
-                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3.5 py-2.5 text-xs font-sans text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 focus:outline-none transition-all"
+                    placeholder="Enter topic or story premise..."
+                    className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-4 py-2.5 text-xs text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none"
                   />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Target Country</label>
-                  <select
-                    value={quizCountry}
-                    onChange={(e) => setQuizCountry(e.target.value)}
-                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
-                  >
-                    {GEO_COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Engagement Tone</label>
-                  <select
-                    value={engagementTone}
-                    onChange={(e) => setEngagementTone(e.target.value)}
-                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
-                  >
-                    <option value="Challenging & Provocative">Challenging & Provocative</option>
-                    <option value="Educational & Direct">Educational & Direct</option>
-                    <option value="Fun & Energetic">Fun & Energetic</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Quiz Format</label>
-                  <select
-                    value={quizFormat}
-                    onChange={(e) => setQuizFormat(e.target.value)}
-                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
-                  >
-                    <option value="6_rapid">6 Rapid Questions (Golden Strategy, 60s)</option>
-                    <option value="12_slow">12 Slow Paced Questions (120s)</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#6e6e73] uppercase tracking-wider">Batch / Version</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={batchNumber}
-                    onChange={(e) => setBatchNumber(e.target.value)}
-                    className="w-full rounded-xl border border-[#e8e8ed] bg-[#f2f2f7] px-3 py-2 text-xs text-[#1d1d1f] focus:border-[#0071e3] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-xl bg-[#f5f5f7] border border-[#e8e8ed]">
-                  <div>
-                    <div className="text-[10px] font-bold text-[#1d1d1f]">Sandbox Mock Mode</div>
-                    <div className="text-[9px] text-[#6e6e73]">Fast preview run, saves credits.</div>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[11px] text-[#667085] self-center mr-1">Popular:</span>
+                    {SAMPLE_TOPICS.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTopicBrief(t)}
+                        className="px-2.5 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] text-[11px] text-[#667085] hover:text-[#1677FF] hover:bg-[#1677FF]/10 transition-colors"
+                      >
+                        {t}
+                      </button>
+                    ))}
                   </div>
-                  <button 
-                    onClick={() => setMockMode(!mockMode)}
-                    className={`w-9 h-5 rounded-full relative transition-colors ${mockMode ? 'bg-[#0071e3]' : 'bg-[#e8e8ed]'}`}
-                  >
-                    {/* Recipe: RECIPES.md #CompositorTransformToggle - GPU transform translateX for toggle knob */}
-                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-160 ease-out shadow-xs ${mockMode ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </button>
                 </div>
+              )}
 
+              {/* PROGRESSIVE DISCLOSURE: ADVANCED JOB-LEVEL OVERRIDES */}
+              <div className="border border-black/[0.06] dark:border-white/[0.06] rounded-2xl overflow-hidden">
                 <button
-                  onClick={generateDraft}
-                  disabled={loading}
-                  className="w-full bg-[#0071e3] hover:bg-[#0066cc] text-white font-mono text-xs font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-[transform,background-color] duration-160 ease-out active:scale-[0.98] shadow-sm"
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="w-full px-4 py-3 bg-black/[0.01] dark:bg-[#0E1728] text-xs font-bold text-[#667085] dark:text-[#A8B2C1] flex items-center justify-between cursor-pointer"
                 >
-                  {loading ? (
-                    <span className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/> Generating...</span>
-                  ) : (
-                    <><Sparkles className="w-3.5 h-3.5" /> Generate Draft</>
-                  )}
+                  <span className="flex items-center gap-2">
+                    <Sliders className="w-3.5 h-3.5 text-[#1677FF]" /> Advanced Job Options
+                  </span>
+                  <span>{showAdvanced ? "▲ Hide" : "▼ Show"}</span>
                 </button>
-              </div>
 
-              {/* Viewer Output Right */}
-              <div className="md:col-span-7 flex flex-col h-full overflow-hidden">
-                {error && (
-                  <div className="p-3 mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs font-semibold text-rose-400">
-                    {error}
+                {showAdvanced && (
+                  <div className="p-4 bg-white dark:bg-[#070D18] border-t border-black/[0.06] dark:border-white/[0.06] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-[#667085]">Difficulty</label>
+                      <select
+                        value={difficulty}
+                        onChange={(e) => setDifficulty(e.target.value)}
+                        className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-3 py-2 text-xs text-[#111827] dark:text-[#F5F7FA]"
+                      >
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium (Default)</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-[#667085]">Voice Style</label>
+                      <select
+                        value={voice}
+                        onChange={(e) => setVoice(e.target.value)}
+                        className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-3 py-2 text-xs text-[#111827] dark:text-[#F5F7FA]"
+                      >
+                        <option value="neutral">Neutral & Engaging</option>
+                        <option value="dramatic">Dramatic & Suspenseful</option>
+                        <option value="energetic">High-Energy & Fast</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-[#667085]">Target Duration</label>
+                      <select
+                        value={durationSeconds}
+                        onChange={(e) => setDurationSeconds(Number(e.target.value))}
+                        className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-3 py-2 text-xs text-[#111827] dark:text-[#F5F7FA]"
+                      >
+                        <option value={30}>30 Seconds</option>
+                        <option value={45}>45 Seconds (Standard)</option>
+                        <option value={60}>60 Seconds (Full Short)</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-3 text-[11px] text-[#667085] italic">
+                      Note: These job-level overrides apply to this render only and do not modify engine defaults.
+                    </div>
                   </div>
                 )}
+              </div>
 
-                {!quizData && !loading ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border border-zinc-800 border-dashed rounded-xl bg-zinc-950/30">
-                    <HelpCircle className="w-10 h-10 text-zinc-700 mb-3" />
-                    <div className="text-xs font-bold text-zinc-300">No Draft Generated</div>
-                    <div className="text-[10px] text-zinc-500 max-w-xs mt-1">Configure options on the left and click &ldquo;Generate Draft&rdquo; to write script scenes.</div>
+              {/* Generate CTA */}
+              <button
+                type="button"
+                onClick={handleGenerateDraft}
+                disabled={loadingDraft || isQuotaExceeded}
+                className={`w-full py-3.5 rounded-2xl text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer ${
+                  isQuotaExceeded
+                    ? "bg-zinc-500 opacity-60 cursor-not-allowed"
+                    : "bg-[#1677FF] hover:bg-[#0F63D8] active:scale-[0.99]"
+                }`}
+              >
+                {loadingDraft ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Generating Script & Questions via External RAG...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Generate Draft &rarr;</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* STEP 2: REVIEW — Inline Question Editing & Reverification */}
+          {step === "REVIEW" && draft && (
+            <div className="space-y-6">
+              {/* Hook Card — P0-8 inline actionable error */}
+              <div className="bg-black/[0.02] dark:bg-[#0E1728] border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#19C37D] font-mono flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" /> Opening Hook Line
+                  </span>
+                  <span className="text-[10px] text-[#667085]">Topic: {draft.topic}</span>
+                </div>
+                <textarea
+                  value={draft.hook || ""}
+                  onChange={(e) => { setDraft((prev: any) => ({ ...prev, hook: e.target.value })); if (fieldErrors.hook) setFieldErrors((p) => ({ ...p, hook: null })); }}
+                  rows={2}
+                  placeholder="Opening hook — first line of the short"
+                  className={`w-full rounded-xl border bg-white dark:bg-[#070D18] px-3 py-2 text-xs font-semibold italic text-[#111827] dark:text-[#F5F7FA] focus:outline-none resize-none ${fieldErrors.hook ? "border-amber-500 focus:border-amber-500" : "border-black/[0.08] dark:border-white/[0.08] focus:border-[#1677FF]"}`}
+                />
+                {fieldErrors.hook && (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed">
+                    <p className="font-bold text-amber-700 dark:text-amber-300">{fieldErrors.hook.title}</p>
+                    <p className="text-amber-700/80 dark:text-amber-300/80">{fieldErrors.hook.why}</p>
+                    <button type="button" onClick={() => document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Opening hook — first line of the short"]')?.focus()} className="mt-1 text-[11px] font-bold text-amber-700 underline underline-offset-2">{fieldErrors.hook.actionLabel} →</button>
                   </div>
-                ) : quizData ? (
-                  <div className="flex-grow space-y-4">
-                    {/* Hook Display */}
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
-                      <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5" /> Opening Hook
-                      </div>
-                      <p className="text-xs text-zinc-200 leading-relaxed italic">
-                        &ldquo;{quizData.hook}&rdquo;
-                      </p>
-                    </div>
+                )}
+              </div>
 
-                    {/* Compile trigger */}
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 flex justify-between items-center">
-                      <div>
-                        <div className="text-xs font-bold text-zinc-200">Video Content Ready</div>
-                        <div className="text-[9px] text-zinc-500">Fast rendering profile (approx 45s).</div>
-                      </div>
-                      <button
-                        onClick={renderVideo}
-                        disabled={generatingVideo || videoStatus?.status === "processing"}
-                        className="bg-zinc-50 hover:bg-zinc-200 text-zinc-950 font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-2 active:scale-[0.98] transition-all"
+              {/* Questions Grid with Per-Question Edit and Reverification */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
+                    Generated Questions ({draft.questions?.length ?? 0})
+                  </h4>
+                  <span className="text-[11px] text-[#667085] font-mono">
+                    Engine: {draft.engineId || selectedEngineId}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {draft.questions?.map((q: any, idx: number) => {
+                    const isEditing = editingIndex === idx;
+                    const isReverifying = reverifyingIndex === idx;
+
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-black/[0.02] dark:bg-[#0E1728] border border-black/[0.06] dark:border-white/[0.08] rounded-2xl p-4 space-y-3 flex flex-col justify-between"
                       >
-                        {generatingVideo ? (
-                          <div className="w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <><Play className="w-3 h-3 fill-zinc-950" /> Render Video</>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Rendering Telemetry */}
-                    {(videoStatus?.status === "processing" || videoStatus?.status === "queued" || videoStatus?.status === "completed") && (
-                      <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" /> FFmpeg Telemetry
-                          </div>
-                          <div className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider">
-                            {videoStatus.status}
-                          </div>
-                        </div>
-
-                        {videoStatus.status !== "completed" ? (
-                          <div className="flex flex-col items-center justify-center p-4 border border-zinc-800/80 rounded bg-zinc-900">
-                            <div className="w-8 h-8 border-2 border-zinc-700 border-t-emerald-500 rounded-full animate-spin mb-2" />
-                            <div className="text-xs font-semibold text-zinc-300">Rendering Video Pipeline</div>
-                            <div className="w-full bg-zinc-800 rounded-full h-1 mt-3 overflow-hidden">
-                              {/* Recipe: RECIPES.md #CompositorScaleProgressBar - GPU transform scaleX progress bar */}
-                              <div className="bg-emerald-500 h-full w-full rounded-full transition-transform duration-500 ease-out origin-left" style={{ transform: `scaleX(${Math.min(1, elapsedSeconds / 45)})` }} />
+                        {isEditing ? (
+                          /* INLINE EDIT FORM */
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-[#1677FF] font-mono">
+                                Editing Q{idx + 1} (Rev {q.revision || 1})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingIndex(null)}
+                                className="text-[11px] text-[#667085] hover:text-red-500"
+                              >
+                                Cancel
+                              </button>
                             </div>
+
+                            <input
+                              type="text"
+                              value={editForm.question}
+                              onChange={(e) => setEditForm({ ...editForm, question: e.target.value })}
+                              placeholder="Question text..."
+                              className="w-full rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#070D18] px-3 py-2 text-xs font-bold text-[#111827] dark:text-[#F5F7FA]"
+                            />
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-[#667085] uppercase">Options & Correct Answer</label>
+                              {editForm.options?.map((opt: string, optIdx: number) => (
+                                <div key={optIdx} className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    name={`correct_${idx}`}
+                                    checked={editForm.answer === opt}
+                                    onChange={() => setEditForm({ ...editForm, answer: opt })}
+                                  />
+                                  <input
+                                    type="text"
+                                    value={opt}
+                                    onChange={(e) => {
+                                      const nextOpts = [...editForm.options];
+                                      nextOpts[optIdx] = e.target.value;
+                                      setEditForm({ ...editForm, options: nextOpts });
+                                    }}
+                                    className="flex-1 rounded-lg border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-[#070D18] px-2 py-1 text-xs"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => saveEditing(idx)}
+                              className="w-full py-2 rounded-xl bg-[#19C37D] text-white text-xs font-bold cursor-pointer"
+                            >
+                              Save Changes
+                            </button>
                           </div>
                         ) : (
-                          <div className="flex gap-4 items-center p-3 border border-emerald-500/20 rounded bg-emerald-500/5">
-                            {videoStatus.output?.videoUrl && (
-                              <div className="w-20 shrink-0 rounded overflow-hidden border border-zinc-800 bg-black aspect-[9/16]">
-                                <video src={videoStatus.output.videoUrl} muted autoPlay loop className="w-full h-full object-cover" />
-                              </div>
-                            )}
+                          /* STANDARD DISPLAY CARD */
+                          <>
                             <div className="space-y-2">
-                              <div className="text-xs font-bold text-zinc-100">Render Successful</div>
-                              <a href={videoStatus.output?.videoUrl} download className="inline-flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold py-1.5 px-3 rounded border border-zinc-700">
-                                <Download className="w-3 h-3" /> Download MP4
-                              </a>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-[#1677FF] font-mono">Q{idx + 1}</span>
+                                  {q.topicName && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#1677FF]/10 text-[#1677FF] font-mono">
+                                      {q.topicName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase ${
+                                      q.verificationStatus === "SUPPORTED"
+                                        ? "bg-[#19C37D]/20 text-[#19C37D]"
+                                        : q.verificationStatus === "PENDING"
+                                        ? "bg-amber-500/20 text-amber-500"
+                                        : "bg-black/[0.05] text-[#667085]"
+                                    }`}
+                                  >
+                                    {q.verificationStatus || "UNVERIFIED"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditing(idx)}
+                                    className="text-[11px] font-bold text-[#1677FF] hover:underline flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Edit3 className="w-3 h-3" /> Edit
+                                  </button>
+                                </div>
+                              </div>
+
+                              <p className="text-xs font-bold text-[#111827] dark:text-[#F5F7FA]">{q.question}</p>
+
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {q.options?.map((opt: string, optIdx: number) => {
+                                  const isCorrect = opt === q.answer || optIdx === q.answerIndex;
+                                  return (
+                                    <div
+                                      key={optIdx}
+                                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border ${
+                                        isCorrect
+                                          ? "bg-[#19C37D]/10 border-[#19C37D]/30 text-[#19C37D] font-bold"
+                                          : "bg-black/[0.02] dark:bg-[#070D18] border-black/[0.04] dark:border-white/[0.04] text-[#667085] dark:text-[#A8B2C1]"
+                                      }`}
+                                    >
+                                      {opt} {isCorrect && "✓"}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
+
+                            {/* Action Bar for Re-verification */}
+                            <div className="pt-2 border-t border-black/[0.04] dark:border-white/[0.04] flex items-center justify-between text-[11px]">
+                              <span className="text-[#667085] font-mono text-[10px]">Rev: {q.revision || 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleReverifyQuestion(idx)}
+                                disabled={isReverifying}
+                                className="text-[11px] font-bold text-[#1677FF] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                {isReverifying ? (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 animate-spin" /> Verifying...
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShieldCheck className="w-3.5 h-3.5" /> Reverify Claim
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </>
                         )}
                       </div>
-                    )}
-                  </div>
-                ) : null}
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Navigation Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-black/[0.06] dark:border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setStep("IDEA")}
+                  className="px-4 py-2.5 rounded-xl border border-black/[0.08] dark:border-white/[0.08] text-xs font-bold text-[#667085] hover:text-[#111827] dark:hover:text-white cursor-pointer"
+                >
+                  &larr; Back to Idea
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={clearDraft}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-red-500 hover:bg-red-500/10 cursor-pointer"
+                  >
+                    Clear Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartRender}
+                    disabled={rendering || isQuotaExceeded}
+                    className="px-6 py-2.5 rounded-xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" /> Render Video &rarr;
+                  </button>
+                </div>
               </div>
             </div>
-          </motion.div>
+          )}
+
+          {/* STEP 3: RENDER & STEP 4: READY */}
+          {(step === "RENDER" || step === "READY") && (
+            <div className="py-8 flex flex-col items-center justify-center text-center space-y-4">
+              {step === "RENDER" ? (
+                (() => {
+                  const pctRaw = jobStatus?.progress ?? jobStatus?.progress_percentage ?? null;
+                  const pct = typeof pctRaw === "number" && Number.isFinite(pctRaw) ? Math.max(0, Math.min(100, Math.round(pctRaw))) : null;
+                  const isFailed = (jobStatus?.status || "").toLowerCase().includes("failed") || (jobStatus?.detailedStatus || "").toLowerCase().includes("failed");
+                  return (
+                    <>
+                      <div className={`w-16 h-16 rounded-3xl flex items-center justify-center ${isFailed ? "bg-red-500/10 text-red-500" : "bg-[#1677FF]/10 text-[#1677FF] animate-pulse"}`}>
+                        {isFailed ? <AlertTriangle className="w-8 h-8" /> : <RefreshCw className="w-8 h-8 animate-spin" />}
+                      </div>
+                      <div className="w-full max-w-sm space-y-3">
+                        <h3 className="text-base font-bold text-[#111827] dark:text-[#F5F7FA]">
+                          {humanStageLabel(jobStatus?.status, jobStatus?.stage)}
+                        </h3>
+                        <p className="text-xs text-[#667085] dark:text-[#A8B2C1]">
+                          {isFailed ? error || "Render failed — you can retry." : "Generating video assets, audio synthesis, and FFmpeg render..."}
+                        </p>
+                        {/* Real progress only — indeterminate when null, never fake 45s */}
+                        <div className="h-2 rounded-full bg-black/[0.06] dark:bg-white/[0.06] overflow-hidden">
+                          {pct !== null ? (
+                            <div className="h-full bg-[#1677FF] transition-all duration-500" style={{ width: `${pct}%` }} />
+                          ) : (
+                            <div className="h-full w-1/3 bg-[#1677FF]/60 animate-[shimmer_1.2s_ease-in-out_infinite]" style={{ animationName: "pulse" }} />
+                          )}
+                        </div>
+                        {pct !== null && <p className="text-[11px] font-mono text-[#667085]">{pct}% — real queue progress</p>}
+                        {isFailed && (
+                          <button type="button" onClick={handleStartRender} className="mt-2 px-5 py-2.5 rounded-xl bg-[#1677FF] text-white text-xs font-bold cursor-pointer">Retry render</button>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-3xl bg-[#19C37D]/20 text-[#19C37D] flex items-center justify-center">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#111827] dark:text-[#F5F7FA]">Video Ready!</h3>
+                    <p className="text-xs text-[#667085] dark:text-[#A8B2C1] mt-1">
+                      Your video has been rendered and queued for delivery.
+                    </p>
+                  </div>
+
+                  {/* P0-3: READY — Download + Publish + Drive triple-AND gate */}
+                  <div className="grid w-full max-w-lg grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                    {jobStatus?.videoUrl ? (
+                      <a href={jobStatus.videoUrl} target="_blank" rel="noreferrer" className="px-4 py-2.5 rounded-xl bg-[#1677FF] text-white text-xs font-bold flex items-center justify-center gap-2">
+                        <Download className="w-3.5 h-3.5" /> Download MP4
+                      </a>
+                    ) : jobId ? (
+                      <a href={`/api/download/${jobId}`} className="px-4 py-2.5 rounded-xl bg-[#1677FF] text-white text-xs font-bold flex items-center justify-center gap-2">
+                        <Download className="w-3.5 h-3.5" /> Download MP4
+                      </a>
+                    ) : null}
+                    {jobId && (
+                      <Link href={`/media/library?highlight=${jobId}`} onClick={handleClose} className="px-4 py-2.5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/[0.08] text-xs font-bold flex items-center justify-center gap-2 text-[#111827] dark:text-[#F5F7FA]">
+                        <Film className="w-3.5 h-3.5" /> Open in Library
+                      </Link>
+                    )}
+                    {jobId && (
+                      <Link href={`/publishing/youtube?jobId=${jobId}`} onClick={handleClose} className="px-4 py-2.5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/[0.08] text-xs font-bold flex items-center justify-center gap-2 text-[#111827] dark:text-[#F5F7FA]">
+                        <Share2 className="w-3.5 h-3.5" /> Publish
+                      </Link>
+                    )}
+                  </div>
+                  <div className="pt-2">
+                    {isDriveDelivered(jobStatus) ? (
+                      <a href={jobStatus.driveUrl} target="_blank" rel="noreferrer" className="inline-flex px-5 py-2.5 rounded-xl bg-[#19C37D] text-white text-xs font-bold items-center gap-2">
+                        <HardDrive className="w-3.5 h-3.5" /> Open in Google Drive
+                      </a>
+                    ) : (
+                      <p className="text-[11px] rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300">
+                        {jobStatus?.deliveryTarget === "GOOGLE_DRIVE" && !isDriveDelivered(jobStatus) ? "Google Drive delivery pending — your video will appear in Drive once the worker finishes uploading." : "Not delivered to Drive for this render."}
+                      </p>
+                    )}
+                  </div>
+                  <button type="button" onClick={clearDraft} className="mt-2 px-5 py-2.5 rounded-xl border border-black/[0.08] dark:border-white/[0.08] text-xs font-bold text-[#667085] cursor-pointer">Create Another</button>
+                </>
+              )}
+            </div>
+          )}
         </div>
-      )}
-    </AnimatePresence>
+      </div>
+    </div>
   );
 }

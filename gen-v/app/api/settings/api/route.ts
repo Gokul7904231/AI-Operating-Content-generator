@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthAndRole } from "@/lib/auth/auth";
 import { ApiConfigManager } from "@/lib/api-config/api-config-manager";
+import { OverseerCognitivePipeline } from "@/factoryos/core/cognition/OverseerCognitivePipeline";
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,54 +35,49 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "discover_models": {
-        const { endpoint, localProviderType } = payload || {};
-        if (!endpoint) {
-          return NextResponse.json({ success: false, error: "Missing required parameter: endpoint" }, { status: 400 });
-        }
-        const models = await ApiConfigManager.discoverLocalModels(endpoint, localProviderType || "ollama");
+        const { endpoint, apiKey, mode, localProviderType } = payload || {};
+        const targetEndpoint = endpoint || "https://generativelanguage.googleapis.com";
+        const models = await ApiConfigManager.discoverProviderModels(
+          providerId || "gemini",
+          targetEndpoint,
+          apiKey,
+          mode,
+          localProviderType
+        );
         return NextResponse.json({ success: true, models });
       }
 
+      case "save_config":
       case "update_primary": {
         if (!providerId) return NextResponse.json({ success: false, error: "Missing providerId" }, { status: 400 });
-        const { apiKey, endpoint, model, localProviderType } = payload || {};
-        await ApiConfigManager.updatePrimary(providerId, { apiKey, endpoint, model, localProviderType });
-        return NextResponse.json({ success: true, message: `Primary configuration for "${providerId}" updated.` });
+        const { apiKey, endpoint, model, maxTokens, localProviderType, enabled, allowCloudFallback } = payload || {};
+        await ApiConfigManager.updatePrimaryConfig(providerId, {
+          apiKey,
+          endpoint,
+          model,
+          maxTokens: maxTokens ? Number(maxTokens) : undefined,
+          localProviderType,
+          enabled,
+          allowCloudFallback,
+        });
+        return NextResponse.json({ success: true, message: `Configuration for "${providerId}" saved successfully.` });
       }
 
-      case "update_cloud_fallback": {
-        if (!providerId) return NextResponse.json({ success: false, error: "Missing providerId" }, { status: 400 });
-        const { allowCloudFallback } = payload || {};
-        await ApiConfigManager.updateCloudFallbackPolicy(providerId, Boolean(allowCloudFallback));
-        return NextResponse.json({ success: true, message: `Cloud fallback policy for "${providerId}" updated.` });
-      }
-
-      case "add_fallback": {
-        if (!providerId) return NextResponse.json({ success: false, error: "Missing providerId" }, { status: 400 });
-        const { name, apiKey, endpoint, mode, localProviderType, model } = payload || {};
-        await ApiConfigManager.addFallback(providerId, { name, apiKey, endpoint, mode, localProviderType, model });
-        return NextResponse.json({ success: true, message: `Fallback "${name}" added.` });
-      }
-
-      case "reorder_fallbacks": {
-        if (!providerId) return NextResponse.json({ success: false, error: "Missing providerId" }, { status: 400 });
-        const { fallbackIds } = payload || {};
-        await ApiConfigManager.reorderFallbacks(providerId, fallbackIds);
-        return NextResponse.json({ success: true, message: `Fallbacks reordered.` });
-      }
-
-      case "remove_fallback": {
-        if (!providerId) return NextResponse.json({ success: false, error: "Missing providerId" }, { status: 400 });
-        const { fallbackId } = payload || {};
-        await ApiConfigManager.removeFallback(providerId, fallbackId);
-        return NextResponse.json({ success: true, message: `Fallback removed.` });
-      }
-
-      case "toggle_provider": {
-        if (!providerId) return NextResponse.json({ success: false, error: "Missing providerId" }, { status: 400 });
-        const { enabled } = payload || {};
-        await ApiConfigManager.toggleProvider(providerId, Boolean(enabled));
-        return NextResponse.json({ success: true, message: `Provider "${providerId}" toggled.` });
+      case "test_with_overseer": {
+        const pipeline = new OverseerCognitivePipeline();
+        const testPrompt = payload?.testPrompt || "How many floors do we have?";
+        const result = await pipeline.processUserQuery(testPrompt, {
+          userId: user.uid,
+          userRole: user.role,
+        });
+        return NextResponse.json({
+          success: true,
+          testPrompt,
+          intent: result.intent,
+          sourceUsed: result.sourceUsed,
+          answer: result.answer,
+          traces: result.traces,
+        });
       }
 
       default:

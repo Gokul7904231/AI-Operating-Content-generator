@@ -8,6 +8,7 @@ import {
   MessageSquare, BookOpenText, Flag, ImageIcon, Clock, 
   CheckCircle, Plus, X, Trash2 
 } from "lucide-react";
+import CreatorEmptyState from "@/components/creator/CreatorEmptyState";
 import NewEngineForm from "@/components/NewEngineForm";
 import WebsiteModal from "@/components/WebsiteModal";
 
@@ -120,8 +121,14 @@ export default function EnginesGalleryPage() {
         <div className="flex items-center justify-center h-48">
           <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : engines.length === 0 ? (
+        <CreatorEmptyState
+          title="No engines available"
+          description="No content engines are registered. Contact an admin or create a new engine to start generating."
+          primaryAction={{ label: "Create Video" }}
+          secondaryAction={{ label: "New Engine", href: "/engines" }}
+        />
       ) : (
-        /* Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {engines.map((e) => {
             const Icon = ICON_MAP[e.id] || BookOpenText;

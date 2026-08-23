@@ -1,5 +1,5 @@
 /**
- * FactoryOS Frontier v2 — Mission State Machine
+ * FactoryOS Frontier v2 / v3 — Mission State Machine
  * Enforces authoritative, deterministic state transitions for autonomous Missions.
  */
 
@@ -22,13 +22,29 @@ export class InvalidMissionStateTransitionError extends Error {
 
 export class MissionStateMachine {
   private static readonly VALID_TRANSITIONS: Record<MissionState, readonly MissionState[]> = {
-    CREATED: ["PLANNING", "TERMINATED"],
-    PLANNING: ["RUNNING", "BLOCKED", "FAILED", "TERMINATED"],
-    RUNNING: ["PAUSED", "BLOCKED", "REPLANNING", "COMPLETING", "FAILED", "CANCELLED", "TERMINATED"],
+    CREATED: ["PLANNING", "AUTHORIZED", "TERMINATED"],
+    PLANNING: ["AUTHORIZED", "RUNNING", "BLOCKED", "FAILED", "TERMINATED"],
+    AUTHORIZED: ["RUNNING", "WAITING_FOR_APPROVAL", "CANCELLED", "FAILED", "TERMINATED"],
+    RUNNING: [
+      "PAUSED",
+      "BLOCKED",
+      "REPLANNING",
+      "VERIFYING",
+      "COMPLETING",
+      "RECOVERING",
+      "WAITING_FOR_APPROVAL",
+      "FAILED",
+      "CANCELLED",
+      "TERMINATED",
+    ],
     PAUSED: ["RUNNING", "CANCELLED", "TERMINATED"],
     BLOCKED: ["REPLANNING", "CANCELLED", "FAILED", "TERMINATED"],
-    REPLANNING: ["RUNNING", "BLOCKED", "FAILED", "TERMINATED"],
+    REPLANNING: ["AUTHORIZED", "RUNNING", "BLOCKED", "FAILED", "TERMINATED"],
+    VERIFYING: ["COMPLETING", "COMPLETED", "RECOVERING", "REPLANNING", "FAILED", "TERMINATED"],
     COMPLETING: ["COMPLETED", "REPLANNING", "FAILED", "TERMINATED"],
+    RECOVERING: ["RETRYING", "WAITING_FOR_APPROVAL", "FAILED", "CANCELLED", "TERMINATED"],
+    RETRYING: ["RUNNING", "VERIFYING", "RECOVERING", "FAILED", "CANCELLED", "TERMINATED"],
+    WAITING_FOR_APPROVAL: ["AUTHORIZED", "RUNNING", "CANCELLED", "FAILED", "TERMINATED"],
     COMPLETED: [],
     FAILED: [],
     CANCELLED: [],

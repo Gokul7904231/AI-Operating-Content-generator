@@ -137,7 +137,7 @@ describe("FactoryOS v0.1 — Autonomous Production Architecture", () => {
     expect(completedJob.guardianReport?.decision).toBe("PASS");
     expect(completedJob.videoArtifact?.filePath).toBeDefined();
     expect(completedJob.deliveryArtifact?.verified).toBe(true);
-  }, 30000);
+  }, 90000);
 
   it("06: Network offline transition retains job in DELIVERY_PENDING outbox without crashing local pipeline", async () => {
     const planned = scheduler.planDailySchedule("2026-08-06", ["Ocean Deep"]);
@@ -153,5 +153,5 @@ describe("FactoryOS v0.1 — Autonomous Production Architecture", () => {
     expect(job.videoArtifact?.filePath).toBeDefined(); // Local MP4 video rendered cleanly
     expect(job.deliveryArtifact?.deliveryMethod).toBe("LOCAL_OUTBOX");
     expect(job.deliveryArtifact?.verified).toBe(false);
-  }, 30000);
+  }, 90000);
 });

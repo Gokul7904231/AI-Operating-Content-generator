@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useOSStore } from "@/lib/os-store";
 import { useFactoryStore } from "@/lib/factory-store";
+import { useAuth } from "@/lib/auth/hooks";
 import { ROUTE_SECTIONS, getNavigationForRole, type RouteEntry } from "@/lib/core/RouteRegistry";
 
 // Icon map — resolves string icon names from RouteRegistry to Lucide components
@@ -37,9 +38,11 @@ function getIcon(name: string): LucideIcon {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
   const sidebarOpen = useOSStore((state) => state.sidebarOpen);
   const toggleSidebar = useOSStore((state) => state.toggleSidebar);
   const toggleQuickGenerate = useOSStore((state) => state.toggleQuickGenerate);
+  const selectedAvatar = useOSStore((state) => state.selectedAvatar);
 
   const activeEngines = useFactoryStore((state) => state.activeEngines);
   const initSSE = useFactoryStore((state) => state.initSSE);
@@ -48,6 +51,11 @@ export default function Sidebar() {
   const [userRole, setUserRole] = useState<string>("VIEWER");
   const [userName, setUserName] = useState<string>("User");
   const [userEmail, setUserEmail] = useState<string>("");
+
+  const displayAvatar = user?.photoURL || selectedAvatar || "/avatars/factory-avatar-01.png";
+  const effectiveRole = user?.role || userRole;
+  const effectiveName = user?.name || (user?.email ? user.email.split("@")[0] : userName);
+  const roleBadge = effectiveRole === "EDITOR" ? "CREATOR" : effectiveRole;
 
   useEffect(() => {
     initSSE();
@@ -64,7 +72,7 @@ export default function Sidebar() {
       .catch(() => {});
   }, [initSSE, fetchState]);
 
-  const visibleSections = getNavigationForRole(userRole);
+  const visibleSections = getNavigationForRole(effectiveRole);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
     Object.fromEntries(
@@ -82,12 +90,21 @@ export default function Sidebar() {
   };
 
   return (
-    <motion.nav
-      initial={sidebarOpen ? "open" : "collapsed"}
-      animate={sidebarOpen ? "open" : "collapsed"}
-      variants={sidebarVariants}
-      className="bg-white dark:bg-[#050A12] border-r border-black/[0.06] dark:border-white/[0.08] flex flex-col h-screen sticky top-0 flex-shrink-0 z-50 overflow-hidden shadow-2xs transition-colors duration-200"
-    >
+    <>
+      {/* Mobile drawer backdrop — only on <md when open */}
+      {sidebarOpen && (
+        <button
+          aria-label="Close navigation"
+          onClick={toggleSidebar}
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden"
+        />
+      )}
+      <motion.nav
+        initial={sidebarOpen ? "open" : "collapsed"}
+        animate={sidebarOpen ? "open" : "collapsed"}
+        variants={sidebarVariants}
+        className={`bg-white dark:bg-[#050A12] border-r border-black/[0.06] dark:border-white/[0.08] flex flex-col h-screen md:sticky md:top-0 fixed inset-y-0 left-0 z-50 overflow-hidden shadow-2xs transition-colors duration-200 max-md:shadow-2xl ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+      >
       {/* Brand */}
       <div className="p-4 flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.08] h-16">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden select-none">
@@ -112,18 +129,20 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Quick Generate Trigger */}
+      {/* Create Video Trigger — always prominent (P0-2) */}
       <div className="p-3 border-b border-black/[0.06] dark:border-white/[0.08]">
         <button
           onClick={toggleQuickGenerate}
-          className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer ${
+          aria-label="Create Video"
+          title={sidebarOpen ? undefined : "Create Video"}
+          className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer ${
             sidebarOpen
               ? "bg-[#1769E8] hover:bg-[#0F58CA] text-white active:scale-[0.98]"
-              : "bg-black/[0.03] dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] text-[#1769E8] hover:bg-black/[0.06] dark:hover:bg-[#0D1622]"
+              : "bg-[#1769E8] hover:bg-[#0F58CA] text-white active:scale-[0.98]"
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          {sidebarOpen && <span>Quick Generate</span>}
+          {sidebarOpen && <span>Create Video</span>}
         </button>
       </div>
 
@@ -268,7 +287,7 @@ export default function Sidebar() {
         <div className="p-3 border-t border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-[#050A12] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
             <img
-              src={useOSStore.getState().selectedAvatar}
+              src={displayAvatar}
               alt="User Avatar"
               width={32}
               height={32}
@@ -277,12 +296,13 @@ export default function Sidebar() {
               className="w-8 h-8 rounded-full border border-[#1769E8]/30 object-cover flex-shrink-0 shadow-2xs"
             />
             <div className="flex flex-col min-w-0">
-              <span className="text-[11px] font-semibold text-[#111827] dark:text-[#F5F7FA] truncate">{userName}</span>
-              <span className="text-[10px] text-[#667085] dark:text-[#98A2B3] truncate font-semibold uppercase tracking-wider">{userRole === "EDITOR" ? "CREATOR" : userRole}</span>
+              <span className="text-[11px] font-semibold text-[#111827] dark:text-[#F5F7FA] truncate">{effectiveName}</span>
+              <span className="text-[10px] text-[#667085] dark:text-[#98A2B3] truncate font-semibold uppercase tracking-wider">{roleBadge}</span>
             </div>
           </div>
         </div>
       )}
-    </motion.nav>
+      </motion.nav>
+    </>
   );
 }

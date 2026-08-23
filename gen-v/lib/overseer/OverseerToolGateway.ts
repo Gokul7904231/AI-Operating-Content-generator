@@ -1,17 +1,22 @@
 /**
  * FactoryOS Overseer Tool Gateway
  *
- * 🔐 STRICT SECURITY RULE:
+ * 🔐 STRICT SECURITY & LIVE-ONLY RULES:
  * The LLM is NEVER the security boundary.
  * Every tool invocation checks the authenticated user's role and tenant UID.
  * Basic Users (EDITOR/VIEWER) can ONLY query their own data.
  * Admins (OWNER/ADMIN) can access factory telemetry, queue status, and provider health.
+ * ZERO fake or mock values in production paths.
  */
 
+import os from "os";
 import { db } from "../firebase-admin";
 import { AdminUser, UserRole } from "../auth/types";
 import { isRoleAtLeast } from "../auth/roles";
 import { ForbiddenError } from "../auth/errors";
+import { getUserQuota } from "../quota/quota-service";
+import { FactoryStateService } from "@/factoryos/core/state/FactoryStateService";
+import { ApiConfigManager } from "../api-config/api-config-manager";
 
 export class OverseerToolGateway {
   /**
@@ -39,11 +44,7 @@ export class OverseerToolGateway {
       if (snapshot.empty) return [];
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch {
-      // Mock fallback
-      return [
-        { id: "proj_01", title: "Tech Short #1", createdAt: new Date().toISOString(), status: "COMPLETED" },
-        { id: "proj_02", title: "AI News Highlights", createdAt: new Date().toISOString(), status: "IN_PROGRESS" },
-      ];
+      return [];
     }
   }
 
@@ -60,10 +61,7 @@ export class OverseerToolGateway {
       if (snapshot.empty) return [];
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch {
-      return [
-        { id: "job_101", title: "Dark Matter Secrets", status: "RENDERING", progress: 68, startedAt: new Date().toISOString() },
-        { id: "job_102", title: "Top 5 AI Tools", status: "COMPLETED", progress: 100, completedAt: new Date().toISOString() },
-      ];
+      return [];
     }
   }
 
@@ -80,9 +78,7 @@ export class OverseerToolGateway {
       if (snapshot.empty) return [];
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch {
-      return [
-        { id: "lib_01", title: "Dark Matter Secrets", duration: "54s", resolution: "1080x1920", views: 1420 },
-      ];
+      return [];
     }
   }
 
@@ -90,12 +86,25 @@ export class OverseerToolGateway {
    * 5. getMyQuota (Basic Users)
    */
   static async getMyQuota(user: AdminUser) {
-    const isAdmin = isRoleAtLeast(user.role, "ADMIN");
-    return {
-      usedCredits: isAdmin ? 0 : 72,
-      maxCredits: isAdmin ? "UNLIMITED (∞)" : 100,
-      quotaPercent: isAdmin ? 0 : 72,
-    };
+    try {
+      const quota = await getUserQuota(user.uid, user.role);
+      return {
+        completed: quota.completed,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        isUnlimited: quota.isUnlimited,
+        isExceeded: quota.isExceeded,
+      };
+    } catch {
+      return {
+        completed: 0,
+        limit: 5,
+        remaining: 5,
+        isUnlimited: user.role === "OWNER" || user.role === "ADMIN",
+        isExceeded: false,
+        status: "QUOTA_UNAVAILABLE",
+      };
+    }
   }
 
   // --- 👑 ADMIN-ONLY TOOLS (OWNER / ADMIN ONLY) ---
@@ -105,13 +114,14 @@ export class OverseerToolGateway {
    */
   static async getFactoryStatus(user: AdminUser) {
     this.assertAdminRole(user, "getFactoryStatus");
+    const factoryState = FactoryStateService.getInstance();
+    const ev = await factoryState.getLiveFactoryTelemetry();
     return {
-      systemState: "HEALTHY",
-      activeWorkers: 4,
-      totalQueuedJobs: 2,
-      activeRenderJobs: 1,
-      completedToday: 38,
-      failedToday: 1,
+      systemState: ev.data.systemState,
+      floorCount: ev.data.floorCount,
+      healthyFloors: ev.data.healthyFloors,
+      floors: ev.data.floors,
+      timestamp: ev.data.timestamp,
     };
   }
 
@@ -120,11 +130,17 @@ export class OverseerToolGateway {
    */
   static async getSystemTelemetry(user: AdminUser) {
     this.assertAdminRole(user, "getSystemTelemetry");
+    const mem = process.memoryUsage();
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const uptimeSec = process.uptime();
+
     return {
-      cpuUsage: "24%",
-      memoryUsage: "4.2 GB / 16 GB",
-      vramUsage: "5.8 GB / 12 GB",
-      uptime: "99.98%",
+      cpuCount: os.cpus().length,
+      memoryUsageRssMb: Math.round(mem.rss / (1024 * 1024)),
+      systemMemoryFreeMb: Math.round(freeMem / (1024 * 1024)),
+      systemMemoryTotalMb: Math.round(totalMem / (1024 * 1024)),
+      uptimeSeconds: Math.round(uptimeSec),
       renderEngineUrl: process.env.NEXT_PUBLIC_RENDER_ENGINE_URL || "http://localhost:8000",
     };
   }
@@ -134,12 +150,17 @@ export class OverseerToolGateway {
    */
   static async getProviderHealth(user: AdminUser) {
     this.assertAdminRole(user, "getProviderHealth");
+    const summary = await ApiConfigManager.getSummary();
+    const providers = await ApiConfigManager.getProviders();
     return {
-      gemini: { status: "ONLINE", latencyMs: 142 },
-      groq: { status: "ONLINE", latencyMs: 88 },
-      ollama_local: { status: "ONLINE", endpoint: "http://localhost:11434", model: "qwen3-coder" },
-      elevenlabs: { status: "ONLINE", latencyMs: 210 },
-      cloudinary: { status: "ONLINE", latencyMs: 65 },
+      summary,
+      providers: providers.map(p => ({
+        id: p.id,
+        name: p.name,
+        mode: p.mode,
+        status: p.primary.status,
+        lastTested: p.primary.lastTested,
+      })),
     };
   }
 
@@ -149,23 +170,21 @@ export class OverseerToolGateway {
   static async getAuditSummary(user: AdminUser) {
     this.assertAdminRole(user, "getAuditSummary");
     try {
-      const snapshot = await db.collection("audit_logs").limit(10).get();
-      if (snapshot.empty) return [];
-      return snapshot.docs.map(doc => doc.data());
+      const snap = await db.collection("audit_logs")
+        .orderBy("timestamp", "desc")
+        .limit(20)
+        .get();
+
+      if (snap.empty) return [];
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch {
-      return [
-        { eventType: "API_PRIMARY_UPDATED", providerId: "gemini", timestamp: new Date().toISOString() },
-        { eventType: "LOCAL_AI_CONNECTED", providerId: "ollama_local", timestamp: new Date().toISOString() },
-      ];
+      return [];
     }
   }
 
-  /**
-   * Helper: Enforce ADMIN role requirement for sensitive tools
-   */
-  private static assertAdminRole(user: AdminUser, toolName: string): void {
+  private static assertAdminRole(user: AdminUser, toolName: string) {
     if (!isRoleAtLeast(user.role, "ADMIN")) {
-      throw new ForbiddenError(`[Overseer Security] Tool "${toolName}" is restricted to system Administrators (OWNER / ADMIN). Current role: ${user.role}`);
+      throw new ForbiddenError(`Permission denied: "${toolName}" requires ADMIN or OWNER role (restricted to system Administrators).`);
     }
   }
 }

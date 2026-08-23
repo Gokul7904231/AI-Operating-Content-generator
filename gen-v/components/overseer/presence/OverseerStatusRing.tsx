@@ -20,33 +20,7 @@ export const OverseerStatusRing: React.FC<StatusRingProps> = memo(({ expression 
         </linearGradient>
       </defs>
 
-      {/* Rotating Segmented Ring */}
-      <g
-        style={{
-          transformOrigin: "140px 85px",
-          animation: ringMode !== "calm" ? `overseer-orbit ${ringSpeed}s linear infinite` : "none",
-        }}
-      >
-        <circle
-          cx="140"
-          cy="85"
-          r="74"
-          fill="none"
-          stroke="url(#ring-glow-grad)"
-          strokeWidth="1.25"
-          strokeDasharray={
-            ringMode === "rendering"
-              ? "14 8"
-              : ringMode === "listening"
-              ? "4 4"
-              : "36 10 18 10"
-          }
-          strokeOpacity={ringMode === "calm" ? "0.25" : "0.75"}
-          style={{
-            transition: "stroke 300ms ease, stroke-dasharray 300ms ease",
-          }}
-        />
-      </g>
+
 
       {/* Outer Fine Dash Circle */}
       <circle

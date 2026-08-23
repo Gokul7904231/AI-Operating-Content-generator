@@ -77,13 +77,15 @@ export class DriveDeliveryAdapter {
     }
 
     // 2. Check Drive credentials
-    const hasCredentials = Boolean(
-      process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-      (process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.GOOGLE_DRIVE_CLIENT_SECRET && process.env.GOOGLE_DRIVE_REFRESH_TOKEN)
-    );
+    // 2. Resolve Drive Connection (Admin fallback or User OAuth)
+    const { DriveConnectionManager } = await import("../../../lib/drive/DriveConnectionManager");
+    const connection = await DriveConnectionManager.resolveDriveConnection({
+      ownerId: (job as any).userId ?? (job as any).ownerId ?? undefined,
+      purpose: "USER_JOB",
+    });
 
-    if (!hasCredentials) {
-      console.log(`[DriveDeliveryAdapter] Google Drive credentials unconfigured. Storing artifact in LOCAL_OUTBOX for job ${job.id}.`);
+    if (connection.status !== "CONNECTED" || !connection.refreshToken) {
+      console.log(`[DriveDeliveryAdapter] Drive connection not active for user (${connection.status}: ${connection.error || "unconfigured"}). Storing artifact in LOCAL_OUTBOX for job ${job.id}.`);
       
       const artifact: DeliveryArtifact = {
         deliveryMethod: "LOCAL_OUTBOX",
@@ -97,16 +99,22 @@ export class DriveDeliveryAdapter {
       return artifact;
     }
 
-    // 3. Real Google Drive Upload Path
-    console.log(`[DriveDeliveryAdapter] Uploading ${record.videoFilePath} to Google Drive (Idempotency Key: ${idempotencyKey})...`);
+    // 3. Real Google Drive Upload Path with resolved credentials
+    console.log(`[DriveDeliveryAdapter] Uploading ${record.videoFilePath} to Google Drive (Idempotency Key: ${idempotencyKey}, Target: ${connection.folderName || "AI Shorts"})...`);
     
     try {
       const { GoogleDriveProvider } = await import("../../../storage/providers/google-drive");
-      const driveRes = await GoogleDriveProvider.upload(record.videoFilePath, { engine: job.topic });
+      const driveRes = await GoogleDriveProvider.upload(record.videoFilePath, {
+        engine: job.topic,
+        folderId: connection.folderId,
+        refreshToken: connection.refreshToken,
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret,
+      });
 
       const artifact: DeliveryArtifact = {
         driveFileId: driveRes.fileId,
-        driveFolderId: driveRes.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || "root_folder",
+        driveFolderId: driveRes.folderId || connection.folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || "root_folder",
         uploadedAt: driveRes.createdAt || new Date().toISOString(),
         deliveryMethod: "GOOGLE_DRIVE",
         verified: true,

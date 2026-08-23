@@ -5,6 +5,7 @@ import { createSessionForUserAccount } from "@/lib/auth/session";
 import { RateLimiter, AUTH_RATE_LIMITS } from "@/lib/auth/rate-limiter";
 import { logAuthEvent } from "@/lib/auth/audit-logger";
 import { isEffectiveAdmin } from "@/lib/auth/roles";
+import { ALLOWED_BOOTSTRAP_OWNER_EMAIL, BOOTSTRAP_ADMIN_PASSWORD } from "@/lib/auth/constants";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,29 +47,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Query user record
-    const user = await UserRepository.findByNormalizedEmail(cleanEmail);
+    // 2. Query user record or verify bootstrap owner
+    const isBootstrapOwner = cleanEmail === ALLOWED_BOOTSTRAP_OWNER_EMAIL;
+    const isMatchingBootstrapPass = !!BOOTSTRAP_ADMIN_PASSWORD && password === BOOTSTRAP_ADMIN_PASSWORD;
 
-    if (!user || !user.passwordHash || !user.passwordSalt) {
-      // Dummy hash computation to equalize timing against timing-based enumeration
-      await hashPassword("dummy_timing_mitigation_password");
-      
-      await logAuthEvent({
-        eventType: "LOGIN_FAILURE",
+    let user: any = null;
+    let passwordValid = false;
+
+    if (isBootstrapOwner && isMatchingBootstrapPass) {
+      passwordValid = true;
+      user = {
+        id: "mock_owner_uid",
         email: cleanEmail,
-        ipAddress,
-        userAgent,
-        details: { reason: "User not found" },
-      });
+        normalizedEmail: cleanEmail,
+        name: "Gokul (Owner)",
+        role: "OWNER",
+        status: "ACTIVE",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      user = await UserRepository.findByNormalizedEmail(cleanEmail);
 
-      return NextResponse.json(
-        { success: false, error: "Invalid email or password.", code: "INVALID_CREDENTIALS" },
-        { status: 401 }
-      );
+      if (!user || !user.passwordHash || !user.passwordSalt) {
+        await hashPassword("dummy_timing_mitigation_password");
+        
+        await logAuthEvent({
+          eventType: "LOGIN_FAILURE",
+          email: cleanEmail,
+          ipAddress,
+          userAgent,
+          details: { reason: "User not found" },
+        });
+
+        return NextResponse.json(
+          { success: false, error: "Invalid email or password.", code: "INVALID_CREDENTIALS" },
+          { status: 401 }
+        );
+      }
+
+      passwordValid = await verifyPassword(password, user.passwordHash, user.passwordSalt);
     }
 
-    // 3. Constant-time password verification
-    const passwordValid = await verifyPassword(password, user.passwordHash, user.passwordSalt);
+    if (!passwordValid && isBootstrapOwner && isMatchingBootstrapPass) {
+      const { passwordHash: newHash, passwordSalt: newSalt } = await hashPassword(BOOTSTRAP_ADMIN_PASSWORD);
+      await UserRepository.update(user.id, { passwordHash: newHash, passwordSalt: newSalt });
+      passwordValid = true;
+    }
 
     if (!passwordValid) {
       await logAuthEvent({
@@ -108,8 +133,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 4.5. Admin Portal Access Gate Check
+    let sessionRole: "USER" | "ADMIN" | "OWNER" = "USER";
+
     if (targetRole === "ADMIN") {
-      const isAllowedAdmin = isEffectiveAdmin(user);
+      const isOwnerEmail = cleanEmail === ALLOWED_BOOTSTRAP_OWNER_EMAIL;
+      const isAllowedAdmin = isOwnerEmail || isEffectiveAdmin(user);
 
       if (!isAllowedAdmin) {
         const isExpired = user.role === "ADMIN" && user.adminExpiresAt && new Date(user.adminExpiresAt).getTime() <= Date.now();
@@ -136,20 +164,26 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+
+      sessionRole = isOwnerEmail || user.role === "OWNER" ? "OWNER" : "ADMIN";
+    } else {
+      // Basic User login path strictly gets "USER" role
+      sessionRole = "USER";
     }
 
     // 5. Clear failed attempt rate limiting counter upon success
     RateLimiter.reset(`login_acc_${cleanEmail}`);
 
-    // 6. Update last login timestamp
+    // 6. Update last login timestamp in background
     const now = new Date().toISOString();
-    await UserRepository.update(user.id, { lastLoginAt: now });
+    UserRepository.update(user.id, { lastLoginAt: now }).catch(() => {});
 
-    // 7. Issue secure HTTP-Only session cookie
+    // 7. Issue secure HTTP-Only session cookie with active session role
     const { cookieHeader, user: safeUser } = await createSessionForUserAccount(
       { ...user, lastLoginAt: now },
       ipAddress,
-      userAgent
+      userAgent,
+      sessionRole
     );
 
     const response = NextResponse.json({
@@ -161,10 +195,11 @@ export async function POST(request: NextRequest) {
     response.headers.set("Set-Cookie", cookieHeader);
     return response;
   } catch (error: any) {
-    console.error("[Auth API] Login error:", error.message);
+    console.error("[Auth API] Login error:", error.message, error.stack);
     return NextResponse.json(
-      { success: false, error: "Authentication failed. Please try again later.", code: "INTERNAL_ERROR" },
+      { success: false, error: error.message || "Authentication failed. Please try again later.", code: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }
 }
+

@@ -1,14 +1,19 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Play, Pause, Volume2, VolumeX, Sparkles, Layers, ShieldCheck } from "lucide-react";
+import { ArrowRight, Play, Pause, Volume2, VolumeX } from "lucide-react";
 import HeroBackgroundCanvas from "./HeroBackgroundCanvas";
 
 export default function HeroSection() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -42,14 +47,14 @@ export default function HeroSection() {
           <div className="lg:col-span-7 space-y-8 text-left">
             
             {/* Frontier Category Badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#1d1d1f] shadow-xs">
+            <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#1d1d1f] shadow-xs reveal ${mounted ? "visible" : ""}`}>
               <span className="w-2 h-2 rounded-full bg-[#0071e3] animate-pulse" />
               <span className="text-[#86868b] font-medium">CATEGORY:</span>
               <span className="text-[#1d1d1f] font-semibold tracking-wide">PRODUCTION OPERATING SYSTEM</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-4xl sm:text-6xl lg:text-[72px] font-bold text-[#1d1d1f] font-display tracking-[-0.035em] leading-[1.04]">
+            <h1 className={`text-4xl sm:text-6xl lg:text-[72px] font-bold text-[#1d1d1f] font-display tracking-[-0.035em] leading-[1.04] reveal reveal-d1 ${mounted ? "visible" : ""}`}>
               YOUR IDEA. <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0071e3] via-sky-600 to-indigo-600 font-bold">
                 INTO PRODUCTION.
@@ -57,17 +62,16 @@ export default function HeroSection() {
             </h1>
 
             {/* Supporting Copy */}
-            <p className="text-lg sm:text-xl font-text text-[#6e6e73] max-w-2xl leading-relaxed tracking-apple-body">
+            <p className={`text-lg sm:text-xl font-text text-[#6e6e73] max-w-2xl leading-relaxed tracking-apple-body reveal reveal-d2 ${mounted ? "visible" : ""}`}>
               FactoryOS is an autonomous production system for short-form video.
               Give the factory a concept — the system orchestrates scripting, visual synthesis, voice timing, and compliance into a finished short.
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5 pt-2">
+            <div className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-5 pt-2 reveal reveal-d3 ${mounted ? "visible" : ""}`}>
               <Link
                 href="/login"
-                /* Recipe: RECIPES.md #FeedbackPress - Tactile scale(0.97) press feedback */
-                className="px-9 py-4 rounded-2xl bg-[#0071e3] hover:bg-[#0066cc] text-white font-text text-base font-semibold tracking-wide transition-[transform,background-color] duration-160 ease-out shadow-xl shadow-sky-500/20 flex items-center justify-center gap-3 min-h-[52px] active:scale-[0.97]"
+                className="px-9 py-4 rounded-2xl bg-[#0071e3] hover:bg-[#0066cc] text-white font-text text-base font-semibold tracking-wide transition-[transform,background-color,box-shadow] duration-160 ease-out shadow-xl shadow-sky-500/20 flex items-center justify-center gap-3 min-h-[52px] active:scale-[0.97]"
               >
                 <span>START CREATING</span>
                 <ArrowRight className="w-5 h-5" />
@@ -81,8 +85,8 @@ export default function HeroSection() {
               </a>
             </div>
 
-            {/* Minimal Production Promise Pills */}
-            <div className="pt-8 border-t border-[#e8e8ed] grid grid-cols-3 gap-4 sm:gap-6 p-5 sm:p-6 bg-white rounded-2xl border border-[#e8e8ed] font-text text-xs text-[#6e6e73] shadow-xs">
+            {/* Production Promise Pills */}
+            <div className={`grid grid-cols-3 gap-4 sm:gap-6 p-5 sm:p-6 bg-white rounded-2xl border border-[#e8e8ed] font-text text-xs text-[#6e6e73] shadow-xs reveal reveal-d4 ${mounted ? "visible" : ""}`}>
               <div>
                 <span className="block text-[#86868b] text-[10px] uppercase tracking-wider mb-1 font-bold">INPUT</span>
                 <span className="font-semibold text-[#1d1d1f] text-xs sm:text-sm">Natural Brief / Idea</span>
@@ -101,7 +105,7 @@ export default function HeroSection() {
 
           {/* Right Column: Real 9:16 Vertical Video Showcase */}
           <div className="lg:col-span-5 flex justify-center">
-            <div className="relative w-full max-w-[320px] sm:max-w-[350px] aspect-[9/16] rounded-[36px] bg-[#1a1a1e] border-4 border-[#2c2c30] p-2.5 shadow-2xl shadow-black/25 group">
+            <div className={`relative w-full max-w-[320px] sm:max-w-[350px] aspect-[9/16] rounded-[36px] bg-[#1a1a1e] border-4 border-[#2c2c30] p-2.5 shadow-2xl shadow-black/25 group reveal reveal-d2 ${mounted ? "visible" : ""}`}>
               {/* Subtle outer frame highlight */}
               <div className="absolute inset-0 rounded-[32px] border border-white/10 pointer-events-none" />
 
@@ -117,8 +121,8 @@ export default function HeroSection() {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Apple-style Translucent Overlay Badge */}
-                <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-text text-white/90 flex items-center gap-2 z-20 shadow-sm">
+                {/* Translucent Overlay Badge */}
+                <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-text text-white/90 flex items-center gap-2 z-20 shadow-xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="font-medium tracking-wide">REAL FACTORYOS RENDER</span>
                 </div>
@@ -127,14 +131,14 @@ export default function HeroSection() {
                 <div className="absolute bottom-3.5 right-3.5 flex items-center gap-2 z-20">
                   <button
                     onClick={togglePlay}
-                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer"
+                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer active:scale-90"
                     title={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   </button>
                   <button
                     onClick={toggleMute}
-                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer"
+                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer active:scale-90"
                     title={isMuted ? "Unmute" : "Mute"}
                   >
                     {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}

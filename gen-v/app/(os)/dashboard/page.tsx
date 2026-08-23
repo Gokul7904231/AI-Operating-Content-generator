@@ -73,16 +73,16 @@ export default function DashboardPage() {
 
   const activeQueuedCount = (queues?.storageQueue?.length ?? 0) + (queues?.publisherQueue?.length ?? 0);
 
-  // 1. 🌟 BASIC USER EXPERIENCE: OVERSEER + CREATOR WORKSPACE
+  // 1. 🌟 BASIC USER EXPERIENCE: CREATOR-FIRST WORKSPACE
   if (!isAdmin) {
     return (
-      <div id="overseer-basic-user-workspace" className="space-y-10 max-w-7xl mx-auto pb-16 select-none font-sans">
-        {/* UNIFIED LIVING OVERSEER PRESENCE */}
+      <div id="overseer-basic-user-workspace" className="space-y-8 max-w-7xl mx-auto pb-24 md:pb-16 select-none font-sans">
+        {/* Unified Living Overseer presence — ALWAYS IN FRONT */}
         <section className="relative w-full">
           <OverseerPresenceView isDashboardEmbedded={true} />
         </section>
 
-        {/* BASIC USER CREATOR DASHBOARD WITH 5-VIDEO QUOTA */}
+        {/* Basic creator dashboard with quota/workspace */}
         <div className="pt-4 border-t border-black/[0.06] dark:border-white/[0.08]">
           <BasicUserDashboard userRole={userRole} userEmail={userEmail} />
         </div>

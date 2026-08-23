@@ -29,6 +29,8 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
   const selectedAvatar = useOSStore((state) => state.selectedAvatar);
   const setSelectedAvatar = useOSStore((state) => state.setSelectedAvatar);
 
+  const displayAvatar = user?.photoURL || selectedAvatar || "/avatars/factory-avatar-01.png";
+
   const isViewer = user?.role === "VIEWER";
   const isAdmin = user?.role === "OWNER" || user?.role === "ADMIN";
 
@@ -40,10 +42,10 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
 
   // Editable Profile State
   const [fullName, setFullName] = useState(
-    user?.email ? user.email.split("@")[0].toUpperCase() : "GOKUL A"
+    user?.name || (user?.email ? user.email.split("@")[0].toUpperCase() : "CREATOR")
   );
   const [username, setUsername] = useState(
-    user?.email ? `@${user.email.split("@")[0]}` : "@gokul32499"
+    user?.email ? `@${user.email.split("@")[0]}` : "@creator"
   );
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -72,21 +74,29 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none font-sans">
-      <div className="bg-[#0A1220] border border-white/[0.12] rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none">
+      <div 
+        className="bg-[#050A12] border border-white/[0.12] rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-profile-modal-title"
+      >
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between bg-[#070D18]">
-          <div className="flex items-center gap-2">
-            <User className="w-5 h-5 text-[#1677FF]" />
-            <h2 className="text-base font-bold text-[#F5F7FA] font-display">
-              FactoryOS User Profile & Workspace Preferences
-            </h2>
+        <div className="px-6 py-5 border-b border-white/[0.08] flex items-center justify-between bg-[#070D18]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#1677FF]/10 border border-[#1677FF]/20 flex items-center justify-center text-[#1677FF]">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 id="user-profile-modal-title" className="text-base font-bold text-[#F5F7FA]">User Profile & Creator Preferences</h2>
+              <p className="text-xs text-[#667085]">Manage personal information, default presets, and API keys</p>
+            </div>
           </div>
-          <button
+          <button 
             onClick={onClose}
-            aria-label="Close user profile"
-            className="p-1.5 rounded-full hover:bg-white/[0.08] text-[#667085] hover:text-[#F5F7FA] transition-colors cursor-pointer"
+            aria-label="Close profile modal"
+            className="p-2 rounded-xl text-[#667085] hover:text-[#F5F7FA] hover:bg-white/[0.06] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -101,7 +111,7 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
               {/* Avatar Image & Picker Trigger */}
               <div className="relative group cursor-pointer" onClick={() => setShowAvatarPicker(!showAvatarPicker)}>
                 <img 
-                  src={selectedAvatar} 
+                  src={displayAvatar} 
                   alt="User Avatar"
                   width={72}
                   height={72}

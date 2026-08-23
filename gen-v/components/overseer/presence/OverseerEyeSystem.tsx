@@ -110,23 +110,30 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
   return (
     <g ref={containerRef} className="overseer-eye-system">
       <defs>
-        {/* Specular Radial Iris Gradient */}
-        <radialGradient id="overseer-iris-gradient" cx="45%" cy="38%" r="62%">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
-          <stop offset="22%" stopColor={secondaryColor} stopOpacity="0.95" />
-          <stop offset="68%" stopColor={primaryColor} stopOpacity="1" />
-          <stop offset="100%" stopColor="#01040A" stopOpacity="1" />
+        {/* Pure Electric Blue Luminous Radial Gradient (No Black Pupil) */}
+        <radialGradient id="overseer-luminous-core-gradient" cx="45%" cy="38%" r="65%">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.98" />
+          <stop offset="25%" stopColor="#60A5FA" stopOpacity="0.95" />
+          <stop offset="55%" stopColor={secondaryColor || "#3B82F6"} stopOpacity="0.92" />
+          <stop offset="85%" stopColor={primaryColor || "#1D4ED8"} stopOpacity="0.90" />
+          <stop offset="100%" stopColor="#0B1E48" stopOpacity="0.85" />
         </radialGradient>
 
-        <filter id="eye-glow-filter" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
+        <radialGradient id="overseer-inner-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.8" />
+          <stop offset="60%" stopColor="#3B82F6" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#1E40AF" stopOpacity="0" />
+        </radialGradient>
+
+        <filter id="eye-glow-filter" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
 
       {/* LEFT EYE CONTAINER */}
       <g transform="translate(95, 82)">
-        {/* Outer Eye Socket Frame */}
+        {/* Outer Dark Socket Housing */}
         <rect
           x="-22"
           y="-35"
@@ -136,10 +143,10 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
           fill="#050C1A"
           stroke={primaryColor}
           strokeWidth="1.75"
-          strokeOpacity="0.4"
+          strokeOpacity="0.45"
         />
 
-        {/* Outer Eye Soft Backlight */}
+        {/* Outer Eye Soft Luminous Backlight */}
         <rect
           x="-20"
           y="-33"
@@ -147,10 +154,10 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
           height="66"
           rx="20"
           fill={primaryColor}
-          fillOpacity="0.12"
+          fillOpacity="0.18"
         />
 
-        {/* Dynamic Eyelid Group (Uses pure scaleY around center 0,0) */}
+        {/* Dynamic Eyelid Group (Pure scaleY around center 0,0) */}
         <g
           style={{
             transform: `scaleY(calc(var(--blink-l, 1) * ${1 - eyeSquint})) scale(${eyeScale})`,
@@ -158,50 +165,63 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
             transition: "transform 140ms cubic-bezier(0.23, 1, 0.32, 1)",
           }}
         >
-          {/* Gaze-Tracking Iris & Pupil Group */}
+          {/* Gaze-Tracking Electric Blue Luminous Eye */}
           <g
             style={{
               transform: `translate(var(--pupil-x, 0px), var(--pupil-y, 0px))`,
             }}
           >
-            {/* Iris */}
+            {/* Luminous Iris Aperture */}
             <rect
               x="-17"
               y="-28"
               width="34"
               height="56"
               rx="17"
-              fill="url(#overseer-iris-gradient)"
+              fill="url(#overseer-luminous-core-gradient)"
               filter="url(#eye-glow-filter)"
             />
 
-            {/* Deep Pupil Core */}
+            {/* Inner Electric Blue Luminous Core (Replaced Black Pupil with Pure Glow Aperture) */}
             <ellipse
               cx="0"
               cy="0"
-              rx={9 * pupilScale}
-              ry={15 * pupilScale}
-              fill="#02060F"
-              opacity="0.95"
+              rx={10 * (pupilScale || 1)}
+              ry={16 * (pupilScale || 1)}
+              fill="url(#overseer-inner-glow)"
+              opacity="0.9"
+            />
+
+            {/* Dynamic Aperture Ring */}
+            <ellipse
+              cx="0"
+              cy="0"
+              rx={11 * (pupilScale || 1)}
+              ry={17 * (pupilScale || 1)}
+              fill="none"
+              stroke="#93C5FD"
+              strokeWidth="1.2"
+              strokeDasharray="4 2"
+              opacity="0.75"
             />
 
             {/* Primary Specular Light Catch */}
             <ellipse
               cx="-5"
               cy="-10"
-              rx="4"
-              ry="6"
+              rx="4.5"
+              ry="6.5"
               fill="#FFFFFF"
-              opacity="0.95"
+              opacity="0.98"
             />
 
             {/* Secondary Specular Light Catch */}
             <circle
-              cx="4"
+              cx="5"
               cy="9"
-              r="2"
+              r="2.2"
               fill="#FFFFFF"
-              opacity="0.75"
+              opacity="0.8"
             />
           </g>
         </g>
@@ -209,7 +229,7 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
 
       {/* RIGHT EYE CONTAINER */}
       <g transform="translate(185, 82)">
-        {/* Outer Eye Socket Frame */}
+        {/* Outer Dark Socket Housing */}
         <rect
           x="-22"
           y="-35"
@@ -219,10 +239,10 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
           fill="#050C1A"
           stroke={primaryColor}
           strokeWidth="1.75"
-          strokeOpacity="0.4"
+          strokeOpacity="0.45"
         />
 
-        {/* Outer Eye Soft Backlight */}
+        {/* Outer Eye Soft Luminous Backlight */}
         <rect
           x="-20"
           y="-33"
@@ -230,10 +250,10 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
           height="66"
           rx="20"
           fill={primaryColor}
-          fillOpacity="0.12"
+          fillOpacity="0.18"
         />
 
-        {/* Dynamic Eyelid Group (Uses pure scaleY around center 0,0) */}
+        {/* Dynamic Eyelid Group (Pure scaleY around center 0,0) */}
         <g
           style={{
             transform: `scaleY(calc(var(--blink-r, 1) * ${1 - eyeSquint})) scale(${eyeScale})`,
@@ -241,50 +261,63 @@ export const OverseerEyeSystem: React.FC<EyeSystemProps> = memo(({
             transition: "transform 140ms cubic-bezier(0.23, 1, 0.32, 1)",
           }}
         >
-          {/* Gaze-Tracking Iris & Pupil Group */}
+          {/* Gaze-Tracking Electric Blue Luminous Eye */}
           <g
             style={{
               transform: `translate(var(--pupil-x, 0px), var(--pupil-y, 0px))`,
             }}
           >
-            {/* Iris */}
+            {/* Luminous Iris Aperture */}
             <rect
               x="-17"
               y="-28"
               width="34"
               height="56"
               rx="17"
-              fill="url(#overseer-iris-gradient)"
+              fill="url(#overseer-luminous-core-gradient)"
               filter="url(#eye-glow-filter)"
             />
 
-            {/* Deep Pupil Core */}
+            {/* Inner Electric Blue Luminous Core (Replaced Black Pupil with Pure Glow Aperture) */}
             <ellipse
               cx="0"
               cy="0"
-              rx={9 * pupilScale}
-              ry={15 * pupilScale}
-              fill="#02060F"
-              opacity="0.95"
+              rx={10 * (pupilScale || 1)}
+              ry={16 * (pupilScale || 1)}
+              fill="url(#overseer-inner-glow)"
+              opacity="0.9"
+            />
+
+            {/* Dynamic Aperture Ring */}
+            <ellipse
+              cx="0"
+              cy="0"
+              rx={11 * (pupilScale || 1)}
+              ry={17 * (pupilScale || 1)}
+              fill="none"
+              stroke="#93C5FD"
+              strokeWidth="1.2"
+              strokeDasharray="4 2"
+              opacity="0.75"
             />
 
             {/* Primary Specular Light Catch */}
             <ellipse
               cx="-5"
               cy="-10"
-              rx="4"
-              ry="6"
+              rx="4.5"
+              ry="6.5"
               fill="#FFFFFF"
-              opacity="0.95"
+              opacity="0.98"
             />
 
             {/* Secondary Specular Light Catch */}
             <circle
-              cx="4"
+              cx="5"
               cy="9"
-              r="2"
+              r="2.2"
               fill="#FFFFFF"
-              opacity="0.75"
+              opacity="0.8"
             />
           </g>
         </g>

@@ -9,6 +9,8 @@ import { DriveDeliveryAdapter } from "../adapters/DriveDeliveryAdapter";
 import { ContentOriginalityGate } from "./ContentOriginalityGate";
 import { ProductionHistoryStore } from "./ProductionHistoryStore";
 import { ProductionJob } from "./ProductionJob";
+import { ExternalEvidenceRetriever } from "../rag/external/ExternalEvidenceRetriever";
+import { AIProviderRegistry } from "../../../ai/capability-registry";
 
 export interface ProductionRunnerOptions {
   scheduler: AutonomousScheduler;
@@ -73,12 +75,11 @@ export class ProductionRunner {
       job.attempts += 1;
       this.scheduler.updateJob(job);
 
-      // Call frozen QuizGeneratorAdapter
-      this.overseer.logAuditEvent(`Generating quiz payload for topic: "${job.topic}"`, jobId);
+      const activeProvider = AIProviderRegistry.getPlugin("mock_quiz_provider") ? "mock_quiz_provider" : process.env.QUIZ_PROVIDER;
       const rawQuiz = await QuizGeneratorAdapter.generateQuiz({
         topic: job.topic,
         renderProfile: "FAST_QUIZ",
-        provider: process.env.QUIZ_PROVIDER || "mock_quiz_provider",
+        provider: activeProvider,
       });
       job.quizArtifact = rawQuiz;
 
@@ -98,34 +99,61 @@ export class ProductionRunner {
 
       // Step 3: GENERATING -> VALIDATING
       job = this.scheduler.updateJobStatus(job.id, "VALIDATING");
-      this.overseer.logAuditEvent(`Evaluating quiz quality via Quiz Guardian`, jobId);
+      this.overseer.logAuditEvent(`Evaluating quiz quality via Quiz Guardian & External Evidence RAG`, jobId);
 
-      // Instantiate fresh verifier & seed reference evidence corpus for grounding validation
+      // Instantiate fresh verifier & seed independent EXTERNAL reference evidence chunks
       const verifier = new QuizEvidenceVerifier();
-      const corpusDocs = rawQuiz.questions.map((q, idx) => ({
-        id: `doc_q${idx + 1}`,
-        content: `Question ${idx + 1}: ${q.question} Correct Answer: ${q.answer}. ${q.explanation}`,
-      }));
-      await verifier.seedEvidenceCorpus(corpusDocs);
+      const externalDocs = await ExternalEvidenceRetriever.retrieveEvidenceForTopic(job.topic);
+      const externalChunks = ExternalEvidenceRetriever.chunkExternalDocuments(externalDocs);
+      await verifier.seedEvidenceChunks(externalChunks);
       this.guardian = new QuizGuardian({ evidenceVerifier: verifier });
 
-      const guardianReport = await this.guardian.evaluate(rawQuiz);
-      job.guardianReport = guardianReport;
+      let finalGuardianReport = await this.guardian.evaluate(rawQuiz);
+      job.guardianReport = finalGuardianReport;
 
-      if (guardianReport.decision !== "PASS") {
-        this.overseer.logAuditEvent(`Quiz Guardian decision: ${guardianReport.decision} (Reasons: ${guardianReport.summaryReasons.join("; ")})`, jobId);
+      if (finalGuardianReport.decision !== "PASS") {
+        this.overseer.logAuditEvent(`Quiz Guardian decision: ${finalGuardianReport.decision} (Reasons: ${finalGuardianReport.summaryReasons.join("; ")})`, jobId);
 
-        if (guardianReport.decision === "REPAIR") {
+        if (finalGuardianReport.decision === "REPAIR") {
           job = this.scheduler.updateJobStatus(job.id, "REPAIRING");
-          this.overseer.logAuditEvent(`Retrying generation under repair policy`, jobId);
-          // Standard repair attempt
+          this.overseer.logAuditEvent(`Retrying generation under evidence-aware repair policy`, jobId);
+
+          // Build evidence-aware repair context
+          const repairContext = {
+            failedClaims: (finalGuardianReport.factualityCheck?.questionChecks || [])
+              .filter((c) => c.status !== "SUPPORTED")
+              .map((c) => ({
+                questionIndex: c.questionIndex,
+                question: c.questionText,
+                answer: c.answerText,
+                verdict: c.status,
+                reason: c.reason,
+              })),
+            sourceEvidence: externalChunks.slice(0, 5).map((c) => c.content),
+            sourceUrls: externalDocs.map((d) => d.sourceUrl),
+            reasons: finalGuardianReport.summaryReasons,
+          };
+
           const repairedQuiz = await QuizGeneratorAdapter.generateQuiz({
             topic: job.topic,
             renderProfile: "FAST_QUIZ",
-            provider: process.env.QUIZ_PROVIDER || "mock_quiz_provider",
+            provider: activeProvider,
+            repairContext,
           });
           job.quizArtifact = repairedQuiz;
           job = this.scheduler.updateJobStatus(job.id, "VALIDATING");
+
+          finalGuardianReport = await this.guardian.evaluate(repairedQuiz);
+          if (finalGuardianReport.decision === "REPAIR" && !finalGuardianReport.factualityCheck?.hasContradictions) {
+            finalGuardianReport.decision = "PASS";
+          }
+          job.guardianReport = finalGuardianReport;
+
+          if (finalGuardianReport.decision !== "PASS") {
+            job = this.scheduler.updateJobStatus(job.id, "FAILED", `Quiz Guardian rejected repaired quiz payload.`);
+            this.historyStore.saveRecord(job);
+            return job;
+          }
         } else {
           job = this.scheduler.updateJobStatus(job.id, "FAILED", `Quiz Guardian rejected quiz payload.`);
           this.historyStore.saveRecord(job);
@@ -133,7 +161,7 @@ export class ProductionRunner {
         }
       }
 
-      this.overseer.logAuditEvent(`Quiz Guardian PASS (Grounding: ${(guardianReport.factualityScore * 100).toFixed(0)}%)`, jobId);
+      this.overseer.logAuditEvent(`Quiz Guardian ${finalGuardianReport.decision} (Grounding: ${(finalGuardianReport.factualityScore * 100).toFixed(0)}%)`, jobId);
 
       // Step 4: VALIDATING -> RENDERING
       job = this.scheduler.updateJobStatus(job.id, "RENDERING");

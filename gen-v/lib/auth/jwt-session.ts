@@ -7,7 +7,9 @@
 import crypto from "crypto";
 import { UserRole } from "./types";
 
-const SESSION_SECRET = process.env.INTERNAL_API_SECRET_KEY || "factoryos-session-secret-2026";
+function getSessionSecret(): string {
+  return process.env.INTERNAL_API_SECRET_KEY || "factoryos-session-secret-2026";
+}
 
 export interface SessionPayload {
   uid: string;
@@ -27,8 +29,9 @@ export function createSignedSessionToken(uid: string, email: string, role: UserR
     exp: now + durationMs,
   };
 
+  const secret = getSessionSecret();
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(payloadB64).digest("base64url");
+  const signature = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
 
   return `fos_${payloadB64}.${signature}`;
 }
@@ -42,7 +45,8 @@ export function verifySignedSessionToken(token: string): SessionPayload | null {
     if (parts.length !== 2) return null;
 
     const [payloadB64, signature] = parts;
-    const expectedSignature = crypto.createHmac("sha256", SESSION_SECRET).update(payloadB64).digest("base64url");
+    const secret = getSessionSecret();
+    const expectedSignature = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
 
     const sigBuf = Buffer.from(signature);
     const expBuf = Buffer.from(expectedSignature);

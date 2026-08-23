@@ -152,15 +152,15 @@ import { verifySignedSessionToken } from "./jwt-session";
 /**
  * Verify Session Cookie Server-Side
  */
-export async function verifySessionCookieServer(sessionCookie: string): Promise<{ uid: string; email: string }> {
+export async function verifySessionCookieServer(sessionCookie: string): Promise<{ uid: string; email: string; sessionRole?: UserRole }> {
   // 1. Check signed FactoryOS session token
   const signedPayload = verifySignedSessionToken(sessionCookie);
   if (signedPayload) {
-    return { uid: signedPayload.uid, email: signedPayload.email };
+    return { uid: signedPayload.uid, email: signedPayload.email, sessionRole: signedPayload.role };
   }
 
-  // 2. Check Firebase Admin SDK session cookie if configured
-  if (adminAuth) {
+  // 2. Check Firebase Admin SDK session cookie if configured (non-fos tokens)
+  if (adminAuth && !sessionCookie.startsWith("fos_")) {
     try {
       const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
       return { uid: decoded.uid, email: decoded.email || "" };
@@ -171,7 +171,7 @@ export async function verifySessionCookieServer(sessionCookie: string): Promise<
 
   // 3. Dev / Vitest Mock Verification
   if (sessionCookie.startsWith("mock_session_cookie_") || sessionCookie.includes("simulated_admin_token")) {
-    return { uid: "mock_owner_uid", email: ALLOWED_BOOTSTRAP_OWNER_EMAIL };
+    return { uid: "mock_owner_uid", email: ALLOWED_BOOTSTRAP_OWNER_EMAIL, sessionRole: "OWNER" };
   }
 
   throw new Error("Invalid or expired session cookie");

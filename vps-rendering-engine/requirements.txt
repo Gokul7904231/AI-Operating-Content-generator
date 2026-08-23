@@ -12,3 +12,5 @@ firebase-admin>=6.2.0
 cloudinary>=1.41.0
 mutagen>=1.47.0
 APScheduler>=3.10.0
+google-api-python-client>=2.100.0
+google-auth>=2.23.0

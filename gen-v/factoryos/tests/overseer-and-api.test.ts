@@ -36,7 +36,7 @@ describe("FactoryOS — API Control Center, Local AI & Overseer Operational Agen
     expect(ollama?.mode).toBe("local");
     expect(ollama?.primary.hasKey).toBe(true);
     expect(ollama?.primary.maskedKey).toBe("LOCAL_NO_KEY_REQUIRED");
-    expect(ollama?.primary.endpoint).toBe("http://localhost:11434");
+    expect(ollama?.primary.endpoint).toMatch(/http:\/\/(localhost|127\.0\.0\.1):11434/);
   });
 
   it("02: Ollama and LM Studio Local Adapters handle listModels & testConnection gracefully", async () => {

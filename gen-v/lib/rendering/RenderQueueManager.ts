@@ -6,9 +6,34 @@ import { BasicRenderingCapacityGuard } from "./BasicRenderingCapacityGuard";
 import { GitHubActionsRenderManager } from "./GitHubActionsRenderManager";
 
 export type UserTier = "FREE" | "PRO" | "ENTERPRISE" | "ADMIN";
-export type RenderJobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+export type RenderJobStatus =
+  | "QUEUED"
+  | "PROCESSING"
+  | "RENDERED"
+  | "QA_PASSED"
+  | "DELIVERY_PENDING"
+  | "DELIVERING"
+  | "DELIVERED"
+  | "CALLBACK_PENDING"
+  | "COMPLETED"
+  | "RENDER_FAILED"
+  | "QA_FAILED"
+  | "DELIVERY_FAILED"
+  | "CALLBACK_FAILED"
+  | "FAILED"
+  | "CANCELLED";
+
 export type ContentEngineType = "quiz" | "facts" | "narration" | "education" | "stories" | "v2_custom";
 export type AIExecutionMode = "CLOUD" | "BYOK" | "BYOLM";
+
+export type DeliveryTarget = "GOOGLE_DRIVE" | "CLOUDINARY" | "LOCAL_OUTBOX";
+
+export type DeliveryFallbackConfig =
+  | false
+  | {
+      target: DeliveryTarget;
+      reason: string;
+    };
 
 export interface RenderJobOutputConfig {
   format: "mp4" | "webm";
@@ -18,14 +43,18 @@ export interface RenderJobOutputConfig {
 }
 
 export interface RenderJobDeliveryConfig {
-  download: boolean;
-  googleDrive: boolean;
+  target: DeliveryTarget;
+  authMode?: "OAUTH_USER" | "SERVICE_ACCOUNT_SHARED_DRIVE";
+  folderId?: string;
+  artifactVersion?: string;
+  allowFallback: DeliveryFallbackConfig;
 }
 
 export interface RenderArtifactMeta {
   uri: string;
   sizeBytes: number;
   durationMs: number;
+  sha256?: string;
 }
 
 export interface UniversalRenderJob {
@@ -52,6 +81,7 @@ export interface UniversalRenderJob {
   startedAt?: string;
   completedAt?: string;
   workerId?: string;
+  workerCredentialVersion?: string;
   renderDurationSeconds?: number;
   outputArtifact?: RenderArtifactMeta;
   error?: string;
@@ -144,7 +174,12 @@ export class RenderQueueManager {
       audio: jobData.audio || [],
       subtitles: jobData.subtitles || {},
       output: jobData.output || { format: "mp4", width: 1080, height: 1920, fps: 30 },
-      delivery: jobData.delivery || { download: true, googleDrive: true },
+      delivery: jobData.delivery || {
+        target: "GOOGLE_DRIVE",
+        authMode: "OAUTH_USER",
+        artifactVersion: "v1",
+        allowFallback: false,
+      },
       createdAt: new Date().toISOString(),
       error: tierError,
     };

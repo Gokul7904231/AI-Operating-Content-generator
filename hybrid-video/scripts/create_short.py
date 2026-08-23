@@ -126,11 +126,14 @@ def _finalize_render_and_upload(
         date_folder = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H-%M-%S")
         
-        country_clean = str(job.get("country") or job.get("quizData", {}).get("country") or country).strip().replace(" ", "_")
+        quiz_data_dict = job.get("quizData") if isinstance(job.get("quizData"), dict) else {}
+        country_clean = str(job.get("country") or quiz_data_dict.get("country") or country or "Default").strip().replace(" ", "_")
         country_clean = re.sub(r'[^a-zA-Z0-9_]', '', country_clean)
+        if not country_clean:
+            country_clean = "Default"
         
         difficulty_clean = "Medium"
-        questions = job.get("questions") or job.get("quizData", {}).get("questions")
+        questions = job.get("questions") or quiz_data_dict.get("questions") or []
         difficulty_clean = str(job.get("difficulty") or (questions[0].get("difficulty") if questions and len(questions) > 0 else None) or "Medium").strip().capitalize()
         difficulty_clean = re.sub(r'[^a-zA-Z0-9_]', '', difficulty_clean)
         
@@ -1495,7 +1498,8 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         ])
 
         print(f"[FFmpeg] Spawning filtergraph rendering and Cloudinary stream pipe...")
-        country_folder = str(job.get("country") or job.get("quizData", {}).get("country") or "default").lower().strip().replace(" ", "_")
+        quiz_data_d = job.get("quizData") if isinstance(job.get("quizData"), dict) else {}
+        country_folder = str(job.get("country") or quiz_data_d.get("country") or "default").lower().strip().replace(" ", "_")
         folder_path = f"ai_shorts/quizzes/{country_folder}/{job_id}"
 
         # Start FFmpeg as subprocess
@@ -1625,7 +1629,7 @@ def main() -> None:
                 is_quiz=True,
                 video_duration=result["videoDuration"],
                 start_time=start_time,
-                country=str(job.get("country") or job.get("quizData", {}).get("country") or "default"),
+                country=str(job.get("country") or (job.get("quizData") if isinstance(job.get("quizData"), dict) else {}).get("country") or "default"),
                 video_url=result.get("videoUrl"),
                 job=job
             )

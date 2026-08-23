@@ -1,213 +1,196 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { 
-  Film, 
-  Download, 
-  Trash2, 
-  Search, 
-  Filter, 
-  Cloud, 
-  HardDrive, 
-  RefreshCw,
+import React, { useState, useEffect } from "react";
+import {
+  Film,
   Play,
-  Share2
+  HardDrive,
+  Clock,
+  Search,
+  Filter,
+  Calendar,
+  Sparkles,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-
-interface VideoAsset {
-  publicId: string;
-  url: string;
-  displayName: string;
-  bytes: number;
-  format: string;
-  duration?: number;
-  createdAt: string;
-}
-
-function formatBytes(bytes: number) {
-  if (!bytes) return "—";
-  const mb = bytes / 1024 / 1024;
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
-}
-
-function formatDuration(s?: number) {
-  if (!s) return "—";
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-}
+import Link from "next/link";
+import { VideoLibraryItem } from "@/app/api/library/route";
 
 export default function MediaLibraryPage() {
-  const [prefix, setPrefix] = useState("geo_quiz_factory");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "quiz" | "history" | "facts">("all");
+  const [items, setItems] = useState<VideoLibraryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [engineFilter, setEngineFilter] = useState("all");
 
-  // Fetch Cloudinary Assets via Query
-  const { data, isLoading, error, refetch } = useQuery<{ videos: VideoAsset[]; total: number }>({
-    queryKey: ["media-library", prefix],
-    queryFn: async () => {
-      const res = await fetch(`/api/library?prefix=${encodeURIComponent(prefix)}&max=20`);
-      if (!res.ok) throw new Error("Failed to load library assets");
-      return res.json();
-    },
-  });
+  const loadLibrary = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("search", search.trim());
+      if (engineFilter !== "all") params.set("engine", engineFilter);
 
-  const videos = data?.videos ?? [];
+      const res = await fetch(`/api/library?${params.toString()}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.items)) {
+        setItems(data.items);
+      }
+    } catch (err) {
+      console.error("[Library Load Error]:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Filter videos based on tab and search query
-  const filteredVideos = videos.filter((v) => {
-    const matchesSearch = v.displayName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = 
-      activeTab === "all" ||
-      (activeTab === "quiz" && v.displayName.toLowerCase().includes("quiz")) ||
-      (activeTab === "history" && v.displayName.toLowerCase().includes("history")) ||
-      (activeTab === "facts" && v.displayName.toLowerCase().includes("facts"));
-    
-    return matchesSearch && matchesTab;
-  });
+  useEffect(() => {
+    loadLibrary();
+  }, [engineFilter]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadLibrary();
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-bold text-zinc-50 tracking-tight">Studio Media Library</h2>
-          <p className="text-xs text-zinc-500 mt-1">Manage, download, and publish your generated short-form assets.</p>
+          <h1 className="text-xl font-bold text-[#111827] dark:text-[#F5F7FA] flex items-center gap-2">
+            <Film className="w-5 h-5 text-[#1677FF]" /> Media Library
+          </h1>
+          <p className="text-xs text-[#667085] dark:text-[#A8B2C1] mt-0.5">
+            Canonical ledger of generated videos, delivery statuses, and cloud assets
+          </p>
         </div>
 
-        {/* Filter Selection */}
-        <div className="flex gap-2 items-center">
-          <select
-            value={prefix}
-            onChange={(e) => setPrefix(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 outline-none focus:border-emerald-500 cursor-pointer"
-          >
-            <option value="geo_quiz_factory">geo_quiz_factory/</option>
-            <option value="ai_shorts">ai_shorts/</option>
-            <option value="ai_shorts/quizzes">ai_shorts/quizzes/</option>
-          </select>
-          <button 
-            onClick={() => refetch()}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-semibold text-zinc-300 hover:text-emerald-400 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={loadLibrary}
+          className="px-3.5 py-2 rounded-xl bg-black/[0.04] dark:bg-white/[0.05] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-xs font-semibold text-[#111827] dark:text-[#F5F7FA] flex items-center gap-2 transition-colors self-start sm:self-auto cursor-pointer"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+        </button>
       </div>
 
-      {/* Search and Category Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+      {/* Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-[#070D18] p-3 rounded-2xl border border-black/[0.06] dark:border-white/[0.08]">
+        <form onSubmit={handleSearchSubmit} className="flex-1 w-full relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#667085]" />
           <input
             type="text"
-            placeholder="Search assets..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 text-xs text-zinc-150 focus:border-emerald-500 focus:outline-none"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by video title, topic, or job ID..."
+            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-black/[0.02] dark:bg-[#0E1728] border border-black/[0.06] dark:border-white/[0.06] text-[#111827] dark:text-[#F5F7FA] focus:outline-none focus:border-[#1677FF]"
           />
-        </div>
+        </form>
 
-        <div className="flex items-center gap-1 p-1 bg-zinc-900/50 border border-zinc-900 rounded-lg shrink-0">
-          {(["all", "quiz", "history", "facts"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                activeTab === tab ? "bg-zinc-950 text-emerald-400" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-[#667085]" />
+          <select
+            value={engineFilter}
+            onChange={(e) => setEngineFilter(e.target.value)}
+            className="px-3 py-2 text-xs rounded-xl bg-black/[0.02] dark:bg-[#0E1728] border border-black/[0.06] dark:border-white/[0.06] text-[#111827] dark:text-[#F5F7FA] focus:outline-none focus:border-[#1677FF] cursor-pointer"
+          >
+            <option value="all">All Engines</option>
+            <option value="quiz">Quiz Engine</option>
+            <option value="facts">Facts Engine</option>
+            <option value="history">History Engine</option>
+            <option value="motivation">Motivation Engine</option>
+          </select>
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs font-semibold text-rose-400">
-          ⚠️ {(error as Error).message}
+      {/* Library Grid */}
+      {loading ? (
+        <div className="py-16 text-center text-[#667085] text-xs flex flex-col items-center gap-2">
+          <RefreshCw className="w-6 h-6 animate-spin text-[#1677FF]" />
+          <span>Loading video library...</span>
         </div>
-      )}
+      ) : items.length === 0 ? (
+        <div className="py-16 text-center text-xs text-[#667085] bg-white dark:bg-[#070D18] rounded-3xl border border-black/[0.06] dark:border-white/[0.08] space-y-3">
+          <Film className="w-10 h-10 text-[#667085]/40 mx-auto" />
+          <p className="font-semibold text-sm text-[#111827] dark:text-[#F5F7FA]">No videos generated yet</p>
+          <p className="text-[11px] max-w-sm mx-auto">
+            Videos created through Create Video or scheduled automations will appear here with delivery links.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {items.map((item) => (
+            <div
+              key={item.videoId}
+              className="bg-white dark:bg-[#070D18] border border-black/[0.06] dark:border-white/[0.08] rounded-3xl p-5 space-y-4 hover:border-black/[0.15] dark:hover:border-white/[0.2] transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-3">
+                {/* Badges Bar */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full font-mono uppercase font-bold bg-[#1677FF]/10 text-[#1677FF]">
+                    {item.engineId}
+                  </span>
 
-      {/* Video Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-zinc-900 border border-zinc-900 rounded-xl overflow-hidden animate-pulse h-64" />
-          ))
-        ) : filteredVideos.length === 0 ? (
-          <div className="col-span-full text-center py-20 text-zinc-500">
-            <Film className="w-10 h-10 mx-auto opacity-30 mb-3" />
-            <div className="text-xs font-bold text-zinc-400">No assets found</div>
-            <div className="text-[10px] text-zinc-500 mt-1">Generate videos or change your active directory prefix search filters.</div>
-          </div>
-        ) : (
-          filteredVideos.map((v) => (
-            <div key={v.publicId} className="group bg-zinc-900 border border-zinc-900 rounded-xl overflow-hidden hover:border-zinc-800 transition-all duration-300 flex flex-col">
-              {/* Thumbnail Frame */}
-              <div className="relative aspect-video w-full overflow-hidden bg-black flex items-center justify-center">
-                <video
-                  src={v.url}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  muted
-                  preload="metadata"
-                  onMouseEnter={(e: any) => e.target.play()}
-                  onMouseLeave={(e: any) => { e.target.pause(); e.target.currentTime = 0; }}
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
-                  <Play className="w-8 h-8 text-zinc-50 fill-zinc-50" />
-                </div>
-                {v.duration && (
-                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-[10px] font-mono text-zinc-400">
-                    {formatDuration(v.duration)}
+                  <div className="flex items-center gap-1.5">
+                    {item.isScheduled && (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-mono font-bold flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> Scheduled
+                      </span>
+                    )}
+
+                    {item.deliveryStatus === "DELIVERED" ? (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#19C37D]/10 text-[#19C37D] font-mono font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Google Drive
+                      </span>
+                    ) : item.deliveryStatus === "PENDING_UPLOAD" ? (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-mono font-bold">
+                        Pending Upload
+                      </span>
+                    ) : (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-black/[0.05] text-[#667085] font-mono">
+                        Local Outbox
+                      </span>
+                    )}
                   </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <h3 className="text-sm font-bold text-[#111827] dark:text-[#F5F7FA] line-clamp-2">{item.title}</h3>
+                  <p className="text-[11px] text-[#667085] dark:text-[#A8B2C1] mt-1 flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {item.durationSeconds}s
+                    </span>
+                    <span>•</span>
+                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-3 border-t border-black/[0.04] dark:border-white/[0.06] flex items-center justify-between gap-2">
+                <Link
+                  href={`/media/library/${item.videoId}`}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Play className="w-3 h-3 fill-current" /> Watch & Details
+                </Link>
+
+                {item.driveUrl && (
+                  <a
+                    href={item.driveUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-xl bg-[#19C37D]/10 hover:bg-[#19C37D]/20 text-[#19C37D] transition-colors cursor-pointer"
+                    title="Open in Google Drive"
+                  >
+                    <HardDrive className="w-3.5 h-3.5" />
+                  </a>
                 )}
               </div>
-
-              {/* Asset Meta */}
-              <div className="p-4 flex flex-col flex-grow gap-3">
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-200 truncate">{v.displayName || "Generated Output"}</h4>
-                  <div className="text-[10px] text-zinc-500 font-mono mt-0.5">Size: {formatBytes(v.bytes)} • {v.format?.toUpperCase()}</div>
-                </div>
-
-                {/* Cloud Sync Status */}
-                <div className="flex items-center gap-3 border-t border-zinc-850 pt-3 text-[10px] font-semibold text-zinc-500 select-none">
-                  <div className="flex items-center gap-1 text-emerald-400">
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>Cloudinary</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-emerald-400">
-                    <HardDrive className="w-3.5 h-3.5" />
-                    <span>Google Drive</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="grid grid-cols-2 gap-2 mt-auto">
-                  <a 
-                    href={v.url}
-                    download
-                    className="flex items-center justify-center gap-1.5 bg-zinc-950 hover:bg-zinc-850 text-zinc-300 py-2 rounded-lg transition-colors text-[10px] font-bold border border-zinc-850"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
-                  </a>
-                  <button 
-                    className="flex items-center justify-center gap-1.5 bg-zinc-950 hover:bg-zinc-850 text-zinc-300 py-2 rounded-lg transition-colors text-[10px] font-bold border border-zinc-850"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Publish</span>
-                  </button>
-                </div>
-              </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

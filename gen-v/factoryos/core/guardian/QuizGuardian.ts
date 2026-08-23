@@ -103,6 +103,7 @@ export class QuizGuardian {
       ambiguityScore,
       semanticScore,
       factualityScore,
+      insufficientEvidenceCount: factCheck.insufficientEvidenceCount,
       summaryReasons,
       structureValidation: structureVal,
       duplicateCheck: dupCheck,

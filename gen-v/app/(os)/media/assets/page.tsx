@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import CreatorEmptyState from "@/components/creator/CreatorEmptyState";
 import { useState } from "react";
 import { FolderOpen, Search, Image as ImageIcon, Music, Film, FileText, Trash2, HardDrive, RefreshCw } from "lucide-react";
 
@@ -22,17 +23,17 @@ export default function AssetsPage() {
       const r = await fetch("/api/library/list");
       if (!r.ok) return { assets: [] };
       const res = await r.json();
-      
-      // Map library items or generate dummy assets for this file explorer
+      // Real assets only — no dummy data (P0-9 / no fake state)
+      const items: any[] = res.assets ?? res.files ?? res.items ?? [];
+      if (!Array.isArray(items) || items.length === 0) return { assets: [] };
       return {
-        assets: [
-          { name: "scene_0_quiz.jpg", type: "image", sizeKb: 245, updatedAt: new Date().toISOString(), path: "/data/temp/scene_0.jpg" },
-          { name: "scene_1_quiz.jpg", type: "image", sizeKb: 198, updatedAt: new Date().toISOString(), path: "/data/temp/scene_1.jpg" },
-          { name: "voiceover_fast.mp3", type: "audio", sizeKb: 1024, updatedAt: new Date().toISOString(), path: "/data/temp/voiceover.mp3" },
-          { name: "scene_0_render.mp4", type: "video", sizeKb: 4200, updatedAt: new Date().toISOString(), path: "/data/scene-cache/scene_0.mp4" },
-          { name: "scene_1_render.mp4", type: "video", sizeKb: 3800, updatedAt: new Date().toISOString(), path: "/data/scene-cache/scene_1.mp4" },
-          { name: "script_manifest.json", type: "json", sizeKb: 4, updatedAt: new Date().toISOString(), path: "/data/temp/script.json" },
-        ]
+        assets: items.map((it: any) => ({
+          name: it.name ?? it.fileName ?? it.publicId ?? "asset",
+          type: (it.type ?? (String(it.mimeType ?? "").startsWith("video/") ? "video" : String(it.mimeType ?? "").startsWith("image/") ? "image" : String(it.mimeType ?? "").startsWith("audio/") ? "audio" : "other")) as AssetFile["type"],
+          sizeKb: Math.round(((it.sizeBytes ?? it.bytes ?? (it.sizeKb != null ? it.sizeKb * 1024 : undefined) ?? 0) as number) / 1024),
+          updatedAt: it.updatedAt ?? it.createdAt ?? new Date().toISOString(),
+          path: it.path ?? it.publicId ?? it.fileName ?? "",
+        })),
       };
     }
   });
@@ -113,10 +114,12 @@ export default function AssetsPage() {
           <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-center border border-dashed border-zinc-800 rounded-xl">
-          <FolderOpen className="w-10 h-10 text-zinc-700 mb-3" />
-          <p className="text-zinc-400 text-sm">No assets found</p>
-        </div>
+        <CreatorEmptyState
+          title="No assets yet"
+          description="No generated assets were found. Create a video — images, audio and cache will appear here."
+          primaryAction={{ label: "Create Video" }}
+          secondaryAction={{ label: "Go to Library", href: "/media/library" }}
+        />
       ) : (
         <div className="rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
           <div className="overflow-x-auto">
