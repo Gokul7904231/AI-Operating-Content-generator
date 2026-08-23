@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/FFmpeg-007808?style=for-the-badge&logo=ffmpeg&logoColor=white" />
   <img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" />
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
 </p>
 
 <p align="center">
@@ -37,47 +37,135 @@ Topic: "5 Mind-Blowing Facts About Space"
 
 ---
 
-## 🧠 How It Works — The Factory Pipeline
+## 🧠 How It Works — End-to-End Pipeline
 
 ```
-                    ┌─────────────────────────────────┐
-                    │   Control Plane  (gen-v)         │
-                    │   Next.js 16 · React 19          │
-                    │   Clerk + Firebase Auth          │
-                    └────────┬────────────────────────┘
-                             │ 1. Generate script
-                             │    Gemini / Groq / OpenRouter / Ollama
-                             ▼
-                    ┌─────────────────────────────────┐
-                    │  Validation Gate  (floors/       │
-                    │  floor07_compliance)             │
-                    │  FastAPI · Postgres · Redis      │
-                    │  FactWorker · PolicyWorker       │
-                    │  RiskWorker → HMAC-SHA256 Cert   │  ← archived, see archive/
-                    └────────┬────────────────────────┘
-                             │ 2. POST /v1/validate
-                             │    Certificate or rejection
-                             ▼
-                    ┌─────────────────────────────────┐
-                    │  Rendering Workers               │
-                    │  vps-rendering-engine  (FastAPI) │
-                    │  basic_render_worker  (warm pool)│
-                    │  edge-tts · faster-whisper       │
-                    │  Pillow · FFmpeg (libx264)       │
-                    │  → Cloudinary + Firestore        │
-                    └────────┬────────────────────────┘
-                             │ 3. POST /render-video
-                             │ 4. GET /job-status/{id}  (poll)
-                             │ 5. GET /logs/stream      (SSE)
-                             ▼
-                    ┌─────────────────────────────────┐
-                    │  Delivery                        │
-                    │  Cloudinary CDN · Firebase       │
-                    │  Google Drive (optional)         │
-                    └─────────────────────────────────┘
+  User topic ("5 Mind-Blowing Facts About Space")
+       │
+       ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Control Plane  (gen-v)  — Next.js 16 · React 19 │
+  │  Clerk + Firebase Auth · Zustand + SSE          │
+  │  • quota: Firestore 5-video atomic reservation   │
+  │  • engines: quiz / facts / motivational          │
+  │  • queue: SQLiteRenderQueue + ServiceRegistry    │
+  └──────┬──────────────────────────────────────────┘
+         │ 1. AI script  (Groq llama-3.1-8b / Gemini / OpenRouter / FLUX)
+         │ 2. saveJobManifest (Firestore) + enqueue (SQLite)
+         │ 3. executionToken = crypto.randomBytes(32).hex()
+         ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Dispatcher                                      │
+  │  warm pool → POST {BASIC_RENDER_API_URL}/api/render/jobs    (sub-60s)
+  │  fallback  → POST /api/rendering/claim + GH repository_dispatch
+  └──────┬──────────────────────────────────────────┘
+         │  jobId ^[a-zA-Z0-9_-]{8,64}$ + timingSafeEqual token
+         ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Rendering Workers  (vps-rendering-engine)       │
+  │  basic_render_api :8100 ─▶ basic_render_worker ─▶ scripts/create_short.py │
+  │  main.py :8080 (fallback pool)                   │
+  │  Pillow 1080×1920 · 30fps · edge-tts · faster-whisper · FFmpeg libx264 │
+  │  ffprobe validate → Cloudinary + Firestore (+ optional Drive)
+  └──────┬──────────────────────────────────────────┘
+         │ 4. GET /api/job-status/{id}  (poll)  +  GET /logs/stream (SSE)
+         ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Delivery                                        │
+  │  Cloudinary CDN · Firestore library · Google Drive (optional) │
+  │  Library / Drive / Publish  — 1080×1920 9:16, subtitled, thumbnailed │
+  └─────────────────────────────────────────────────┘
 ```
 
-**Auth between services:** `HTTPBearer` with `INTERNAL_API_SECRET_KEY` · `timingSafeEqual` on callbacks · `jobId ^[a-zA-Z0-9_-]{8,64}$` validated at API boundary + worker re-validated with `realpath` prefix check.
+> `floors/floor07_compliance` (Validation Gate — `POST /v1/validate` → Fact/Policy/Risk → HMAC cert) is **archived** at `archive/floor07_compliance_2026-08-23/` and **not in the live path**. See [Archived Components](#-archived-components) — do not wire it without a dedicated branch.
+
+**Auth between services:** `HTTPBearer` with `INTERNAL_API_SECRET_KEY`/`BASIC_RENDER_API_SECRET`/`CRON_SECRET` · `timingSafeEqual` on callbacks · `jobId ^[a-zA-Z0-9_-]{8,64}$` validated at API boundary and re-validated in worker with `realpath` + `startswith(root+os.sep)` traversal guard; `topic` sanitized for FFmpeg `drawtext`.
+
+---
+
+## 🏗️ Architecture — Full System Design
+
+### System Overview
+
+```
+                              ┌──────────────────────────────┐
+                              │        Browser / Client       │
+                              │  landing → login → dashboard  │
+                              │  Create Video wizard (4-step) │
+                              └──────────────┬───────────────┘
+                                             │ HTTPS + __session (HMAC)
+                                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Control Plane  gen-v  (Next.js 16 App Router, Turbopack, React 19)    │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐  │
+│  │  App Router  │ │  Middleware  │ │  Components  │ │   FactoryOS  │  │
+│  │  (os) shell  │ │  auth gate   │ │  wizard/SSE  │ │  kernel      │  │
+│  │  landing/    │ │  /→dashboard │ │  QuickGen    │ │  missions/   │  │
+│  │  dashboard/  │ │  /landing→307│ │  TopNav etc  │ │  guardian/   │  │
+│  │  media/ etc  │ │  fail-closed │ │              │ │  NLI/adapters│  │
+│  └──────┬───────┘ └──────────────┘ └──────────────┘ └──────┬───────┘  │
+│         │                                                   │           │
+│  ┌──────▼───────────────────────────────────────────────────▼──────┐   │
+│  │  lib/  auth · quota · core · factory-store · observability    │   │
+│  │  • RouteRegistry / EngineRegistry / ServiceRegistry            │   │
+│  │  • SQLiteRenderQueue (better-sqlite3, data/shortfactory.db)   │   │
+│  │  • quota-service (atomic 5-video limit, Firestore)            │   │
+│  │  • MongoDBClient (factoryos db, InMemory fallback)            │   │
+│  └──────┬────────────────────────────────────────────────────────┘   │
+│         │  /api/*  (~45 routes)                                     │
+│  ┌──────▼──────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ ┌────────┐  │
+│  │ generate-   │ │ job-     │ │ rendering│ │ library │ │ quiz/  │  │
+│  │ video       │ │ status   │ │ claim/   │ │ drive/  │ │ engines│  │
+│  │ (entry)     │ │ (poll)   │ │ callback │ │ factory-│ │ overseer│  │
+│  └──────┬──────┘ └──────────┘ └────┬─────┘ │ state   │ └────────┘  │
+└─────────┼───────────────────────────┼────────┴─────────┴─────────────┘
+          │ enqueue + token           │ claim (tier-isolated)
+          ▼                           ▼
+┌─────────────────────┐     ┌──────────────────────────────────────┐
+│  Data Layer         │     │  Workers  vps-rendering-engine       │
+│  • Firestore        │     │  • basic_render_api :8100 (warm)     │
+│    quotas/videos    │     │  • basic_render_worker (async queue, │
+│  • MongoDB factoryos│     │    isolated workspaces, ffprobe)     │
+│    cases/leases/    │     │  • main.py :8080 (fallback pool)     │
+│    memories/DAGs    │     │  • scripts/create_short.py           │
+│  • SQLite queue     │     │    Pillow + edge-tts + whisper +    │
+│  • Cloudinary CDN   │     │    FFmpeg → Cloudinary/Firestore/   │
+│  • Firebase Hosting │     │    Drive (googleapis)               │
+└─────────────────────┘     └──────────────┬───────────────────────┘
+                                           │  GitHub Actions
+                                           ▼
+                                ┌──────────────────────┐
+                                │ factoryos-render-    │
+                                │ worker.yml (cron * ) │
+                                │ factoryos-basic-     │
+                                │ render.yml (per-job) │
+                                └──────────────────────┘
+```
+
+### Request Lifecycle (the only live path)
+
+1. **Create** — User hits `POST /api/generate-video` (session + `verifyWritePermission`). Zod validates, `reserveGenerationSlot` atomically enforces **5-video hard limit** (Firestore transaction), script fallback via `scriptAgent` if `scenes` empty.
+2. **Enqueue** — `saveJobManifest` (Firestore `videos/{jobId}`) + `SQLiteRenderQueue.enqueue` (priority 0, maxAttempts 3). Generate `executionToken = crypto.randomBytes(32).hex()` — never `jobId` — stored on manifest.
+3. **Dispatch** — If `BASIC_RENDER_API_URL` set → `POST /api/render/jobs` to warm pool (sub-60s). Else if `GITHUB_PAT` set → `repository_dispatch` (`factoryos_render_job`). Fallback cron `factoryos-render-worker.yml` every minute claims via `POST /api/rendering/claim` (tier-isolated: `azure↔ADMIN`, `github-actions/basic-fastapi↔BASIC`, stale lease 15 min, limit 25).
+4. **Render** — Worker validates `jobId` regex + `executionToken` + `resolve()` traversal guard, sanitizes `topic` for `drawtext`, runs `create_short.py` (Pillow 1080×1920, 30 fps, `edge-tts`, `faster-whisper`, ultrafast preset), `ffprobe` validates output, uploads to Cloudinary, callbacks `POST /api/rendering/callback` (`timingSafeEqual`, idempotent on `completed`, releases quota). Client polls `GET /api/job-status/[id]` every 3 s + `GET /logs/stream` (SSE `deque(500)`).
+5. **Deliver** — `GET /api/library/[videoId]` (IDOR: `d.userId !== uid → 403`, orphan→403), `driveFileId && driveUrl && deliveryTarget==GOOGLE_DRIVE` check before showing "Open in Drive".
+
+### Data Stores (authoritative)
+
+| Store | Used For | Client | Notes |
+|---|---|---|---|
+| **Firestore** (`firebase-admin` 13) | `quotas/{userId}`, `videos/{jobId}`, `quizzes/*`, `generation_logs` | Control Plane | Source of truth for user-facing state |
+| **MongoDB** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos`) | `cases`, `leases`, `memories`, `task_dags`, `decisions`, `world_state` | `factoryos/core/database/MongoDBClient.ts` | FactoryOS kernel; graceful **InMemory** fallback if `MONGODB_URI` unset |
+| **SQLite** (`better-sqlite3` 12, `data/shortfactory.db`) | `render_jobs` queue (`queued/claimed/running/retrying/completed/failed`, `progress_percentage`) | `SQLiteRenderQueue` + `QueueProcessor`/`EventBus` | Durable local queue; file-JSON `output/jobs/*.json` as mirror |
+| **Cloudinary** (`cloudinary` 2.5) | Final `mp4`/`png`/`srt`, `geo_quiz_factory` | Worker | CDN delivery |
+| **PostgreSQL 16 + Redis 7** | Validation gate only | `floors/floor07_compliance` | **Archived** — not live |
+
+### Auth & Security Boundaries
+
+- **Client → Control Plane:** Clerk + Firebase `__session` HMAC-SHA256 (`INTERNAL_API_SECRET_KEY`), `middleware.ts` fail-closed `401` for `/api/*`, `verifySession`/`verifyWritePermission`, role hierarchy `OWNER > ADMIN > EDITOR > USER > VIEWER`, `can(GOOGLE_DRIVE_CONNECT)` capability gate.
+- **Control Plane ↔ Workers:** `HTTPBearer` (`INTERNAL_API_SECRET_KEY` / `BASIC_RENDER_API_SECRET` / `RENDER_WORKER_SECRET`), per-job `executionToken` (`crypto.randomBytes(32).hex()`, `timingSafeEqual`), `jobId` regex at API boundary + re-validate in worker, `realpath` prefix check, `topic` whitelist + escape for FFmpeg `drawtext`.
+- **Cron:** `CRON_SECRET || INTERNAL_API_SECRET_KEY` fail-closed (`401` if unset), canonical origin `APP_ORIGIN || CONTROL_PLANE_URL` (no `Host`-derived SSRF), no `x-vercel-cron`-only bypass.
+- **GH Actions:** SHA-pinned actions (`checkout`, `setup-python`, `setup-ffmpeg`, `cache`), `permissions: contents: read`, `env: INPUT_*` indirection + regex `^[a-zA-Z0-9_-]{8,64}$`, fail-closed on missing `INPUT_EXEC_TOKEN`.
 
 ---
 
@@ -150,15 +238,12 @@ AI-Operating-Content-generator/
 │   ├── start_worker.py             # Alt entry — loads gen-v/.env
 │   └── requirements.txt
 │
-├── floors/
-│   └── floor07_compliance/         # 🛡️ Validation Gate — FastAPI (archived)
+├── archive/
+│   └── floor07_compliance_2026-08-23/  # 🗄️ Archived Validation Gate — NOT in live path
 │       ├── app/{api,core,domain,application,infrastructure,workers,pipelines,schemas,security}
 │       ├── data/policies/          # default.json · youtube.json
 │       ├── migrations/ (Alembic)  · tests/{unit,integration,api}/ · docker-compose.yml
-│       └── (archived → archive/floor07_compliance_2026-08-23/)
-│
-├── archive/
-│   └── floor07_compliance_2026-08-23/  # Archived ghost service + provenance README
+│       └── README.md               # provenance: never called from gen-v/app (grep 0 hits)
 │
 ├── hybrid-video/scripts/           # Alternate pipeline variant
 │
@@ -171,13 +256,16 @@ AI-Operating-Content-generator/
 └── README.md
 ```
 
-### Layer Responsibilities
+### Layer Responsibilities (live system)
 
-| Layer | Owns | Never Does |
-|---|---|---|
-| **Control Plane `gen-v/`** | UX, auth, orchestration, quota, polling, delivery | Heavy FFmpeg/CUDA work |
-| **Rendering Workers `vps-rendering-engine/`** | TTS, transcription, frame rendering, muxing, uploads, callbacks | Auth decisions, quota |
-| **Validation Gate `floors/floor07_compliance/`** | Policy & fact checks, signed certificates | Rendering |
+| Layer | Owns | Never Does | Status |
+|---|---|---|---|
+| **Control Plane `gen-v/`** | UX, auth, orchestration, quota, polling, delivery | Heavy FFmpeg/CUDA work | **Live** |
+| **Rendering Workers `vps-rendering-engine/`** | TTS, transcription, frame rendering, muxing, uploads, callbacks | Auth decisions, quota | **Live** |
+| **Dispatcher (GitHub Actions)** | Cron claim + `repository_dispatch` to workers | Business logic | **Live** |
+| **Data (Firestore / MongoDB / SQLite / Cloudinary)** | Durable state, queue, CDN | Rendering | **Live** |
+
+> Archived: `floors/floor07_compliance` (Validation Gate — policy/fact checks, HMAC certs) lives at `archive/floor07_compliance_2026-08-23/` and is **not part of the live request path**. See [Archived Components](#-archived-components).
 
 ---
 
@@ -188,7 +276,7 @@ AI-Operating-Content-generator/
 | **Frontend** | Next.js 16 (Turbopack, `reactCompiler: true`), React 19, Tailwind v4, Framer Motion 12, Zustand 5, lucide-react, recharts, sharp, zod, @tanstack/react-query 5 |
 | **Data** | **Firestore** (`firebase-admin` 13 / `firebase` 12) — quotas, videos, quizzes · **MongoDB 7** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos` via `factoryos/core/database/MongoDBClient.ts` — cases, leases, memories, DAGs, decisions, with graceful InMemory fallback) · **SQLite** (`better-sqlite3` 12) — `SQLiteRenderQueue` (`data/shortfactory.db`) · **PostgreSQL 16 + Redis 7** — validation gate only (archived, `floors/floor07_compliance`) |
 | **Auth** | Clerk (`@clerk/nextjs` 6) + Firebase Auth — `__session` HMAC-SHA256 via `INTERNAL_API_SECRET_KEY`, role hierarchy `OWNER > ADMIN > EDITOR > USER > VIEWER`; `nodemailer` 9 for mail |
-| **Validation** | FastAPI, Pydantic, SQLAlchemy 2 + asyncpg, Alembic, Redis (asyncio), structlog, orjson, prometheus-client |
+| **Validation (archived)** | FastAPI, Pydantic, SQLAlchemy 2 + asyncpg, Alembic, Redis (asyncio), structlog, orjson, prometheus-client — `floors/floor07_compliance` (archived, not live; see [Archived Components](#-archived-components)) |
 | **Rendering** | FastAPI, MoviePy 2, Pillow 10, FFmpeg 6.1.1 (`imageio-ffmpeg` 0.4.8), `edge-tts` 7 / `@travisvn/edge-tts`, `faster-whisper` 0.10, `mutagen` 1.47, Cloudinary 2.5, `APScheduler` 3.10, `google-api-python-client` + `google-auth` |
 | **AI** | `ai` 7 (Vercel AI SDK) + `@ai-sdk/google` 4 + `@ai-sdk/openai` 4, `@google/genai` 2.9, `groq-sdk` 1.2 (`llama-3.1-8b-instant`), Together AI `FLUX.1-schnell`, `@xenova/transformers` 2.17, OpenRouter, Ollama / LM Studio fallback |
 | **Services** | `googleapis` 173 (Drive/YouTube), `cloudinary` 2.5, `firebase-admin` 13 |
@@ -224,14 +312,7 @@ python -m uvicorn basic_render_api:app --port 8100        # warm Basic pool (alt
 # ready:   http://localhost:8100/ready
 ```
 
-### 3 — Validation Gate (archived — optional, Docker)
-
-```bash
-cd archive/floor07_compliance_2026-08-23   # or floors/floor07_compliance if restored
-cp .env.example .env   # set DATABASE_URL, REDIS_URL, SIGNING_SECRET_KEY
-docker compose up --build -d
-# docs at http://localhost:8000/docs — health at /health
-```
+> 🗄️ `floors/floor07_compliance` (Validation Gate) is **archived** at `archive/floor07_compliance_2026-08-23/` and not required to run or deploy the app. See [Archived Components](#-archived-components) to restore it locally.
 
 ---
 
@@ -241,9 +322,9 @@ Each service has its own `.env` (gitignored — see `*.example`):
 
 | Service | Key Variables |
 |---|---|
-| `floors/floor07_compliance/.env` | `DATABASE_URL` (asyncpg), `REDIS_URL`, `SIGNING_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`), `POLICY_DATA_DIR`, `LOG_LEVEL` |
 | `gen-v/.env` | `GEMINI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `DEFAULT_LLM_PROVIDER` · `NEXT_PUBLIC_RENDER_ENGINE_URL` · `ENABLE_LOCAL_RENDER` · `TOGETHER_API_KEY` · `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `FIREBASE_*` · `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `MONGODB_URI` (→ `factoryos/core/database/MongoDBClient.ts`, db `factoryos`; optional — falls back to InMemory) · `BASIC_RENDER_API_URL` · `BASIC_RENDER_API_SECRET` · `GITHUB_PAT`/`GH_TOKEN` · `GITHUB_REPO` |
 | `vps-rendering-engine/.env` | `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `BASIC_RENDER_API_SECRET` · `MAX_CONCURRENT_JOBS` · `CONTROL_PLANE_URL` · `BASIC_RENDER_PORT` · `BASIC_PERSISTENT_CACHE_DIR` · `BASIC_EPHEMERAL_WORKSPACE_ROOT` |
+| `archive/floor07_compliance_2026-08-23/.env` *(archived, not live)* | `DATABASE_URL` (asyncpg), `REDIS_URL`, `SIGNING_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`), `POLICY_DATA_DIR`, `LOG_LEVEL` — see [Archived Components](#-archived-components) |
 
 > System `ffmpeg` must be on PATH for both local rendering and the VPS engine.
 
@@ -252,11 +333,6 @@ Each service has its own `.env` (gitignored — see `*.example`):
 ## 📡 API Reference
 
 ```bash
-# Validate content (quality gate — must pass before render)
-curl -X POST http://localhost:8000/v1/validate \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Python Variables Explained","script":"Variables store values...","platform":"youtube","language":"en","content_type":"educational_short"}'
-
 # Render — Control Plane (orchestrated, quota-checked, dispatched to workers)
 curl -X POST http://localhost:3000/api/generate-video \
   -H "Authorization: Bearer <session>" -H "Content-Type: application/json" \
@@ -322,7 +398,7 @@ npm run factoryos:eval:quiz         # Quiz eval
 npm run lint                        # eslint (next/core-web-vitals)
 npm run build                       # next build (Turbopack) — 77 routes
 
-cd floors/floor07_compliance        # if restored from archive
+cd archive/floor07_compliance_2026-08-23  # archived validation gate — optional
 make test && make test-unit && make test-integration && make test-api  # pytest --cov-fail-under=95
 make lint && make format && make typecheck   # ruff + black + mypy (strict)
 
@@ -345,11 +421,26 @@ Brand-new creator E2E (measured, not a build gate): **landing → login → dash
 
 ---
 
+## 🗄️ Archived Components
+
+**`floors/floor07_compliance` — Validation Gate is archived and NOT in the live request path.**
+
+| | Detail |
+|---|---|
+| **Location** | `archive/floor07_compliance_2026-08-23/` (original path `floors/floor07_compliance/`) |
+| **What it was** | FastAPI service `POST /v1/validate` → `FactWorker` · `PolicyWorker` · `RiskWorker` → `CertificateWorker` (HMAC-SHA256 via `app/security/signing.py` → Postgres) with `data/policies/{default,youtube}.json`, Alembic migrations, `docker-compose.yml` (`api` + `postgres:16` + `redis:7`). Stack: FastAPI, Pydantic, SQLAlchemy 2 + asyncpg, Redis asyncio, structlog, orjson, prometheus-client. |
+| **Why archived** | Ghost architecture — `grep -r floor07_compliance gen-v/app` → **0 hits**. Control Plane never called `POST /v1/validate`; `gen-v` validates via `lib/content-pipeline.ts` + `scriptAgent` + `autoRefinePipeline` instead. Kept shipping as docs would mislead contributors. Provenance + `grep` proof in `archive/floor07_compliance_2026-08-23/README.md`. |
+| **Branch rule** | Do **not** re-wire it without a dedicated branch. `THIS BRANCH = Creator UX · Navigation · Creation workflow · Quota · Progress · Library`. `DO NOT TOUCH: RAG / NLI / Azure worker / Drive provider / Delivery contract / floor07 ghost`. |
+| **Restore locally** | `cp -r archive/floor07_compliance_2026-08-23 floors/floor07_compliance && cd floors/floor07_compliance && cp .env.example .env` → set `DATABASE_URL`/`REDIS_URL`/`SIGNING_SECRET_KEY` → `docker compose up --build -d` → docs at `/docs`, health at `/health`. Requires Docker + Postgres 16 + Redis 7. |
+| **Tests (if restored)** | `make test` / `make test-unit` / `make test-integration` / `make test-api` (`pytest --cov-fail-under=95`), `make lint` / `make format` / `make typecheck` (ruff + black + mypy strict). |
+
+---
+
 ## 🔒 Security Notes
 
 - **Auth:** Clerk + Firebase (`__session` HMAC-SHA256 via `INTERNAL_API_SECRET_KEY`), `middleware.ts` fail-closed `401` for `/api/*`, role hierarchy `OWNER > ADMIN > EDITOR > USER > VIEWER`.
 - **OAuth:** state `HMAC(nonce)` + `timingSafeEqual` + cookie 600s binding.
-- **Cron/worker:** `Bearer CRON_SECRET || INTERNAL_API_SECRET_KEY || x-vercel-cron`, GH dispatch via `GITHUB_PAT` with strong `crypto.randomBytes(32)` per-job `executionToken`, `timingSafeEqual` in `claim`/`callback`.
+- **Cron/worker:** `Bearer CRON_SECRET || INTERNAL_API_SECRET_KEY` fail-closed (`401` if unset, no `x-vercel-cron`-only bypass), canonical origin `APP_ORIGIN` (no `Host`-derived SSRF); GH dispatch via `GITHUB_PAT` with strong `crypto.randomBytes(32)` per-job `executionToken`, `timingSafeEqual` in `claim`/`callback`.
 - **Worker filesystem:** `jobId` validated `^[a-zA-Z0-9_-]{8,64}$` at API boundary and re-validated in worker before any `Path` use; `resolve()` + `startswith(allowed_root + os.sep)` traversal guard; `topic` sanitized for FFmpeg `drawtext` (whitelist + escape `\` `'` `:`).
 - **GH Actions:** `env: INPUT_*` indirection (no direct `${{ }}` interpolation), SHA-pinned (`checkout`, `setup-python`, `setup-ffmpeg`, `cache`), `permissions: contents: read`.
 
