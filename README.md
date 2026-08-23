@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/FFmpeg-007808?style=for-the-badge&logo=ffmpeg&logoColor=white" />
+  <img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" />
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
 </p>
 
@@ -124,14 +125,15 @@ AI-Operating-Content-generator/
 │   ├── lib/
 │   │   ├── auth/                   # Firebase + Clerk, HMAC session, roles, audit
 │   │   ├── quota/quota-service.ts  # Atomic reservation — 5-video hard limit
-│   │   ├── core/                   # RouteRegistry · EngineRegistry · ServiceRegistry
+│   │   ├── core/                   # RouteRegistry · EngineRegistry · ServiceRegistry · SQLiteRenderQueue
 │   │   ├── factory-store.ts        # Zustand factory state + SSE
 │   │   ├── observability/event-center.ts
 │   │   ├── overseer/               # Agent + tool gateway + registry
 │   │   └── rendering/RenderQueueManager.ts
 │   ├── factoryos/                  # 🧩 Internal kernel (Vitest, 180+ tests)
 │   │   ├── core/                   # Workflow runtime, missions, guardian, NLI, adapters
-│   │   ├── tests/                  # api-config, auth, overseer, production-system, creator-flow
+│   │   │   └── database/MongoDBClient.ts  # MongoDB 7 — cases/leases/memories/DAGs/decisions (MONGODB_URI, db factoryos) + InMemory fallback
+│   │   ├── tests/                  # api-config, auth, overseer, production-system, creator-flow (incl. mongo-persistence)
 │   │   └── evals/ · benchmarks/ · reports/
 │   ├── rag/ · ai/ · publishing/ · storage/ · content-engines/
 │   ├── middleware.ts               # Auth gate — "/" authed→/dashboard, /landing→307 "/"
@@ -183,12 +185,15 @@ AI-Operating-Content-generator/
 
 | Concern | Choices |
 |---|---|
-| **Frontend** | Next.js 16 (Turbopack, `reactCompiler: true`), React 19, Tailwind v4, Framer Motion, Zustand, Clerk, Firebase Admin |
+| **Frontend** | Next.js 16 (Turbopack, `reactCompiler: true`), React 19, Tailwind v4, Framer Motion 12, Zustand 5, lucide-react, recharts, sharp, zod, @tanstack/react-query 5 |
+| **Data** | **Firestore** (`firebase-admin` 13 / `firebase` 12) — quotas, videos, quizzes · **MongoDB 7** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos` via `factoryos/core/database/MongoDBClient.ts` — cases, leases, memories, DAGs, decisions, with graceful InMemory fallback) · **SQLite** (`better-sqlite3` 12) — `SQLiteRenderQueue` (`data/shortfactory.db`) · **PostgreSQL 16 + Redis 7** — validation gate only (archived, `floors/floor07_compliance`) |
+| **Auth** | Clerk (`@clerk/nextjs` 6) + Firebase Auth — `__session` HMAC-SHA256 via `INTERNAL_API_SECRET_KEY`, role hierarchy `OWNER > ADMIN > EDITOR > USER > VIEWER`; `nodemailer` 9 for mail |
 | **Validation** | FastAPI, Pydantic, SQLAlchemy 2 + asyncpg, Alembic, Redis (asyncio), structlog, orjson, prometheus-client |
-| **Rendering** | FastAPI, MoviePy 2, Pillow 10, FFmpeg 6.1.1 (imageio-ffmpeg), edge-tts, faster-whisper, Cloudinary, Firestore |
+| **Rendering** | FastAPI, MoviePy 2, Pillow 10, FFmpeg 6.1.1 (`imageio-ffmpeg` 0.4.8), `edge-tts` 7 / `@travisvn/edge-tts`, `faster-whisper` 0.10, `mutagen` 1.47, Cloudinary 2.5, `APScheduler` 3.10, `google-api-python-client` + `google-auth` |
+| **AI** | `ai` 7 (Vercel AI SDK) + `@ai-sdk/google` 4 + `@ai-sdk/openai` 4, `@google/genai` 2.9, `groq-sdk` 1.2 (`llama-3.1-8b-instant`), Together AI `FLUX.1-schnell`, `@xenova/transformers` 2.17, OpenRouter, Ollama / LM Studio fallback |
+| **Services** | `googleapis` 173 (Drive/YouTube), `cloudinary` 2.5, `firebase-admin` 13 |
 | **Infra** | Docker & Compose, GitHub Actions, Firebase Hosting, Vercel |
-| **AI** | Gemini, Groq (`llama-3.1-8b-instant`), OpenRouter, Together AI (FLUX.1-schnell), Ollama/LM Studio fallback |
-| **Tooling** | Poetry, Vitest, Ruff, Black, mypy (strict), ESLint |
+| **Tooling** | Poetry, Vitest 4, Ruff, Black, mypy (strict), ESLint 9, TypeScript 6, Alembic |
 
 ---
 
@@ -237,7 +242,7 @@ Each service has its own `.env` (gitignored — see `*.example`):
 | Service | Key Variables |
 |---|---|
 | `floors/floor07_compliance/.env` | `DATABASE_URL` (asyncpg), `REDIS_URL`, `SIGNING_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`), `POLICY_DATA_DIR`, `LOG_LEVEL` |
-| `gen-v/.env` | `GEMINI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `DEFAULT_LLM_PROVIDER` · `NEXT_PUBLIC_RENDER_ENGINE_URL` · `ENABLE_LOCAL_RENDER` · `TOGETHER_API_KEY` · `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `FIREBASE_*` · `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `BASIC_RENDER_API_URL` · `BASIC_RENDER_API_SECRET` · `GITHUB_PAT`/`GH_TOKEN` · `GITHUB_REPO` |
+| `gen-v/.env` | `GEMINI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `DEFAULT_LLM_PROVIDER` · `NEXT_PUBLIC_RENDER_ENGINE_URL` · `ENABLE_LOCAL_RENDER` · `TOGETHER_API_KEY` · `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `FIREBASE_*` · `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `MONGODB_URI` (→ `factoryos/core/database/MongoDBClient.ts`, db `factoryos`; optional — falls back to InMemory) · `BASIC_RENDER_API_URL` · `BASIC_RENDER_API_SECRET` · `GITHUB_PAT`/`GH_TOKEN` · `GITHUB_REPO` |
 | `vps-rendering-engine/.env` | `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `BASIC_RENDER_API_SECRET` · `MAX_CONCURRENT_JOBS` · `CONTROL_PLANE_URL` · `BASIC_RENDER_PORT` · `BASIC_PERSISTENT_CACHE_DIR` · `BASIC_EPHEMERAL_WORKSPACE_ROOT` |
 
 > System `ffmpeg` must be on PATH for both local rendering and the VPS engine.
