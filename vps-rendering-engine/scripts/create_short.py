@@ -1908,6 +1908,7 @@ def main() -> None:
         raise
     finally:
         print("[Cleanup] Running global finally cleanup block...")
+        keep_artifacts = os.getenv("KEEP_RENDER_ARTIFACT", "").lower() in {"1", "true", "yes"}
         temp_dir = out_dir / "temp"
         if temp_dir.exists():
             try:
@@ -1920,17 +1921,20 @@ def main() -> None:
                 shutil.rmtree(str(images_dir), ignore_errors=True)
             except Exception:
                 pass
-        for local_file in [out_final, out_thumbnail, out_srt, out_audio]:
-            if local_file.exists():
+        if not keep_artifacts:
+            for local_file in [out_final, out_thumbnail, out_srt, out_audio]:
+                if local_file.exists():
+                    try:
+                        local_file.unlink()
+                    except Exception:
+                        pass
+            if out_dir.exists():
                 try:
-                    local_file.unlink()
+                    os.rmdir(out_dir)
                 except Exception:
                     pass
-        if out_dir.exists():
-            try:
-                os.rmdir(out_dir)
-            except Exception:
-                pass
+        else:
+            print(f"[Cleanup] KEEP_RENDER_ARTIFACT=true: Preserved final render artifacts in {out_dir}")
 
 
 if __name__ == "__main__":

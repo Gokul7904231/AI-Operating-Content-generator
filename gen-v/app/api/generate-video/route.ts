@@ -111,10 +111,12 @@ function validateQuizContent(quiz: { hook?: string; questions?: any[] }) {
 
 import { verifySession, verifyWritePermission } from "../../../lib/auth/auth";
 import { reserveGenerationSlot, releaseGenerationSlot, QuotaExceededError } from "../../../lib/quota/quota-service";
+import { extractDeviceContext } from "../../../lib/fingerprint/server";
 
 export async function POST(req: Request) {
   let userId = "";
   let jobId = "";
+  const deviceContext = extractDeviceContext(req);
   try {
     let authenticatedUser: any = null;
     try {
@@ -230,6 +232,8 @@ export async function POST(req: Request) {
         durationSeconds,
         status: "queued",
         createdAt: new Date().toISOString(),
+        deviceFingerprint: deviceContext.fingerprint,
+        clientIp: deviceContext.ipAddress,
         renderDurationSeconds: 0,
         videoSizeMb: 0.0,
       };
@@ -311,6 +315,8 @@ export async function POST(req: Request) {
         durationSeconds,
         status: "queued",
         createdAt: new Date().toISOString(),
+        deviceFingerprint: deviceContext.fingerprint,
+        clientIp: deviceContext.ipAddress,
         renderDurationSeconds: 0,
         videoSizeMb: 0.0,
       };

@@ -15,6 +15,15 @@ function safeEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(ab, bb);
 }
 
+export async function GET() {
+  return NextResponse.json({
+    status: "active",
+    service: "factoryos-rendering-callback",
+    allowedMethods: ["POST"],
+    message: "FactoryOS Render Callback API endpoint is live.",
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));

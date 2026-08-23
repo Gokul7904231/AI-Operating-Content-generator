@@ -6,6 +6,15 @@ import { getInMemoryJobs } from "@/lib/jobs-history";
 const RENDER_WORKER_SECRET = process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
 const STALE_JOB_LEASE_MS = 15 * 60 * 1000; // 15 minutes stale lease recovery
 
+export async function GET() {
+  return NextResponse.json({
+    status: "active",
+    service: "factoryos-rendering-claim",
+    allowedMethods: ["POST"],
+    message: "FactoryOS Render Claim API endpoint is live.",
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!RENDER_WORKER_SECRET) {

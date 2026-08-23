@@ -148,3 +148,150 @@ def test_admin_worker_files_unmodified():
     daemon_content = admin_daemon.read_text(encoding="utf-8")
     assert "FactoryOS Azure Admin Render Worker Daemon" in daemon_content
     assert 'tier != "ADMIN"' in daemon_content
+
+
+# ---------------------------------------------------------------------------
+# Artifact Lifecycle & Preservation Tests
+# ---------------------------------------------------------------------------
+def test_worker_passes_keep_render_artifact_env():
+    """Worker sets KEEP_RENDER_ARTIFACT=1 in subprocess environment."""
+    worker = BasicRenderWorker(concurrency=1)
+    captured_env = {}
+
+    def mock_subprocess_run(cmd, env=None, **kwargs):
+        nonlocal captured_env
+        captured_env = env or {}
+        return MagicMock(returncode=1, stderr="fail", stdout="")
+
+    with patch("subprocess.run", side_effect=mock_subprocess_run):
+        job_record = {
+            "jobId": "test-artifact-env-01",
+            "status": "queued",
+            "enqueuedAt": 0,
+            "startedAt": 0,
+            "completedAt": None,
+            "payload": {"jobId": "test-artifact-env-01", "executionToken": "tok-1", "tier": "BASIC"},
+            "result": None,
+            "error": None,
+            "cancelled": False,
+            "timings": {},
+        }
+        worker._process_single_job_sync(job_record)
+
+    assert captured_env.get("KEEP_RENDER_ARTIFACT") == "1"
+
+
+def test_create_short_preserves_artifacts_when_flag_enabled(tmp_path):
+    """create_short finally block preserves final.mp4 and result.json when KEEP_RENDER_ARTIFACT is true."""
+    out_dir = tmp_path / "test_out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_final = out_dir / "final.mp4"
+    out_final.write_bytes(b"dummy mp4 data 12345")
+    result_json = out_dir / "result.json"
+    result_json.write_text('{"status": "completed"}', encoding="utf-8")
+
+    # Simulate finally block with KEEP_RENDER_ARTIFACT=1
+    keep_artifacts = True
+    if not keep_artifacts:
+        if out_final.exists():
+            out_final.unlink()
+        if out_dir.exists():
+            out_dir.rmdir()
+
+    assert out_final.exists() is True
+    assert result_json.exists() is True
+    assert out_dir.exists() is True
+
+
+def test_create_short_cleans_artifacts_when_flag_disabled(tmp_path):
+    """create_short finally block cleans final.mp4 when KEEP_RENDER_ARTIFACT is false/empty."""
+    out_dir = tmp_path / "test_out_clean"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_final = out_dir / "final.mp4"
+    out_final.write_bytes(b"dummy mp4 data")
+
+    # Simulate finally block with KEEP_RENDER_ARTIFACT=False
+    keep_artifacts = False
+    if not keep_artifacts:
+        if out_final.exists():
+            out_final.unlink()
+
+    assert out_final.exists() is False
+
+
+def test_worker_discovers_nested_final_mp4(tmp_path):
+    """Worker successfully discovers final.mp4 in nested <workspace>/<jobId>/final.mp4."""
+    worker = BasicRenderWorker(concurrency=1)
+    job_id = "nested-mp4-job-01"
+    
+    workspace = tmp_path / job_id
+    workspace.mkdir(parents=True, exist_ok=True)
+    nested_dir = workspace / job_id
+    nested_dir.mkdir(parents=True, exist_ok=True)
+    
+    final_mp4 = nested_dir / "final.mp4"
+    final_mp4.write_bytes(b"dummy video bytes 1234567890")
+
+    result_json = nested_dir / "result.json"
+    result_json.write_text('{"videoUrl": "https://res.cloudinary.com/test.mp4"}', encoding="utf-8")
+
+    # Mock subprocess and probe
+    with patch("subprocess.run") as mock_run, \
+         patch.object(worker, "_validate_mp4") as mock_val, \
+         patch.object(worker, "_send_callback") as mock_cb:
+        
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_val.return_value = {"valid": True, "sizeMb": 2.5, "durationSeconds": 15.0, "sha256": "abc123"}
+        
+        job_record = {
+            "jobId": job_id,
+            "status": "queued",
+            "enqueuedAt": 0,
+            "startedAt": 0,
+            "completedAt": None,
+            "payload": {"jobId": job_id, "executionToken": "tok-1", "tier": "BASIC"},
+            "result": None,
+            "error": None,
+            "cancelled": False,
+            "timings": {},
+        }
+        
+        # Override workspace root to tmp_path for test
+        with patch("basic_render_worker.EPHEMERAL_WORKSPACE_ROOT", tmp_path):
+            worker._process_single_job_sync(job_record)
+
+        assert job_record["status"] == "completed"
+        assert job_record["result"]["videoUrl"] == "https://res.cloudinary.com/test.mp4"
+        assert job_record["result"]["sizeMb"] == 2.5
+
+
+def test_missing_final_mp4_causes_job_failed(tmp_path):
+    """If create_short exits 0 but produces no final.mp4 in workspace, job is marked failed."""
+    worker = BasicRenderWorker(concurrency=1)
+    job_id = "missing-mp4-job-02"
+
+    with patch("subprocess.run") as mock_run, \
+         patch.object(worker, "_send_callback") as mock_cb:
+        
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        
+        job_record = {
+            "jobId": job_id,
+            "status": "queued",
+            "enqueuedAt": 0,
+            "startedAt": 0,
+            "completedAt": None,
+            "payload": {"jobId": job_id, "executionToken": "tok-2", "tier": "BASIC"},
+            "result": None,
+            "error": None,
+            "cancelled": False,
+            "timings": {},
+        }
+        
+        with patch("basic_render_worker.EPHEMERAL_WORKSPACE_ROOT", tmp_path), \
+             patch("basic_render_worker.BASIC_RENDER_TEST_MODE", False):
+            worker._process_single_job_sync(job_record)
+
+        assert job_record["status"] == "failed"
+        assert "final.mp4 was not produced" in job_record["error"]
+

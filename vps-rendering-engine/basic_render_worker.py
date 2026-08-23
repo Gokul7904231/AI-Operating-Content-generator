@@ -282,6 +282,7 @@ class BasicRenderWorker:
             env["PYTHONUTF8"] = "1"
             env["OUTPUT_DIR"] = str(job_workspace)
             env["CACHE_DIR"] = str(PERSISTENT_CACHE_DIR / "image-cache")
+            env["KEEP_RENDER_ARTIFACT"] = "1"
 
             cmd = [sys.executable, "-u", str(script_path), str(payload_file)]
             proc = subprocess.run(cmd, env=env, cwd=str(BASE_DIR), capture_output=True, text=True)
@@ -298,34 +299,44 @@ class BasicRenderWorker:
                 else:
                     raise RuntimeError(f"Renderer create_short.py failed (exit_code={proc.returncode}): {err_log}")
             else:
-                # Find output mp4
-                output_mp4 = job_workspace / "output.mp4"
-                if not output_mp4.exists():
-                    candidate = job_workspace / job_id / "final.mp4"
-                    if candidate.exists():
-                        output_mp4 = candidate
+                # Find output mp4 within job workspace strictly
+                output_mp4 = None
+                mp4_candidates = [
+                    job_workspace / "output.mp4",
+                    job_workspace / job_id / "final.mp4",
+                    job_workspace / "final.mp4",
+                ]
+                for cand in mp4_candidates:
+                    if cand.exists() and cand.is_file():
+                        output_mp4 = cand
+                        break
+
+                if not output_mp4:
+                    if BASIC_RENDER_TEST_MODE:
+                        output_mp4 = self._render_baseline_ffmpeg(payload, job_workspace)
                     else:
-                        candidate2 = job_workspace / "final.mp4"
-                        if candidate2.exists():
-                            output_mp4 = candidate2
-                        else:
-                            if BASIC_RENDER_TEST_MODE:
-                                output_mp4 = self._render_baseline_ffmpeg(payload, job_workspace)
-                            else:
-                                raise FileNotFoundError(f"create_short.py completed with code 0 but final.mp4 was not produced in {job_workspace}")
+                        raise FileNotFoundError(
+                            f"create_short.py completed with code 0 but final.mp4 was not produced in {job_workspace}"
+                        )
 
             # ffprobe validation
             val_start = time.time()
             probe_result = self._validate_mp4(output_mp4)
             job_record["timings"]["validationMs"] = round((time.time() - val_start) * 1000, 2)
 
-            # Discover result.json
-            result_json_path = job_workspace / "result.json"
-            if not result_json_path.exists():
-                result_json_path = job_workspace / job_id / "result.json"
+            # Discover result.json within workspace
+            result_json_path = None
+            json_candidates = [
+                job_workspace / "result.json",
+                job_workspace / job_id / "result.json",
+            ]
+            for jcand in json_candidates:
+                if jcand.exists() and jcand.is_file():
+                    result_json_path = jcand
+                    break
 
             video_url = None
-            if result_json_path.exists():
+            if result_json_path and result_json_path.exists():
                 try:
                     res_data = json.loads(result_json_path.read_text(encoding="utf-8"))
                     video_url = res_data.get("videoUrl")
