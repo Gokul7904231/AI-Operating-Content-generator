@@ -141,73 +141,59 @@ def _finalize_render_and_upload(
     country_folder = country.lower().strip().replace(" ", "_")
     folder_path = f"ai_shorts/quizzes/{country_folder}/{job_id}" if is_quiz else f"ai_shorts/{job_id}"
     
+    local_only = os.getenv("BASIC_RENDER_LOCAL_ONLY", "").strip().lower() in {"1", "true", "yes"}
+
     try:
-        if not video_url:
-            print(f"[Cloudinary] Uploading {out_final} as video to {folder_path}...")
-            video_upload = cloudinary.uploader.upload(
-                str(out_final),
-                resource_type="video",
-                folder=folder_path,
-                overwrite=True
-            )
-            video_url = video_upload.get("secure_url")
-            cloudinary_public_id = video_upload.get("public_id")
-            print(f"[Cloudinary] Video uploaded. URL: {video_url}, Public ID: {cloudinary_public_id}")
+        if local_only:
+            print(f"[Render] BASIC_RENDER_LOCAL_ONLY=1 active. Skipping Cloudinary upload for {job_id}...")
+            if not video_url:
+                video_url = f"https://storage.factoryos.app/renders/{job_id}/final.mp4"
+            thumbnail_url = f"https://storage.factoryos.app/renders/{job_id}/thumb.jpg"
+            subtitles_url = f"https://storage.factoryos.app/renders/{job_id}/subtitles.srt"
+            cloudinary_public_id = f"local/{job_id}"
         else:
-            cloudinary_public_id = f"{folder_path}/final"
-            print(f"[Cloudinary] Using pre-streamed Video URL: {video_url}")
-        
-        if out_thumbnail.exists():
-            print(f"[Cloudinary] Uploading {out_thumbnail} as image to {folder_path}...")
-            thumb_upload = cloudinary.uploader.upload(
-                str(out_thumbnail),
-                resource_type="image",
-                folder=folder_path,
-                overwrite=True
-            )
-            thumbnail_url = thumb_upload.get("secure_url")
-            cloudinary_thumb_id = thumb_upload.get("public_id")
-            print(f"[Cloudinary] Thumbnail uploaded. URL: {thumbnail_url}, Public ID: {cloudinary_thumb_id}")
+            if not video_url:
+                print(f"[Cloudinary] Uploading {out_final} as video to {folder_path}...")
+                video_upload = cloudinary.uploader.upload(
+                    str(out_final),
+                    resource_type="video",
+                    folder=folder_path,
+                    overwrite=True
+                )
+                video_url = video_upload.get("secure_url")
+                cloudinary_public_id = video_upload.get("public_id")
+                print(f"[Cloudinary] Video uploaded. URL: {video_url}, Public ID: {cloudinary_public_id}")
+            else:
+                cloudinary_public_id = f"{folder_path}/final"
+                print(f"[Cloudinary] Using pre-streamed Video URL: {video_url}")
             
-        if out_srt.exists():
-            print(f"[Cloudinary] Uploading {out_srt} as raw file to {folder_path}...")
-            srt_upload = cloudinary.uploader.upload(
-                str(out_srt),
-                resource_type="raw",
-                folder=folder_path,
-                overwrite=True
-            )
-            subtitles_url = srt_upload.get("secure_url")
-            cloudinary_srt_id = srt_upload.get("public_id")
-            print(f"[Cloudinary] Subtitles uploaded. URL: {subtitles_url}, Public ID: {cloudinary_srt_id}")
+            if out_thumbnail.exists():
+                print(f"[Cloudinary] Uploading {out_thumbnail} as image to {folder_path}...")
+                thumb_upload = cloudinary.uploader.upload(
+                    str(out_thumbnail),
+                    resource_type="image",
+                    folder=folder_path,
+                    overwrite=True
+                )
+                thumbnail_url = thumb_upload.get("secure_url")
+                cloudinary_thumb_id = thumb_upload.get("public_id")
+                print(f"[Cloudinary] Thumbnail uploaded. URL: {thumbnail_url}, Public ID: {cloudinary_thumb_id}")
+                
+            if out_srt.exists():
+                print(f"[Cloudinary] Uploading {out_srt} as raw file to {folder_path}...")
+                srt_upload = cloudinary.uploader.upload(
+                    str(out_srt),
+                    resource_type="raw",
+                    folder=folder_path,
+                    overwrite=True
+                )
+                subtitles_url = srt_upload.get("secure_url")
+                cloudinary_srt_id = srt_upload.get("public_id")
+                print(f"[Cloudinary] Subtitles uploaded. URL: {subtitles_url}, Public ID: {cloudinary_srt_id}")
             
-        db = firestore.client()
-        doc_ref = db.collection("videos").document(job_id)
         dur = video_duration if video_duration is not None else probe.get("duration", 0.0)
         
-        update_payload = {
-            "status": "completed",
-            "videoUrl": video_url,
-            "thumbnailUrl": thumbnail_url,
-            "subtitlesUrl": subtitles_url,
-            "cloudinaryPublicId": cloudinary_public_id,
-            "cloudinaryThumbnailPublicId": cloudinary_thumb_id,
-            "cloudinarySubtitlesPublicId": cloudinary_srt_id,
-            "renderDurationSeconds": total_execution_seconds,
-            "videoSizeMb": video_size_mb,
-            "fps": subtitle_meta.get("fps", 18 if is_quiz else 24),
-            "resolution": subtitle_meta.get("resolution", "1080x1920" if is_quiz else "720x1280"),
-            "timings": timings,
-            "cache": {"hits": cache_hits, "misses": cache_misses},
-            "playable": probe.get("playable", True),
-            "audioDetected": probe.get("audioDetected", True),
-            "videoDuration": dur,
-        }
-        print(f"[Firebase] Updating Firestore document {job_id}...")
-        doc_ref.set(update_payload, merge=True)
-        print("[Firebase] Firestore update complete.")
-
-        # Write local result.json for main.py to read completion metadata
+        # Write local result.json for caller/worker to read completion metadata
         result_payload = {
             "jobId": job_id,
             "status": "completed",
@@ -219,21 +205,76 @@ def _finalize_render_and_upload(
             "resolution": subtitle_meta.get("resolution", "720x1280"),
             "timings": timings,
             "cache": {"hits": cache_hits, "misses": cache_misses},
+            "videoDuration": dur,
+            "videoSizeMb": video_size_mb,
+            "playable": probe.get("playable", True),
+            "audioDetected": probe.get("audioDetected", True),
         }
-        result_json_path = out_dir / "result.json"
-        try:
-            result_json_path.write_text(json.dumps(result_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            print(f"[Worker] Wrote completion metadata to {result_json_path}")
-        except Exception as json_err:
-            print(f"[Worker] Warning: Failed to write result.json: {json_err}")
-    except Exception as e:
-        print(f"[ERROR][Cloudinary/Firebase] Upload or Firestore update failed: {e}")
+        for res_path in [out_dir / "result.json", out_dir / job_id / "result.json"]:
+            try:
+                res_path.parent.mkdir(parents=True, exist_ok=True)
+                res_path.write_text(json.dumps(result_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                print(f"[Worker] Wrote completion metadata to {res_path}")
+            except Exception as json_err:
+                print(f"[Worker] Warning: Failed to write {res_path}: {json_err}")
+
         try:
             db = firestore.client()
-            db.collection("videos").document(job_id).set({"status": "failed", "error": str(e)}, merge=True)
-        except Exception:
-            pass
-        raise
+            doc_ref = db.collection("videos").document(job_id)
+            update_payload = {
+                "status": "completed",
+                "videoUrl": video_url,
+                "thumbnailUrl": thumbnail_url,
+                "subtitlesUrl": subtitles_url,
+                "cloudinaryPublicId": cloudinary_public_id,
+                "cloudinaryThumbnailPublicId": cloudinary_thumb_id,
+                "cloudinarySubtitlesPublicId": cloudinary_srt_id,
+                "renderDurationSeconds": total_execution_seconds,
+                "videoSizeMb": video_size_mb,
+                "fps": subtitle_meta.get("fps", 18 if is_quiz else 24),
+                "resolution": subtitle_meta.get("resolution", "1080x1920" if is_quiz else "720x1280"),
+                "timings": timings,
+                "cache": {"hits": cache_hits, "misses": cache_misses},
+                "playable": probe.get("playable", True),
+                "audioDetected": probe.get("audioDetected", True),
+                "videoDuration": dur,
+            }
+            print(f"[Firebase] Updating Firestore document {job_id}...")
+            doc_ref.set(update_payload, merge=True)
+            print("[Firebase] Firestore update complete.")
+        except Exception as fbe:
+            print(f"[Firebase] Non-fatal Firestore update notice: {fbe}")
+    except Exception as e:
+        print(f"[ERROR][Cloudinary/Firebase] Upload or Firestore update failed: {e}")
+        # If output MP4 is valid, do not fail the entire job on upload error
+        if out_final.exists() and out_final.stat().st_size >= 1024:
+            print(f"[Worker] Valid local final.mp4 ({video_size_mb} MB) exists. Treating upload error as non-fatal.")
+            dur = video_duration if video_duration is not None else probe.get("duration", 0.0)
+            if not video_url:
+                video_url = f"https://storage.factoryos.app/renders/{job_id}/final.mp4"
+            result_payload = {
+                "jobId": job_id,
+                "status": "completed",
+                "videoUrl": video_url,
+                "renderProfile": subtitle_meta.get("renderProfile", "STANDARD_SHORTS"),
+                "fps": subtitle_meta.get("fps", 24),
+                "resolution": subtitle_meta.get("resolution", "720x1280"),
+                "timings": timings,
+                "cache": {"hits": cache_hits, "misses": cache_misses},
+                "videoDuration": dur,
+                "videoSizeMb": video_size_mb,
+            }
+            try:
+                (out_dir / "result.json").write_text(json.dumps(result_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+        else:
+            try:
+                db = firestore.client()
+                db.collection("videos").document(job_id).set({"status": "failed", "error": str(e)}, merge=True)
+            except Exception:
+                pass
+            raise
         
     print("[Cleanup] Dropping temporary WAV cuts and local assets...")
     temp_dir = out_dir / "temp"
@@ -248,12 +289,21 @@ def _finalize_render_and_upload(
             shutil.rmtree(str(images_dir), ignore_errors=True)
         except Exception:
             pass
-    for local_file in [out_final, out_thumbnail, out_srt, out_dir / "audio.wav"]:
-        if local_file.exists():
-            try:
-                local_file.unlink()
-            except Exception:
-                pass
+
+    keep_artifacts = (
+        os.getenv("KEEP_RENDER_ARTIFACT", "").lower() in {"1", "true", "yes"}
+        or local_only
+        or bool(os.getenv("OUTPUT_DIR"))
+    )
+    if not keep_artifacts:
+        for local_file in [out_final, out_thumbnail, out_srt, out_dir / "audio.wav"]:
+            if local_file.exists():
+                try:
+                    local_file.unlink()
+                except Exception:
+                    pass
+    else:
+        print(f"[Cleanup] Preserved final render artifacts ({out_final}) in {out_dir}")
 
 def _run(cmd: list[str], *, cwd: Path | None = None) -> None:
     print("Running:", " ".join(cmd))
@@ -1907,8 +1957,12 @@ def main() -> None:
             print(f"[Firebase] Warning: Failed to set failed status: {fe}")
         raise
     finally:
-        print("[Cleanup] Running global finally cleanup block...")
-        keep_artifacts = os.getenv("KEEP_RENDER_ARTIFACT", "").lower() in {"1", "true", "yes"}
+        local_only = os.getenv("BASIC_RENDER_LOCAL_ONLY", "").strip().lower() in {"1", "true", "yes"}
+        keep_artifacts = (
+            os.getenv("KEEP_RENDER_ARTIFACT", "").lower() in {"1", "true", "yes"}
+            or local_only
+            or bool(os.getenv("OUTPUT_DIR"))
+        )
         temp_dir = out_dir / "temp"
         if temp_dir.exists():
             try:

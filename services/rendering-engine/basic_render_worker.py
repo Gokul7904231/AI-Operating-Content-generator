@@ -283,6 +283,7 @@ class BasicRenderWorker:
             env["OUTPUT_DIR"] = str(job_workspace)
             env["CACHE_DIR"] = str(PERSISTENT_CACHE_DIR / "image-cache")
             env["KEEP_RENDER_ARTIFACT"] = "1"
+            env["BASIC_RENDER_LOCAL_ONLY"] = "1"
 
             cmd = [sys.executable, "-u", str(script_path), str(payload_file)]
             proc = subprocess.run(cmd, env=env, cwd=str(BASE_DIR), capture_output=True, text=True)
