@@ -1,4 +1,4 @@
-# 🏭 FactoryOS — AI Short-Form Video Factory
+# 🏭 FactoryVids — AI Short-Form Video Factory
 
 > **One topic in. One viral Short out.** Topic → 45s 1080×1920 Short (script, voice, images, subtitles, FFmpeg) — fully automated.
 
