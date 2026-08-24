@@ -1,0 +1,22 @@
+[Unit]
+Description=FactoryOS Next.js Control Plane Service
+After=network.target
+
+[Service]
+Type=simple
+User=azureuser
+WorkingDirectory=/opt/factoryos/apps/web
+EnvironmentFile=/opt/factoryos/apps/web/.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=factoryos-control-plane
+
+# Security hardening
+ProtectSystem=full
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

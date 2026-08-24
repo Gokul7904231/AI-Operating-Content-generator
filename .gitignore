@@ -70,6 +70,8 @@ temp/
 *.png
 
 # Allow essential UI assets in public/
+!apps/web/public/demo-short.mp4
+!**/apps/web/public/demo-short.mp4
 !**/public/*.png
 !**/public/*.jpg
 !**/public/*.svg
@@ -98,3 +100,13 @@ used_artifacts/
 used_artifact/
 **/used_artifact/
 archive/
+
+# deployment artifacts
+gen-v-deploy/
+**/gen-v-deploy/
+*.tgz
+*.tar.gz
+
+# legacy bottle leftovers (physical dirs remain until manual cleanup)
+floors/
+gen-v/
