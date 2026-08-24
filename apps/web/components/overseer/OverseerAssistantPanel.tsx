@@ -30,7 +30,7 @@ export default function OverseerAssistantPanel({ isOpen, onClose }: { isOpen: bo
     {
       id: "init",
       sender: "overseer",
-      text: "FactoryOS Overseer Operational Agent ready. Ask me to inspect renders, create videos, research topics, or check factory telemetry.",
+      text: "ShortForge Overseer Operational Agent ready. Ask me to inspect renders, create videos, research topics, or check factory telemetry.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -179,11 +179,11 @@ export default function OverseerAssistantPanel({ isOpen, onClose }: { isOpen: bo
       <div className="bg-[#070D18] text-[#F5F7FA] p-4 flex items-center justify-between border-b border-white/[0.08]">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#1677FF]/10 border border-[#1677FF]/20 p-1 flex items-center justify-center text-[#1677FF] shadow-xs overflow-hidden">
-            <img src="/favicon-white.png" alt="FactoryOS Logo" width={24} height={24} loading="lazy" decoding="async" className="w-full h-full object-contain" />
+            <img src="/favicon-white.png" alt="ShortForge Logo" width={24} height={24} loading="lazy" decoding="async" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-bold text-xs block flex items-center gap-1.5 text-[#F5F7FA]">
-              FactoryOS Overseer <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#1677FF]/20 text-[#1677FF] border border-[#1677FF]/30">OPERATIONAL AGENT</span>
+              ShortForge Overseer <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#1677FF]/20 text-[#1677FF] border border-[#1677FF]/30">OPERATIONAL AGENT</span>
             </span>
             <span className="text-[10px] text-[#A8B2C1] block">Operational Intelligence & Multi-Step Assistant</span>
           </div>
@@ -233,8 +233,8 @@ export default function OverseerAssistantPanel({ isOpen, onClose }: { isOpen: bo
           >
             {msg.sender === "overseer" && (
               <div className="w-6.5 h-6.5 rounded-lg bg-[#1677FF]/10 border border-[#1677FF]/20 flex items-center justify-center flex-shrink-0 mt-0.5 p-1 overflow-hidden shadow-xs">
-                <img src="/favicon-black.png" alt="FactoryOS Logo" width={20} height={20} loading="lazy" decoding="async" className="w-full h-full object-contain dark:hidden block" />
-                <img src="/favicon-white.png" alt="FactoryOS Logo" width={20} height={20} loading="lazy" decoding="async" className="w-full h-full object-contain hidden dark:block" />
+                <img src="/favicon-black.png" alt="ShortForge Logo" width={20} height={20} loading="lazy" decoding="async" className="w-full h-full object-contain dark:hidden block" />
+                <img src="/favicon-white.png" alt="ShortForge Logo" width={20} height={20} loading="lazy" decoding="async" className="w-full h-full object-contain hidden dark:block" />
               </div>
             )}
 

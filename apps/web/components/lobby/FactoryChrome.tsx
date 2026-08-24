@@ -20,13 +20,13 @@ export default function FactoryChrome() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-md bg-zinc-900 border border-amber-500/40 flex items-center justify-center shadow-sm shadow-amber-500/10 p-0.5 overflow-hidden">
-              <img src="/favicon-black.png" alt="FactoryOS Logo" className="w-full h-full object-contain dark:hidden block" />
-              <img src="/favicon-white.png" alt="FactoryOS Logo" className="w-full h-full object-contain hidden dark:block" />
+              <img src="/favicon-black.png" alt="ShortForge Logo" className="w-full h-full object-contain dark:hidden block" />
+              <img src="/favicon-white.png" alt="ShortForge Logo" className="w-full h-full object-contain hidden dark:block" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold tracking-tight text-zinc-100 font-mono">
-                  FACTORYOS
+                  SHORTFORGE
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-900 border border-zinc-800 text-zinc-400">
                   LOBBY v2.4

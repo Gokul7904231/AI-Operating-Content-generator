@@ -23,7 +23,7 @@ export function AdminOperationsDrawer({ isOpen, onClose }: AdminOperationsDrawer
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-emerald-400" />
           <div>
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-zinc-200">FactoryOS Operations</h2>
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-zinc-200">ShortForge Operations</h2>
             <p className="text-xs text-zinc-400">Progressive Operations Diagnostics & Telemetry</p>
           </div>
         </div>

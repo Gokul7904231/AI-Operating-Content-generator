@@ -211,7 +211,7 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
                         </span>
                       </div>
                       <div className="text-[9px] text-[#667085] font-mono truncate">
-                        {user?.email || "operator@factoryos.internal"}
+                        {user?.email || "operator@shortforge.internal"}
                       </div>
                     </div>
                   </div>

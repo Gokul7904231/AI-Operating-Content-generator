@@ -298,7 +298,7 @@ function AuthContainerContent() {
           {/* Header Section */}
           <div className="flex flex-col items-center text-center gap-3">
             <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-[#0071e3]/20 flex items-center justify-center mb-1 shadow-sm p-2.5 overflow-hidden">
-              <img src="/favicon-black.png" alt="FactoryOS Logo" className="w-full h-full object-contain" />
+              <img src="/favicon-black.png" alt="ShortForge Logo" className="w-full h-full object-contain" />
             </div>
 
             {portalType === "admin" && !isForgotFlow && (
@@ -315,7 +315,7 @@ function AuthContainerContent() {
                 <p className="text-xs text-[#6e6e73] leading-relaxed max-w-xs">
                   {portalType === "admin"
                     ? "Elevated access for authorized administrators and system operators."
-                    : "Get started with FactoryOS Pro to manage your automated pipelines."}
+                    : "Get started with ShortForge to manage your automated pipelines."}
                 </p>
               </>
             )}
@@ -323,7 +323,7 @@ function AuthContainerContent() {
             {authMode === "signup" && (
               <>
                 <h1 className="text-3xl font-semibold tracking-tight text-[#1d1d1f] font-display">Create Your Account</h1>
-                <p className="text-xs text-[#6e6e73] leading-relaxed max-w-xs">Join FactoryOS to orchestrate living Overseer pipelines.</p>
+                <p className="text-xs text-[#6e6e73] leading-relaxed max-w-xs">Join ShortForge to orchestrate living Overseer pipelines.</p>
               </>
             )}
 
@@ -762,7 +762,7 @@ function AuthContainerContent() {
           {/* Footer Legal Links */}
           <div className="text-center">
             <p className="text-[#6e6e73] text-[11px] opacity-70 leading-relaxed">
-              By {authMode === "signup" ? "registering" : "signing in"}, you agree to the FactoryOS Pro{" "}
+              By {authMode === "signup" ? "registering" : "signing in"}, you agree to the ShortForge{" "}
               <a className="underline hover:text-[#0071e3] transition-colors" href="#">Terms of Service</a> and{" "}
               <a className="underline hover:text-[#0071e3] transition-colors" href="#">Privacy Policy</a>.
             </p>

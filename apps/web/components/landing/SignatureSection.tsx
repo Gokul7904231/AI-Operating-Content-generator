@@ -24,7 +24,7 @@ export default function SignatureSection() {
             </span>
           </h2>
           <p className="text-base sm:text-lg font-text text-[#6e6e73] tracking-apple-body max-w-2xl mx-auto">
-            Give FactoryOS the concept. The autonomous production system handles the scripting, voice synthesis, frame generation, timeline stitching, and compliance.
+            Give ShortForge the concept. The autonomous production system handles the scripting, voice synthesis, frame generation, timeline stitching, and compliance.
           </p>
         </div>
 
@@ -46,10 +46,10 @@ export default function SignatureSection() {
               <ArrowRight className="w-6 h-6 text-[#0071e3] animate-pulse" />
             </div>
 
-            {/* Step 2: FactoryOS Engine */}
+            {/* Step 2: ShortForge Engine */}
             <div className="p-9 bg-sky-50 border-2 border-[#0071e3]/40 rounded-2xl text-center space-y-3 relative shadow-xs">
               <span className="text-xs text-[#0071e3] font-bold uppercase tracking-widest">STEP 02</span>
-              <h3 className="text-lg font-display font-semibold text-[#0071e3]">FACTORYOS</h3>
+              <h3 className="text-lg font-display font-semibold text-[#0071e3]">SHORTFORGE</h3>
               <p className="text-xs text-[#1d1d1f] font-text">Autonomous Orchestration</p>
             </div>
 

@@ -245,7 +245,7 @@ export default function AdminUsersPage() {
           </div>
           <h2 className="text-xl font-bold text-[#111827] dark:text-[#F5F7FA]">403 — Unauthorized Access</h2>
           <p className="text-xs text-[#667085] dark:text-[#A7B0BC] max-w-md mx-auto">
-            The User Directory & Admin Room is restricted to FactoryOS administrative operators (OWNER/ADMIN). Your account does not have sufficient clearance.
+            The User Directory & Admin Room is restricted to ShortForge administrative operators (OWNER/ADMIN). Your account does not have sufficient clearance.
           </p>
         </div>
       </div>

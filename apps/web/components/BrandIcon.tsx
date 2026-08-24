@@ -11,7 +11,7 @@ export interface BrandIconProps extends React.ImgHTMLAttributes<HTMLImageElement
 
 export const BrandIcon: React.FC<BrandIconProps> = ({
   className = "w-4 h-4",
-  alt = "FactoryOS",
+  alt = "ShortForge",
   size,
   style,
   variant = "auto",

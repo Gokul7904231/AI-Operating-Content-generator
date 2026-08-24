@@ -45,7 +45,7 @@ export async function getDeviceFingerprint(): Promise<string> {
 }
 
 /**
- * React Hook for consuming the device fingerprint across FactoryOS UI.
+ * React Hook for consuming the device fingerprint across ShortForge UI.
  */
 export function useDeviceFingerprint() {
   const [visitorId, setVisitorId] = useState<string | null>(cachedVisitorId);

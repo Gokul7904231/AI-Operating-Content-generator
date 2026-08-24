@@ -1,5 +1,5 @@
 /**
- * Brevo Transactional Email Service — FactoryOS v1
+ * Brevo Transactional Email Service — ShortForge v1
  * 
  * Sends secure, branded password-reset emails using Brevo SMTP with gokul.software domain.
  * Strictly guarantees that passwords, tokens, or debug secrets are never included.
@@ -19,7 +19,7 @@ export class BrevoEmailService {
    */
   static async sendPasswordResetOtp(options: PasswordResetEmailOptions): Promise<boolean> {
     const { to, otp, expiresInMinutes = 15 } = options;
-    const subject = "FactoryOS password reset code";
+    const subject = "ShortForge password reset code";
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -32,11 +32,11 @@ export class BrevoEmailService {
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #050a12; color: #f5f7fa;">
   <div style="max-width: 520px; margin: 40px auto; padding: 32px; background: #08101b; border: 1px solid #1b2938; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);">
     <div style="margin-bottom: 24px; text-align: center;">
-      <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #f5f7fa; letter-spacing: -0.5px;">FactoryOS Account Security</h2>
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #f5f7fa; letter-spacing: -0.5px;">ShortForge Account Security</h2>
     </div>
     
     <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5; color: #a7b0bc;">
-      We received a request to reset the password for your FactoryOS account.
+      We received a request to reset the password for your ShortForge account.
     </p>
 
     <div style="margin: 28px 0; padding: 20px; background: #0d1622; border: 1px solid #1b2938; border-radius: 12px; text-align: center;">
@@ -52,7 +52,7 @@ export class BrevoEmailService {
     <hr style="border: 0; border-top: 1px solid #1b2938; margin: 24px 0;">
 
     <div style="font-size: 12px; color: #475467; text-align: center;">
-      FactoryOS Autonomous AI System • gokul.software
+      ShortForge Autonomous AI System • gokul.software
     </div>
   </div>
 </body>

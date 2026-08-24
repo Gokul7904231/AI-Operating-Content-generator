@@ -282,7 +282,7 @@ export const OverseerChat: React.FC<OverseerChatProps> = memo(({
         </button>
 
         <span className="text-[10px] text-[#667085]">
-          Supervising FactoryOS Core • Mode: <strong className="text-[#1677FF]">{currentMode}</strong>
+          Supervising ShortForge Core • Mode: <strong className="text-[#1677FF]">{currentMode}</strong>
         </span>
       </div>
     </div>

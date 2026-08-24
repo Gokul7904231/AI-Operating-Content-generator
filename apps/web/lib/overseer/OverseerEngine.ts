@@ -122,6 +122,6 @@ export class OverseerEngine {
       return `Account Overview: You are logged in as **${user.email}** (${user.role}). Your current AI credit usage is **${data.myQuota.usedCredits} / ${data.myQuota.maxCredits}**.`;
     }
 
-    return `Overseer Intelligence: I'm monitoring your FactoryOS workspace. Ask me about your active video renders, project history, or AI provider health!`;
+    return `Overseer Intelligence: I'm monitoring your ShortForge workspace. Ask me about your active video renders, project history, or AI provider health!`;
   }
 }

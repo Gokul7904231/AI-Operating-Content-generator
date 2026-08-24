@@ -2,7 +2,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth/providers";
 
 export const metadata = {
-  title: "FactoryOS Pro — AI Operating System",
+  title: "ShortForge — Forge viral Shorts",
   description: "Enterprise Automated Content Generation & Quality Orchestration Engine",
   icons: {
     icon: [

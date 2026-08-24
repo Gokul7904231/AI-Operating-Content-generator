@@ -42,7 +42,7 @@ export default function VideoProofSection() {
             <span className="text-[#0071e3] font-semibold">This system produces media.</span>
           </h2>
           <p className="text-base sm:text-lg font-text text-[#6e6e73] tracking-apple-body max-w-2xl mx-auto">
-            Below is an actual short-form video produced end-to-end by the FactoryOS pipeline from a raw natural language brief.
+            Below is an actual short-form video produced end-to-end by the ShortForge pipeline from a raw natural language brief.
           </p>
         </div>
 

@@ -20,7 +20,7 @@ export async function GET() {
     status: "active",
     service: "factoryos-rendering-callback",
     allowedMethods: ["POST"],
-    message: "FactoryOS Render Callback API endpoint is live.",
+    message: "ShortForge Render Callback API endpoint is live.",
   });
 }
 

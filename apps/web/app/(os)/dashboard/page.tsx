@@ -107,7 +107,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold tracking-tight text-[#111827] dark:text-[#F5F7FA] font-mono">
-                      FACTORYOS TELEMETRY PLANE
+                      SHORTFORGE TELEMETRY PLANE
                     </h3>
                     <span className="px-2 py-0.5 bg-[#179E69]/10 dark:bg-[#21C58B]/10 border border-[#179E69]/20 dark:border-[#21C58B]/20 text-[#179E69] dark:text-[#21C58B] text-[10px] font-mono font-bold rounded">
                       ● OPERATIONAL
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                     <h3 className="text-xs font-bold text-[#F5F7FA] uppercase tracking-widest font-mono">
                       9-Stage Content Generation Pipeline
                     </h3>
-                    <span className="text-[10px] text-[#667085] font-mono">Source: FactoryOS Swarms</span>
+                    <span className="text-[10px] text-[#667085] font-mono">Source: ShortForge Swarms</span>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono font-bold text-[#667085] bg-[#070D18] border border-white/[0.06] p-4 rounded-xl">
                     {["Topic", "Script", "Guardian", "Voice", "Assets", "Renderer", "Validation", "Upload", "Publish"].map((stage, idx, arr) => (

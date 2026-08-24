@@ -323,7 +323,7 @@ export default function SettingsPage() {
         <div className="pt-2 border-t border-zinc-800 space-y-3">
           <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider font-mono flex items-center gap-2">
             <Download className="w-4 h-4 text-emerald-400" />
-            Download FactoryOS Render Worker Agent Packages
+            Download ShortForge Render Worker Agent Packages
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4 space-y-3 flex flex-col justify-between">
@@ -332,10 +332,10 @@ export default function SettingsPage() {
                   <Terminal className="w-4 h-4 text-blue-400" />
                   Windows x64 Worker CLI
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-1 font-mono">factoryos-worker-v1.0-win-x64.zip</p>
+                <p className="text-[11px] text-zinc-500 mt-1 font-mono">shortforge-worker-v1.0-win-x64.zip</p>
               </div>
               <a
-                href="/downloads/factoryos-worker-windows-x64.zip"
+                href="/downloads/shortforge-worker-windows-x64.zip"
                 download
                 className="w-full py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
               >
@@ -349,10 +349,10 @@ export default function SettingsPage() {
                   <Terminal className="w-4 h-4 text-emerald-400" />
                   Linux x64 Worker CLI
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-1 font-mono">factoryos-worker-v1.0-linux-x64.tar.gz</p>
+                <p className="text-[11px] text-zinc-500 mt-1 font-mono">shortforge-worker-v1.0-linux-x64.tar.gz</p>
               </div>
               <a
-                href="/downloads/factoryos-worker-linux-x64.tar.gz"
+                href="/downloads/shortforge-worker-linux-x64.tar.gz"
                 download
                 className="w-full py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
               >

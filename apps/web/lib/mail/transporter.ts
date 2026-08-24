@@ -17,7 +17,7 @@ export async function sendTransactionalEmail(
 ): Promise<boolean> {
   try {
     const info = await transporter.sendMail({
-      from: '"FactoryOS" <noreply@gokul.software>',
+      from: '"ShortForge" <noreply@gokul.software>',
       to,
       subject,
       html: htmlContent,

@@ -1,6 +1,6 @@
-# 🏭 FactoryOS — AI Short-Form Video Factory
+# ShortForge — Forge viral Shorts
 
-> **One topic in. One viral Short out.** FactoryOS turns any idea into a publish-ready 1080×1920 YouTube Short — script, voice, images, subtitles, and muxing — fully automated.
+> **One topic in. One viral Short out.** ShortForge turns any idea into a publish-ready 1080×1920 YouTube Short — script, voice, images, subtitles, and muxing — fully automated.
 
 <p align="center">
   <a href="https://github.com/Gokul7904231/AI-Shorts-Maker/actions/workflows/ci.yml"><img src="https://github.com/Gokul7904231/AI-Shorts-Maker/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
@@ -91,7 +91,7 @@ Topic: "5 Mind-Blowing Facts About Space"
 
 ## 🏭 Pipeline Stages — The "Floors" Architecture
 
-FactoryOS models autonomous short-form media generation as an **industrial manufacturing assembly line (DAG)**. Each *Floor* represents a decoupled, specialized stage of the multi-modal synthesis pipeline:
+ShortForge models autonomous short-form media generation as an **industrial manufacturing assembly line (DAG)**. Each *Floor* represents a decoupled, specialized stage of the multi-modal synthesis pipeline:
 
 | Floor / Stage | Pipeline Responsibility | Worker & Runtime Stack | Control Plane Route (`gen-v/app`) |
 |---|---|---|---|
@@ -121,7 +121,7 @@ FactoryOS models autonomous short-form media generation as an **industrial manuf
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Control Plane  gen-v  (Next.js 16 App Router, Turbopack, React 19)    │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐  │
-│  │  App Router  │ │  Middleware  │ │  Components  │ │   FactoryOS  │  │
+│  │  App Router  │ │  Middleware  │ │  Components  │ │   ShortForge  │  │
 │  │  (os) shell  │ │  auth gate   │ │  wizard/SSE  │ │  kernel      │  │
 │  │  landing/    │ │  /→dashboard │ │  QuickGen    │ │  missions/   │  │
 │  │  dashboard/  │ │  /landing→307│ │  TopNav etc  │ │  guardian/   │  │
@@ -178,7 +178,7 @@ FactoryOS models autonomous short-form media generation as an **industrial manuf
 | Store | Used For | Client | Notes |
 |---|---|---|---|
 | **Firestore** (`firebase-admin` 13) | `quotas/{userId}`, `videos/{jobId}`, `quizzes/*`, `generation_logs` | Control Plane | Source of truth for user-facing state |
-| **MongoDB** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos`) | `cases`, `leases`, `memories`, `task_dags`, `decisions`, `world_state` | `factoryos/core/database/MongoDBClient.ts` | FactoryOS kernel; graceful **InMemory** fallback if `MONGODB_URI` unset |
+| **MongoDB** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos` (legacy)) | `cases`, `leases`, `memories`, `task_dags`, `decisions`, `world_state` | `factoryos/core/database/MongoDBClient.ts` | ShortForge kernel; graceful **InMemory** fallback if `MONGODB_URI` unset |
 | **SQLite** (`better-sqlite3` 12, `data/shortfactory.db`) | `render_jobs` queue (`queued/claimed/running/retrying/completed/failed`, `progress_percentage`) | `SQLiteRenderQueue` + `QueueProcessor`/`EventBus` | Durable local queue; file-JSON `output/jobs/*.json` as mirror |
 | **Cloudinary** (`cloudinary` 2.5) | Final `mp4`/`png`/`srt`, `geo_quiz_factory` | Worker | CDN delivery |
 | **PostgreSQL 16 + Redis 7** | Validation gate only | `floors/floor07_compliance` | **Archived** — not live |
@@ -312,7 +312,7 @@ AI-Operating-Content-generator/
 | Concern | Choices |
 |---|---|
 | **Frontend** | Next.js 16 (Turbopack, `reactCompiler: true`), React 19, Tailwind v4, Framer Motion 12, Zustand 5, lucide-react, recharts, sharp, zod, @tanstack/react-query 5 |
-| **Data** | **Firestore** (`firebase-admin` 13 / `firebase` 12) — quotas, videos, quizzes · **MongoDB 7** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos` via `factoryos/core/database/MongoDBClient.ts` — cases, leases, memories, DAGs, decisions, with graceful InMemory fallback) · **SQLite** (`better-sqlite3` 12) — `SQLiteRenderQueue` (`data/shortfactory.db`) · **PostgreSQL 16 + Redis 7** — validation gate only (archived, `floors/floor07_compliance`) |
+| **Data** | **Firestore** (`firebase-admin` 13 / `firebase` 12) — quotas, videos, quizzes · **MongoDB 7** (`mongodb` 7.5, `MONGODB_URI`, db `factoryos` (legacy) via `factoryos/core/database/MongoDBClient.ts` — cases, leases, memories, DAGs, decisions, with graceful InMemory fallback) · **SQLite** (`better-sqlite3` 12) — `SQLiteRenderQueue` (`data/shortfactory.db`) · **PostgreSQL 16 + Redis 7** — validation gate only (archived, `floors/floor07_compliance`) |
 | **Auth** | Clerk (`@clerk/nextjs` 6) + Firebase Auth — `__session` HMAC-SHA256 via `INTERNAL_API_SECRET_KEY`, role hierarchy `OWNER > ADMIN > EDITOR > USER > VIEWER`; `nodemailer` 9 for mail |
 | **Validation (archived)** | FastAPI, Pydantic, SQLAlchemy 2 + asyncpg, Alembic, Redis (asyncio), structlog, orjson, prometheus-client — `floors/floor07_compliance` (archived, not live; see [Archived Components](#-archived-components)) |
 | **Rendering** | FastAPI, MoviePy 2, Pillow 10, FFmpeg 6.1.1 (`imageio-ffmpeg` 0.4.8), `edge-tts` 7 / `@travisvn/edge-tts`, `faster-whisper` 0.10, `mutagen` 1.47, Cloudinary 2.5, `APScheduler` 3.10, `google-api-python-client` + `google-auth` |
@@ -360,7 +360,7 @@ Each service has its own `.env` (gitignored — see `*.example`):
 
 | Service | Key Variables |
 |---|---|
-| `gen-v/.env` | `GEMINI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `DEFAULT_LLM_PROVIDER` · `NEXT_PUBLIC_RENDER_ENGINE_URL` · `ENABLE_LOCAL_RENDER` · `TOGETHER_API_KEY` · `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `FIREBASE_*` · `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `MONGODB_URI` (→ `factoryos/core/database/MongoDBClient.ts`, db `factoryos`; optional — falls back to InMemory) · `BASIC_RENDER_API_URL` · `BASIC_RENDER_API_SECRET` · `GITHUB_PAT`/`GH_TOKEN` · `GITHUB_REPO` |
+| `gen-v/.env` | `GEMINI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `DEFAULT_LLM_PROVIDER` · `NEXT_PUBLIC_RENDER_ENGINE_URL` · `ENABLE_LOCAL_RENDER` · `TOGETHER_API_KEY` · `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `FIREBASE_*` · `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `MONGODB_URI` (→ `factoryos/core/database/MongoDBClient.ts`, db `factoryos` (legacy); optional — falls back to InMemory) · `BASIC_RENDER_API_URL` · `BASIC_RENDER_API_SECRET` · `GITHUB_PAT`/`GH_TOKEN` · `GITHUB_REPO` |
 | `vps-rendering-engine/.env` | `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `BASIC_RENDER_API_SECRET` · `MAX_CONCURRENT_JOBS` · `CONTROL_PLANE_URL` · `BASIC_RENDER_PORT` · `BASIC_PERSISTENT_CACHE_DIR` · `BASIC_EPHEMERAL_WORKSPACE_ROOT` |
 | `archive/floor07_compliance_2026-08-23/.env` *(archived, not live)* | `DATABASE_URL` (asyncpg), `REDIS_URL`, `SIGNING_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`), `POLICY_DATA_DIR`, `LOG_LEVEL` — see [Archived Components](#-archived-components) |
 
@@ -427,7 +427,7 @@ POST /api/generate-video  (Control Plane)
 ```bash
 cd gen-v
 npm run factoryos:test              # Vitest — factoryos/tests/** (node env, 60s timeout)
-npx vite-node factoryos/demo.ts              # FactoryOS demo
+npx vite-node factoryos/demo.ts              # ShortForge demo
 npx vite-node factoryos/demo-production.ts   # production demo
 npx vitest run factoryos/tests/<name>.test.ts --config vitest.config.ts  # single file
 npm run factoryos:typecheck         # tsc --project tsconfig.factoryos.json --noEmit
@@ -509,4 +509,4 @@ MIT — see [LICENSE](LICENSE) if present.
 
 ---
 
-<p align="center"><strong>FactoryOS</strong> is engineered as a high-throughput, enterprise-grade AI automated media production system.</p>
+<p align="center"><strong>ShortForge</strong> is engineered as a high-throughput, enterprise-grade AI automated media production system.</p>

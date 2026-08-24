@@ -177,7 +177,7 @@ export const OverseerResponseCard: React.FC<OverseerResponseCardProps> = memo(({
         </div>
 
         <span className="text-[10px] font-mono text-[#667085]">
-          Grounded in FactoryOS Decision Ledger
+          Grounded in ShortForge Decision Ledger
         </span>
       </div>
 

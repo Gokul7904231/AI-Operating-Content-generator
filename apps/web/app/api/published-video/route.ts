@@ -4,7 +4,7 @@
  * Public V1 Read-Only Endpoint for Deployed Northflank Application.
  * Returns the active published video metadata for public viewers.
  *
- * ZERO side-effects. Does NOT invoke LLMs, FFmpeg, FactoryOS, or Drive uploads.
+ * ZERO side-effects. Does NOT invoke LLMs, FFmpeg, ShortForge, or Drive uploads.
  */
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebase-admin";

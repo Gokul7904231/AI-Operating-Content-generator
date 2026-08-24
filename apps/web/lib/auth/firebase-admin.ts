@@ -1,5 +1,5 @@
 /**
- * Firebase Admin SDK & Server-Side Security Manager — FactoryOS v1
+ * Firebase Admin SDK & Server-Side Security Manager — ShortForge v1
  */
 
 import * as admin from "firebase-admin";

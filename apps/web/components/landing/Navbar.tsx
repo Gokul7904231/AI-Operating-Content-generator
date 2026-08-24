@@ -30,17 +30,17 @@ export default function Navbar() {
       data-od-id="navbar"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Official FactoryOS Brand Logo */}
+        {/* Official ShortForge Brand Logo */}
         <Link
           href="/"
           className="brand flex items-center gap-2.5 group min-h-[44px]"
           data-od-id="brand-logo"
-          aria-label="FactoryOS home"
+          aria-label="ShortForge home"
         >
           <div className="brand-icon w-8 h-8 rounded-lg bg-sky-50/80 border border-[#0071e3]/30 flex items-center justify-center shadow-xs group-hover:border-[#0071e3] group-hover:scale-105 transition-[border-color,transform] duration-200 p-1 overflow-hidden">
             <img
               src="/favicon-black.png"
-              alt="FactoryOS Logo"
+              alt="ShortForge Logo"
               width={32}
               height={32}
               className="w-full h-full object-contain"
@@ -48,7 +48,7 @@ export default function Navbar() {
           </div>
           <div className="flex flex-col">
             <span className="brand-name text-sm font-bold tracking-apple-headline text-[#1d1d1f] font-display">
-              FACTORYOS
+              SHORTFORGE
             </span>
             <span className="brand-tag text-[9px] font-text text-[#86868b] tracking-wider uppercase -mt-0.5 font-semibold">
               SHORT-FORM PRODUCTION OS

@@ -168,9 +168,9 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold text-[#F5F7FA] flex items-center gap-1.5">
-                    <BrandIcon className="w-4 h-4" /> Select FactoryOS 3D Avatar
+                    <BrandIcon className="w-4 h-4" /> Select ShortForge 3D Avatar
                   </h4>
-                  <p className="text-[11px] text-[#667085]">Official 3D cartoon avatar suite rendered for FactoryOS</p>
+                  <p className="text-[11px] text-[#667085]">Official 3D cartoon avatar suite rendered for ShortForge</p>
                 </div>
                 <button 
                   onClick={() => setShowAvatarPicker(false)}

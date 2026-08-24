@@ -104,7 +104,7 @@ export const OverseerProgressiveDisclosure: React.FC<ProgressiveDisclosureProps>
             <h2 className="text-xs font-mono font-bold tracking-wider uppercase text-[#F5F7FA]">
               OPERATIONAL TELEMETRY
             </h2>
-            <span className="text-[10px] font-mono text-[#667085]">Live FactoryOS Substrate</span>
+            <span className="text-[10px] font-mono text-[#667085]">Live ShortForge Substrate</span>
           </div>
         </div>
 

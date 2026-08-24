@@ -87,7 +87,7 @@ export default function PricingPlansPage() {
             <div>
               <h2 className="text-2xl font-black">Basic</h2>
               <p className="text-xs text-[#667085] dark:text-[#A8B2C1] mt-1">
-                Perfect for trying out FactoryOS and creating viral trivia shorts.
+                Perfect for trying out ShortForge and creating viral trivia shorts.
               </p>
             </div>
 
@@ -283,7 +283,7 @@ export default function PricingPlansPage() {
           </div>
 
           <a
-            href="mailto:support@factoryos.app?subject=Enterprise%20Inquiry"
+            href="mailto:support@shortforge.app?subject=Enterprise%20Inquiry"
             className="w-full py-3 rounded-2xl font-bold text-xs bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.1] dark:hover:bg-white/[0.12] text-[#111827] dark:text-[#F5F7FA] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Building className="w-4 h-4" />

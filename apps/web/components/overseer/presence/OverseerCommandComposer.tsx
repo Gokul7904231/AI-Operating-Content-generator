@@ -85,7 +85,7 @@ export const OverseerCommandComposer: React.FC<OverseerCommandComposerProps> = m
       case "RESEARCH":
         return "Ask for intelligence or trend research...";
       case "OPERATE":
-        return "Issue operational command to FactoryOS swarms...";
+        return "Issue operational command to ShortForge swarms...";
       case "MONITOR":
         return "Query telemetry or buffer status...";
       case "AUTOPILOT":

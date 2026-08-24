@@ -12,13 +12,13 @@ export default function Footer() {
           <div className="w-6 h-6 rounded-md bg-white border border-[#0071e3]/30 flex items-center justify-center shadow-xs p-0.5 overflow-hidden">
             <img
               src="/favicon-black.png"
-              alt="FactoryOS Logo"
+              alt="ShortForge Logo"
               width={24}
               height={24}
               className="w-full h-full object-contain"
             />
           </div>
-          <span className="font-bold text-[#1d1d1f] font-display">FACTORYOS</span>
+          <span className="font-bold text-[#1d1d1f] font-display">SHORTFORGE</span>
           <span className="text-[#e8e8ed]">|</span>
           <span className="text-[#86868b] font-medium">SHORT-FORM PRODUCTION OS</span>
         </div>
@@ -43,7 +43,7 @@ export default function Footer() {
           <Link href="/pricing" className="hover:text-[#1d1d1f] transition-colors">
             Pricing
           </Link>
-          <span className="text-[#86868b]">© 2026 FactoryOS</span>
+          <span className="text-[#86868b]">© 2026 ShortForge</span>
         </div>
       </div>
     </footer>

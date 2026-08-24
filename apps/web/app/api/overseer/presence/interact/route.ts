@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
     ) {
       title = "Overseer Operational Identity";
       answer =
-        "I'm Overseer — the operational intelligence coordinating FactoryOS. I watch the factory floor telemetry, coordinate autonomous agent swarms, and help you create high-performing short video pipelines.";
+        "I'm Overseer — the operational intelligence coordinating ShortForge. I watch the factory floor telemetry, coordinate autonomous agent swarms, and help you create high-performing short video pipelines.";
       evidence = [
-        `Substrate: FactoryOS Frontier v2`,
+        `Substrate: ShortForge Frontier v2`,
         `Operating Mode: ${mode}`,
         `Floors Supervised: ${Object.keys(worldState.floors).length}`,
       ];
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
 
       structuredArtifact = quizPayload;
 
-      // Dispatch into real FactoryOS Mission Manager
+      // Dispatch into real ShortForge Mission Manager
       const mission = await controller.missionManager.createMission({
         goal: `Produce 30s Quiz Short: "${topic}"`,
         objective: `Execute 9-stage content generation pipeline for topic: ${topic}`,
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
 
       title = "Proactive Factory Optimizations";
       confidence = 0.92;
-      answer = `Here are my current proactive operational insights for FactoryOS:\n\n1. **High Throughput Ready**: All 4 floors and worker pools are idle and prepared for bulk rendering.\n2. **Economic Efficiency**: Routing policy is operating on lowest viable token tier without safety regression.\n3. **Recommended Action**: Trigger a new quiz short generation to maximize channel publishing volume.`;
+      answer = `Here are my current proactive operational insights for ShortForge:\n\n1. **High Throughput Ready**: All 4 floors and worker pools are idle and prepared for bulk rendering.\n2. **Economic Efficiency**: Routing policy is operating on lowest viable token tier without safety regression.\n3. **Recommended Action**: Trigger a new quiz short generation to maximize channel publishing volume.`;
 
       presenceEngine.intentEngine.pushIntent("CURIOUS", {
         priority: "USER_INTERACTION",

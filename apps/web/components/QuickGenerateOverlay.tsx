@@ -436,7 +436,7 @@ export default function QuickGenerateOverlay() {
       };
 
       const payload = {
-        topic: draft.topic || topicBrief || "FactoryOS Short",
+        topic: draft.topic || topicBrief || "ShortForge Short",
         style: selectedEngineId || "quiz",
         engineId: selectedEngineId || "quiz",
         engineMode: quizMode,

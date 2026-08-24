@@ -48,7 +48,7 @@ export default function FloorDrawer() {
                 <span>ARCHITECTURAL STATUS: CONCEPTUAL</span>
               </div>
               <p className="text-xs text-zinc-400 font-sans leading-relaxed">
-                Floor 06 (Distribution & Publishing Preparation) is defined in the FactoryOS architectural spec, but its production worker routines are currently conceptual and not yet implemented.
+                Floor 06 (Distribution & Publishing Preparation) is defined in the ShortForge architectural spec, but its production worker routines are currently conceptual and not yet implemented.
               </p>
             </div>
           ) : (

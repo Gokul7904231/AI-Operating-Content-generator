@@ -63,7 +63,7 @@ export default function HeroSection() {
 
             {/* Supporting Copy */}
             <p className={`text-lg sm:text-xl font-text text-[#6e6e73] max-w-2xl leading-relaxed tracking-apple-body reveal reveal-d2 ${mounted ? "visible" : ""}`}>
-              FactoryOS is an autonomous production system for short-form video.
+              ShortForge is an autonomous production system for short-form video.
               Give the factory a concept — the system orchestrates scripting, visual synthesis, voice timing, and compliance into a finished short.
             </p>
 
@@ -124,7 +124,7 @@ export default function HeroSection() {
                 {/* Translucent Overlay Badge */}
                 <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-text text-white/90 flex items-center gap-2 z-20 shadow-xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="font-medium tracking-wide">REAL FACTORYOS RENDER</span>
+                  <span className="font-medium tracking-wide">REAL SHORTFORGE RENDER</span>
                 </div>
 
                 {/* Playback Controls Overlay */}
@@ -149,7 +149,7 @@ export default function HeroSection() {
               {/* Bottom Caption */}
               <div className="mt-2 text-center">
                 <p className="text-[11px] font-text text-zinc-400">
-                  Topic: "Quantum Computing Decryption" · Rendered by FactoryOS Pipeline
+                  Topic: "Quantum Computing Decryption" · Rendered by ShortForge Pipeline
                 </p>
               </div>
             </div>

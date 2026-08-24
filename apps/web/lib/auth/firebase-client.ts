@@ -1,5 +1,5 @@
 /**
- * Firebase Client SDK Initialization & Credentials Resolver — FactoryOS v1
+ * Firebase Client SDK Initialization & Credentials Resolver — ShortForge v1
  */
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";

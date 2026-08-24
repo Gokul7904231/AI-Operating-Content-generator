@@ -47,7 +47,7 @@
 }
 
 :root, :root.dark, [data-theme="dark"] {
-  /* FactoryOS Apple-Inspired Restrained Dark Design Tokens */
+  /* ShortForge Apple-Inspired Restrained Dark Design Tokens */
   --os-bg: #050A12;
   --os-surface: #08101B;
   --os-surface-elevated: #0D1622;
@@ -100,7 +100,7 @@
 }
 
 :root.light, [data-theme="light"] {
-  /* FactoryOS Apple-Inspired Clean Light Design Tokens */
+  /* ShortForge Apple-Inspired Clean Light Design Tokens */
   --os-bg: #F7F8FA;
   --os-surface: #FFFFFF;
   --os-surface-elevated: #FFFFFF;

@@ -110,8 +110,8 @@ export default function Sidebar() {
       <div className="p-4 flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.08] h-16">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden select-none">
           <div className="w-8 h-8 rounded-lg bg-[#1769E8]/10 border border-[#1769E8]/20 flex items-center justify-center flex-shrink-0 p-1 overflow-hidden">
-            <img src="/favicon-black.png" alt="FactoryOS Logo" width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-contain dark:hidden block" />
-            <img src="/favicon-white.png" alt="FactoryOS Logo" width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-contain hidden dark:block" />
+            <img src="/favicon-black.png" alt="ShortForge Logo" width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-contain dark:hidden block" />
+            <img src="/favicon-white.png" alt="ShortForge Logo" width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-contain hidden dark:block" />
           </div>
           {sidebarOpen && (
             <span className="text-sm font-semibold text-[#111827] dark:text-[#F5F7FA] tracking-tight whitespace-nowrap">

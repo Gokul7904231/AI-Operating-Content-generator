@@ -181,7 +181,7 @@ export const OverseerConversationDrawer: React.FC<OverseerConversationDrawerProp
 
         {/* Drawer Footer */}
         <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] font-mono text-[#667085]">
-          <span>Logged to FactoryOS Session Memory</span>
+          <span>Logged to ShortForge Session Memory</span>
           <span>{messages.length} Total Messages</span>
         </div>
       </div>

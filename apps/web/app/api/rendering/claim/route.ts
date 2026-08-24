@@ -11,7 +11,7 @@ export async function GET() {
     status: "active",
     service: "factoryos-rendering-claim",
     allowedMethods: ["POST"],
-    message: "FactoryOS Render Claim API endpoint is live.",
+    message: "ShortForge Render Claim API endpoint is live.",
   });
 }
 
