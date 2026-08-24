@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
-  Sparkles,
   Play,
   Download,
   CheckCircle2,
@@ -34,6 +33,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useOSStore } from "@/lib/os-store";
 import { useAuth } from "@/lib/auth/hooks";
+import BrandIcon from "@/components/BrandIcon";
 import { mapValidationError } from "@/lib/creator/error-map";
 import { QuizOrchestrator } from "@/lib/quiz/QuizOrchestrator";
 
@@ -539,7 +539,7 @@ export default function QuickGenerateOverlay() {
         <div className="px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between bg-black/[0.02] dark:bg-[#0E1728]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-[#1677FF]/10 text-[#1677FF] flex items-center justify-center font-bold">
-              <Sparkles className="w-4 h-4" />
+              <BrandIcon className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#111827] dark:text-[#F5F7FA]">Create Video</h3>
@@ -960,7 +960,7 @@ export default function QuickGenerateOverlay() {
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <BrandIcon className="w-4 h-4" variant="white" />
                     <span>Generate Draft &rarr;</span>
                   </>
                 )}

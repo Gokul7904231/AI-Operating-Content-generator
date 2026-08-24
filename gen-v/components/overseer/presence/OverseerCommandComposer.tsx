@@ -7,10 +7,10 @@ import {
   MessageSquare,
   Wrench,
   Search,
-  Sparkles,
   Activity,
   Zap,
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { OverseerVoice } from "./OverseerVoice";
 import type { VoiceState } from "@/factoryos/core/overseer/presence";
 import type { OverseerMode } from "./OverseerChat";
@@ -33,7 +33,7 @@ const MODE_OPTIONS: Array<{
   { id: "CHAT", label: "Chat", icon: MessageSquare },
   { id: "OPERATE", label: "Operate", icon: Wrench },
   { id: "RESEARCH", label: "Research", icon: Search },
-  { id: "CREATE", label: "Create", icon: Sparkles },
+  { id: "CREATE", label: "Create", icon: BrandIcon },
   { id: "MONITOR", label: "Monitor", icon: Activity },
   { id: "AUTOPILOT", label: "Autopilot", icon: Zap },
 ];
@@ -47,6 +47,7 @@ export const OverseerCommandComposer: React.FC<OverseerCommandComposerProps> = m
 }) => {
   const [inputText, setInputText] = useState("");
   const [showModeDropdown, setShowModeDropdown] = useState(false);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,17 +66,19 @@ export const OverseerCommandComposer: React.FC<OverseerCommandComposerProps> = m
   };
 
   const handleDictateTranscript = (transcript: string) => {
-    setInputText((prev) => {
-      const prefix = prev.trim() ? `${prev.trim()} ` : "";
-      return `${prefix}${transcript}`;
-    });
-    inputRef.current?.focus();
+    setInputText(transcript);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const currentModeObj = MODE_OPTIONS.find((m) => m.id === currentMode) || MODE_OPTIONS[0];
   const CurrentIcon = currentModeObj.icon;
 
   const getPlaceholder = () => {
+    if (isVoiceListening) {
+      return "Listening to your voice... (speak now)";
+    }
     switch (currentMode) {
       case "CREATE":
         return "Describe short to create (e.g. 'Make a quiz short about Space')...";
@@ -96,7 +99,11 @@ export const OverseerCommandComposer: React.FC<OverseerCommandComposerProps> = m
   return (
     <form
       onSubmit={handleSubmit}
-      className={`w-full max-w-2xl mx-auto relative flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-full bg-white dark:bg-[#0A1220] border border-black/[0.08] dark:border-white/[0.12] shadow-sm focus-within:border-[#1677FF] focus-within:ring-2 focus-within:ring-[#1677FF]/20 transition-all duration-150 ${className}`}
+      className={`w-full max-w-2xl mx-auto relative flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-full bg-white dark:bg-[#0A1220] border transition-all duration-200 ${
+        isVoiceListening
+          ? "border-[#1677FF] ring-2 ring-[#1677FF]/30 shadow-[0_0_20px_rgba(22,119,255,0.2)]"
+          : "border-black/[0.08] dark:border-white/[0.12] shadow-sm focus-within:border-[#1677FF] focus-within:ring-2 focus-within:ring-[#1677FF]/20"
+      } ${className}`}
     >
       {/* 1. Left Action / Mode Dropdown */}
       <div className="relative flex-shrink-0">
@@ -155,9 +162,10 @@ export const OverseerCommandComposer: React.FC<OverseerCommandComposerProps> = m
         className="flex-1 bg-transparent border-none outline-none px-2 py-1.5 text-xs sm:text-sm text-[#111827] dark:text-[#F5F7FA] placeholder:text-[#98A2B3] dark:placeholder:text-[#667085] font-sans"
       />
 
-      {/* 3. Real Voice Input Microphone Button */}
+      {/* 3. Real Voice Input Microphone Button with ChatGPT Visualizer */}
       <OverseerVoice
         onDictateTranscript={handleDictateTranscript}
+        onListeningStateChange={setIsVoiceListening}
       />
 
       {/* 4. Submit Arrow Button */}

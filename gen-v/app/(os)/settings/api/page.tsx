@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   RefreshCw, Server, Cpu, Laptop, ExternalLink, Eye, EyeOff, 
-  ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Sparkles
+  ChevronDown, ChevronRight, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { 
   ApiProviderConfig, 
@@ -318,9 +318,6 @@ export default function ApiAndLocalAiConfigurationPage() {
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
               API & Local AI Control Center
-            </span>
-            <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-              ShortFactory Command Center
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-2 text-slate-900 dark:text-white">

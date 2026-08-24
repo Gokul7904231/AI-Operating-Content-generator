@@ -26,7 +26,7 @@ export default function OSLayout({
 
         {/* OS Frame Content Area */}
         <div className="flex-1 flex flex-col min-w-0 h-full relative">
-          <TopNav title="ShortFactory Command Center" />
+          <TopNav />
           
           <main className="flex-1 overflow-y-auto p-6 md:p-8 pb-24 md:pb-8 terminal-scroll relative z-10 page-transition-entrance">
             {children}

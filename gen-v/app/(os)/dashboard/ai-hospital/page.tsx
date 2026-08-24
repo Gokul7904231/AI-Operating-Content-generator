@@ -7,7 +7,7 @@ import {
   Brain, Code2, FileJson, Eye, Image as ImageIcon, Mic, Box, Layers,
   Database, PlayCircle, ArrowRight, Award, Trophy, Target, Star,
   TrendingUp, Wrench, Wifi, WifiOff, BarChart3, Globe, RotateCw,
-  Sparkles, Gauge, AlertCircle, CheckCheck, Flame
+  Gauge, AlertCircle, CheckCheck, Flame
 } from "lucide-react";
 import type { SREAuditReport, DoctorProviderCard, SREProgressEvent, DiscoveredModel, ModelBenchmark, ProviderScore } from "@/lib/sre/types";
 import { AdminGuard } from "@/lib/auth/guards";

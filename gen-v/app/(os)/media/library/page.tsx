@@ -9,7 +9,6 @@ import {
   Search,
   Filter,
   Calendar,
-  Sparkles,
   ExternalLink,
   CheckCircle2,
   AlertCircle,

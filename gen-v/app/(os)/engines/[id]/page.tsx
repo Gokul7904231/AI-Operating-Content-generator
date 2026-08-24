@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
-  Cpu, Sliders, Play, Sparkles, AlertTriangle, CheckCircle, 
+  Cpu, Sliders, Play, AlertTriangle, CheckCircle, 
   Terminal, Shield, Settings, Activity, Trash2, ExternalLink
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useOSStore } from "@/lib/os-store";
 import { useFactoryStore } from "@/lib/factory-store";
 
@@ -344,7 +345,7 @@ export default function DynamicEnginePage() {
             disabled={running || !topic}
             className="w-full bg-blue-500 hover:bg-blue-600 text-zinc-950 font-bold text-xs py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
           >
-            <Sparkles className="w-4 h-4 fill-zinc-950" />
+            <BrandIcon className="w-4 h-4" />
             <span>Generate Video</span>
           </button>
         </div>

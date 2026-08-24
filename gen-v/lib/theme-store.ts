@@ -19,16 +19,22 @@ export function applyThemeToDOM(theme: ThemeMode) {
   root.classList.add(resolvedTheme);
   root.setAttribute("data-theme", resolvedTheme);
 
-  // Update browser tab favicon dynamically based on theme (dark logo for light theme, light logo for dark theme)
+  // Update browser tab favicon dynamically based on theme (dark logo for light theme, white logo for dark theme)
   try {
     const faviconUrl = resolvedTheme === "dark" ? "/favicon-white.png" : "/favicon-black.png";
-    let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
-    if (!link) {
-      link = document.createElement("link");
+    const existingLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon']");
+    if (existingLinks.length > 0) {
+      existingLinks.forEach((el) => {
+        el.removeAttribute("media");
+        el.href = faviconUrl;
+      });
+    } else {
+      const link = document.createElement("link");
       link.rel = "icon";
-      document.getElementsByTagName("head")[0].appendChild(link);
+      link.type = "image/png";
+      link.href = faviconUrl;
+      document.getElementsByTagName("head")[0]?.appendChild(link);
     }
-    link.href = faviconUrl;
   } catch {
     // Ignore DOM favicon update error in unsupported environments
   }

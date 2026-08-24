@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   FileCode, Search, Play, Copy, Eye, Plus, Trash2, 
-  ArrowUpRight, Share2, Sparkles, X, Download, Upload 
+  ArrowUpRight, Share2, X, Download, Upload 
 } from "lucide-react";
 import NewTemplateForm from "@/components/NewTemplateForm";
 import WebsiteModal from "@/components/WebsiteModal";

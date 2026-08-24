@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Moon, Sun, Bell, Terminal, Activity, User, Briefcase, Key, LogOut, Sparkles, Infinity as InfinityIcon, X, Menu } from "lucide-react";
+import { Moon, Sun, Bell, Terminal, Activity, User, Briefcase, Key, LogOut, Infinity as InfinityIcon, X, Menu } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useOSStore, AIProfile } from "@/lib/os-store";
 import { useThemeStore } from "@/lib/theme-store";
 import { useMounted } from "@/lib/useMounted";
@@ -63,21 +64,6 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
     window.location.href = "/login";
   };
 
-  const handleFocusOverseer = () => {
-    if (typeof window !== "undefined") {
-      if (window.location.pathname !== "/dashboard") {
-        window.location.href = "/dashboard#overseer-command-center";
-      } else {
-        const el = document.getElementById("overseer-command-center");
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth" });
-          const input = el.querySelector("input");
-          if (input) input.focus();
-        }
-      }
-    }
-  };
-
   const profiles: AIProfile[] = [
     "Balanced",
     "Maximum Quality",
@@ -122,7 +108,7 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
               className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 dark:bg-blue-400/10 border border-blue-500/30 dark:border-blue-400/30 rounded-full text-xs font-bold text-blue-600 dark:text-blue-400 shadow-2xs"
               title="Basic User Quota: 5 Free Video Generation Slots"
             >
-              <Sparkles className="w-3 h-3 text-blue-500" />
+              <BrandIcon className="w-3 h-3" />
               <span className="font-mono text-[11px] font-bold">
                 {quota ? `${quota.completed}/${quota.limit}` : "0/5"} left
               </span>
@@ -165,18 +151,6 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
           ) : (
             <div className="w-8.5 h-8.5 rounded-xl bg-black/[0.03] dark:bg-[#08101B] border border-black/[0.06] dark:border-white/[0.08] animate-pulse" />
           )}
-
-          {/* Subtle Overseer Status Indicator */}
-          <button
-            onClick={handleFocusOverseer}
-            aria-label="Focus Overseer Command Center"
-            className="px-2.5 py-1 rounded-lg bg-black/[0.03] dark:bg-[#0D1622] text-[#1769E8] font-semibold text-xs border border-black/[0.06] dark:border-white/[0.08] flex items-center gap-1.5 hover:bg-black/[0.06] dark:hover:bg-[#121E30] transition-colors cursor-pointer"
-            title="Focus Overseer Command Center"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#179E69] dark:bg-[#21C58B]" />
-            <span className="hidden sm:inline font-mono text-[11px]">Overseer Online</span>
-            <span className="sm:hidden font-mono text-[11px]">Overseer</span>
-          </button>
 
           {/* Notifications */}
           <div className="relative">

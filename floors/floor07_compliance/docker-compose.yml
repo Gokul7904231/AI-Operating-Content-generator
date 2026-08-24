@@ -1,0 +1,94 @@
+services:
+  # ── API ────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: floor07_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://floor07:floor07secret@postgres:5432/floor07
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      # Mount source for development hot-reload (comment out in production)
+      - ./app:/app/app:ro
+      - ./data:/app/data:ro
+      - ./migrations:/app/migrations:ro
+      - ./main.py:/app/main.py:ro
+    networks:
+      - floor07_net
+
+  # ── Postgres ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: floor07_postgres
+    environment:
+      POSTGRES_USER: floor07
+      POSTGRES_PASSWORD: floor07secret
+      POSTGRES_DB: floor07
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U floor07 -d floor07"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - floor07_net
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: floor07_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - floor07_net
+
+  # ── Migration runner (runs once, exits) ───────────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: floor07_migrate
+    command: alembic upgrade head
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://floor07:floor07secret@postgres:5432/floor07
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - floor07_net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  floor07_net:
+    driver: bridge

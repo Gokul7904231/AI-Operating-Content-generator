@@ -2,10 +2,11 @@
 
 import React, { useState, memo } from "react";
 import { 
-  X, User, Sparkles, Sliders, 
+  X, User, Sliders, 
   Lock, Save, Check, Film, 
   Infinity as InfinityIcon, Camera, ChevronDown
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useAuth } from "@/lib/auth/hooks";
 import { useFactoryStore } from "@/lib/factory-store";
 import { useOSStore } from "@/lib/os-store";
@@ -167,7 +168,7 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold text-[#F5F7FA] flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#1677FF]" /> Select FactoryOS 3D Avatar
+                    <BrandIcon className="w-4 h-4" /> Select FactoryOS 3D Avatar
                   </h4>
                   <p className="text-[11px] text-[#667085]">Official 3D cartoon avatar suite rendered for FactoryOS</p>
                 </div>
@@ -217,7 +218,7 @@ function UserProfileModal({ onClose }: UserProfileModalProps) {
           {/* 2. 🎬 Creator Profile & Preferences */}
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-[#F5F7FA] flex items-center gap-2 border-b border-white/[0.08] pb-2">
-              <Sparkles className="w-4 h-4 text-[#1677FF]" /> Creator Preferences
+              <BrandIcon className="w-4 h-4" /> Creator Preferences
             </h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

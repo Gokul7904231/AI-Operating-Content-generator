@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { Film, Sparkles, LucideIcon } from "lucide-react";
+import { Film, LucideIcon } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useOSStore } from "@/lib/os-store";
 
 interface Action {
@@ -36,7 +37,7 @@ export default function CreatorEmptyState({
 
     const content = (
       <>
-        {variant === "primary" && <Sparkles className="h-4 w-4" />}
+        {variant === "primary" && <BrandIcon className="h-4 w-4" variant="white" />}
         <span>{action.label}</span>
       </>
     );

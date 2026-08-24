@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Play, Eye } from "lucide-react";
+import { Play, Eye } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useOSStore } from "@/lib/os-store";
 
 interface CreateHeroProps {
@@ -19,7 +20,7 @@ export default function CreateHero({ onSampleClick }: CreateHeroProps) {
       <div className="flex flex-col gap-5">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-[#1677FF]/10 border border-[#1677FF]/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1677FF]">
-            <Sparkles className="h-3 w-3" />
+            <BrandIcon className="h-3 w-3" />
             Creator workspace
           </div>
           <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#111827] dark:text-[#F5F7FA]">
@@ -36,7 +37,7 @@ export default function CreateHero({ onSampleClick }: CreateHeroProps) {
             onClick={() => setOpen(true)}
             className="inline-flex min-h-[44px] items-center gap-2 rounded-2xl bg-[#1677FF] px-6 py-3 text-sm font-bold text-white shadow-xs hover:bg-[#0F63D8] active:scale-[0.98] transition-all cursor-pointer"
           >
-            <Sparkles className="h-4 w-4" />
+            <BrandIcon className="h-4 w-4" variant="white" />
             Create Video
           </button>
 

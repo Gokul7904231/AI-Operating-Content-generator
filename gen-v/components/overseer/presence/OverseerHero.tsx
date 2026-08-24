@@ -13,9 +13,9 @@ import {
   Mic,
   Activity,
   Layers,
-  Sparkles,
   Zap,
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 interface ActiveMission {
   id: string;
@@ -99,14 +99,6 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
       role="region"
       aria-label="Living Frontier Overseer Entity"
     >
-      {/* 1. Entity Monospace Subtitle */}
-      <div className="flex items-center gap-2 mb-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1677FF] animate-ping" />
-        <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.28em] text-[#1677FF] dark:text-[#60A5FA]">
-          OVERSEER COMMAND ENTITY
-        </span>
-      </div>
-
       {/* 2. Floating Living SVG Face with Gaze Tracking & Autonomous Expressions */}
       <div
         className="relative flex items-center justify-center p-2 my-2 transition-all duration-300 group cursor-pointer w-full max-w-[340px] sm:max-w-[400px] md:max-w-[460px]"
@@ -168,7 +160,7 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
             onClick={() => onQuickCommand("Create video about ")}
             className="px-3 py-1.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] hover:bg-[#1677FF]/10 hover:border-[#1677FF]/30 border border-black/[0.06] dark:border-white/[0.08] text-[11px] font-medium text-[#667085] dark:text-[#A8B2C1] hover:text-[#1677FF] dark:hover:text-[#60A5FA] transition-all cursor-pointer inline-flex items-center gap-1.5"
           >
-            <Sparkles className="w-3 h-3" /> Create Short
+            <BrandIcon className="w-3 h-3" /> Create Short
           </button>
           <button
             onClick={() => onQuickCommand("Check my 5-video quota")}

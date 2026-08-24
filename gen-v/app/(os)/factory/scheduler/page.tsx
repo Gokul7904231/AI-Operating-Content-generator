@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { 
   Calendar, Play, Pause, Trash2, Plus, Clock, RefreshCw, X,
-  Zap, Lock, ShieldAlert, Cpu, ArrowRight, CheckCircle2, Sparkles
+  Zap, Lock, ShieldAlert, Cpu, ArrowRight, CheckCircle2
 } from "lucide-react";
 import { AVAILABLE_MODELS, getModelLabel } from "@/lib/ai/models";
 import WebsiteModal from "@/components/WebsiteModal";

@@ -1,0 +1,33 @@
+"""Default platform policy profiles."""
+
+{
+  "platform": "default",
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "RULE-DEF-001",
+      "strategy": "MIN_LENGTH",
+      "field": "title",
+      "min_length": 5,
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "RULE-DEF-002",
+      "strategy": "MAX_LENGTH",
+      "field": "title",
+      "max_length": 150,
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "RULE-DEF-003",
+      "strategy": "PROHIBITED_WORDS",
+      "field": "script",
+      "words": ["clickbait", "scam", "unauthorized"],
+      "severity": "CRITICAL"
+    }
+  ],
+  "recommendations": [
+    "Keep titles descriptive and concise.",
+    "Do not include hyperbolic clickbait descriptors in content."
+  ]
+}

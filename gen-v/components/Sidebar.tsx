@@ -11,23 +11,24 @@ import {
   GitBranch, HelpCircle, BookOpen, History, Code, Flame, Brain,
   MessageSquare, BookOpenText, Flag, Image as ImageIcon, Network,
   Boxes, Terminal, BarChart2, Activity, Film, Cloud, HardDrive,
-  ArrowUpFromLine, Video, Camera, Map, Sparkles, Gauge, UserCheck,
+  ArrowUpFromLine, Video, Camera, Map, Gauge, UserCheck,
   HeartPulse, ShoppingBag, Layers,
   LucideIcon
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useOSStore } from "@/lib/os-store";
 import { useFactoryStore } from "@/lib/factory-store";
 import { useAuth } from "@/lib/auth/hooks";
 import { ROUTE_SECTIONS, getNavigationForRole, type RouteEntry } from "@/lib/core/RouteRegistry";
 
 // Icon map — resolves string icon names from RouteRegistry to Lucide components
-const ICON_MAP: Record<string, LucideIcon> = {
+const ICON_MAP: Record<string, any> = {
   Factory, Cpu, Bot, FolderOpen, Share2, LineChart, Settings,
   ListOrdered, Loader2, Calendar, FileCode, GitBranch, HelpCircle,
   BookOpen, History, Code, Flame, Brain, MessageSquare, BookOpenText,
   Flag, Image: ImageIcon, Network, Boxes, Terminal, BarChart2,
   Activity, Film, Cloud, HardDrive, ArrowUpFromLine, Video, Camera,
-  Map, Sparkles, Gauge, UserCheck, LayoutDashboard, Hexagon,
+  Map, Sparkles: BrandIcon, Gauge, UserCheck, LayoutDashboard, Hexagon,
   HeartPulse, ShoppingBag, Layers,
 };
 
@@ -141,7 +142,7 @@ export default function Sidebar() {
               : "bg-[#1769E8] hover:bg-[#0F58CA] text-white active:scale-[0.98]"
           }`}
         >
-          <Sparkles className="w-4 h-4" />
+          <BrandIcon className="w-4 h-4" variant="white" />
           {sidebarOpen && <span>Create Video</span>}
         </button>
       </div>

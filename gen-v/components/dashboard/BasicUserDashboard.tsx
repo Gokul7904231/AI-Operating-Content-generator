@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  Sparkles, Video, CheckCircle2, Clock, 
+  Video, CheckCircle2, Clock, 
   Film, ArrowUpFromLine, RefreshCw,
   AlertCircle, ChevronRight, HardDrive,
   Download, HelpCircle, Lightbulb, Play
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import Link from "next/link";
 import { useFactoryStore } from "@/lib/factory-store";
 import { useOSStore } from "@/lib/os-store";
@@ -107,7 +108,7 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
               href="/pricing"
               className="px-2.5 py-1 rounded-lg bg-[#1677FF] hover:bg-[#0F63D8] text-white font-bold text-[10px] transition-colors inline-flex items-center gap-1 cursor-pointer"
             >
-              <Sparkles className="w-3 h-3" />
+              <BrandIcon className="w-3 h-3" variant="white" />
               <span>{isQuotaReached ? "Upgrade to Pro" : "View Plans"}</span>
             </Link>
           </div>
@@ -265,7 +266,7 @@ export default function BasicUserDashboard({ userRole, userEmail }: BasicUserDas
                 onClick={toggleQuickGenerate}
                 className="px-6 py-2.5 rounded-2xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 shadow-xs"
               >
-                <Sparkles className="w-4 h-4" />
+                <BrandIcon className="w-4 h-4" variant="white" />
                 <span>Create Video</span>
               </button>
             )}

@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 export default function SignatureSection() {
   return (
@@ -12,8 +13,8 @@ export default function SignatureSection() {
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 relative z-10 space-y-20">
         {/* Section Header */}
         <div className="text-center space-y-5 max-w-4xl mx-auto" data-reveal>
-          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#0071e3] shadow-xs">
-            <Sparkles className="w-4 h-4" />
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#1677FF] text-xs font-text text-white shadow-xs">
+            <BrandIcon className="w-4 h-4" />
             <span className="font-semibold tracking-wide">OPERATIONAL PARADIGM SHIFT</span>
           </div>
           <h2 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-apple-display text-[#1d1d1f] font-display leading-[1.05]">

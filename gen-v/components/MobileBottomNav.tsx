@@ -3,7 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Sparkles, Film, Share2, Settings } from "lucide-react";
+import { Home, Film, Share2, Settings } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { useOSStore } from "@/lib/os-store";
 
 const NAV = [
@@ -37,7 +38,7 @@ export default function MobileBottomNav() {
         className="flex min-h-[44px] min-w-[56px] flex-col items-center justify-center gap-0.5 rounded-2xl bg-[#1677FF] px-4 py-2 text-white shadow-md active:scale-[0.98] transition-transform cursor-pointer"
         aria-label="Create Video"
       >
-        <Sparkles className="h-5 w-5" />
+        <BrandIcon className="h-5 w-5" variant="white" />
         <span className="text-[10px] font-bold">Create</span>
       </button>
 

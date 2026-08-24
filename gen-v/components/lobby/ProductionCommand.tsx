@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useLobbyStore } from "@/lib/lobby/mock-state";
 import { 
-  Sparkles, ArrowRight, Play, UploadCloud, Link as LinkIcon, 
+  ArrowRight, Play, UploadCloud, Link as LinkIcon, 
   FileText, History, Check, ShieldAlert
 } from "lucide-react";
 

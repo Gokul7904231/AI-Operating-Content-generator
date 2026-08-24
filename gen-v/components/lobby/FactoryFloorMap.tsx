@@ -5,7 +5,7 @@ import { useLobbyStore } from "@/lib/lobby/mock-state";
 import { FloorStatus, FloorState } from "@/lib/lobby/types";
 import { 
   CheckCircle2, Play, Pause, AlertTriangle, AlertOctagon, 
-  HelpCircle, ChevronRight, Layers, Lock, Sparkles, Activity
+  HelpCircle, ChevronRight, Layers, Lock, Activity
 } from "lucide-react";
 
 export default function FactoryFloorMap() {

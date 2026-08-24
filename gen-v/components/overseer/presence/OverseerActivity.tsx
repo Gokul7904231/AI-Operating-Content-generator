@@ -8,9 +8,9 @@ import {
   CheckCircle2,
   Activity,
   Layers,
-  Sparkles,
   Clock,
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 export interface ActivityEvent {
   id: string;
@@ -29,7 +29,7 @@ interface OverseerActivityProps {
 
 const SOURCE_ICONS: Record<ActivityEvent["source"], React.ReactNode> = {
   SLAYER: <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />,
-  OVERSEER: <Sparkles className="w-3.5 h-3.5 text-cyan-400" />,
+  OVERSEER: <BrandIcon className="w-3.5 h-3.5" />,
   COGNITIVE: <Brain className="w-3.5 h-3.5 text-purple-400" />,
   HEALER: <Wrench className="w-3.5 h-3.5 text-blue-400" />,
   VALIDATOR: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />,

@@ -4,8 +4,9 @@ import React, { useState, memo } from "react";
 import { 
   Terminal, Activity, Eye, ShieldAlert, Wrench, 
   CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, 
-  Sparkles, Bot, Layers, Clock
+  Bot, Layers, Clock
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 export type OperationalEventType =
   | "OBSERVE"
@@ -50,7 +51,7 @@ const EVENT_TYPE_CONFIG: Record<
   OBSERVE: { label: "OBSERVE", bg: "bg-[#1677FF]/10", text: "text-[#1677FF]", border: "border-[#1677FF]/20", icon: Eye },
   DETECT: { label: "DETECT", bg: "bg-[#F5B942]/10", text: "text-[#F5B942]", border: "border-[#F5B942]/20", icon: AlertTriangle },
   INVESTIGATE: { label: "INVESTIGATE", bg: "bg-[#1677FF]/10", text: "text-[#1677FF]", border: "border-[#1677FF]/20", icon: Terminal },
-  THINK: { label: "THINK", bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20", icon: Sparkles },
+  THINK: { label: "THINK", bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20", icon: BrandIcon },
   PLAN: { label: "PLAN", bg: "bg-[#1677FF]/10", text: "text-[#1677FF]", border: "border-[#1677FF]/20", icon: Layers },
   DISPATCH: { label: "DISPATCH", bg: "bg-[#1677FF]/10", text: "text-[#1677FF]", border: "border-[#1677FF]/20", icon: Bot },
   REPAIR: { label: "REPAIR", bg: "bg-[#4D8DFF]/10", text: "text-[#4D8DFF]", border: "border-[#4D8DFF]/20", icon: Wrench },

@@ -2,7 +2,8 @@
 
 import React from "react";
 import type { OverseerIntent } from "@/factoryos/core/overseer/presence";
-import { Sparkles, AlertTriangle, CheckCircle, Brain, RefreshCw, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle, Brain, RefreshCw, ShieldAlert } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 interface OverseerStatusProps {
   intent: OverseerIntent;
@@ -34,7 +35,7 @@ export const OverseerStatus: React.FC<OverseerStatusProps> = ({
       case "VERIFYING":
         return <RefreshCw className="w-4 h-4 text-sky-500 dark:text-sky-400 animate-spin" />;
       default:
-        return <Sparkles className="w-4 h-4" style={{ color: accentColor }} />;
+        return <BrandIcon className="w-4 h-4" />;
     }
   };
 

@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 interface NewTemplateFormProps {
   onDismiss?: () => void;
@@ -66,7 +67,7 @@ export default function NewTemplateForm({ onDismiss, isModal = false }: NewTempl
     <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl flex flex-col">
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-850 bg-zinc-950/40">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-emerald-400" />
+          <BrandIcon className="w-4 h-4" />
           <h3 className="text-sm font-semibold text-zinc-200">Custom Template Builder</h3>
         </div>
         <button

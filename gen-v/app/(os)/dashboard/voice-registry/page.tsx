@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Mic, Activity, CheckCircle2, AlertTriangle, Play, RefreshCw,
-  Sliders, Cpu, Database, Sparkles, Volume2, ShieldAlert
+  Sliders, Cpu, Database, Volume2, ShieldAlert
 } from "lucide-react";
 import { AdminGuard } from "@/lib/auth/guards";
 

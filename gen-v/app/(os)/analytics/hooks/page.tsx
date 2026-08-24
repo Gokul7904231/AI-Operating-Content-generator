@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles, BarChart2, CheckCircle2, RefreshCw } from "lucide-react";
+import { BarChart2, CheckCircle2, RefreshCw } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 
 const HooksChart = dynamic(() => import("@/components/charts/HooksChart"), { ssr: false });
 
@@ -51,7 +52,7 @@ export default function HooksPage() {
         <>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
             <h2 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-pink-400" /> Hook CTR Comparison (%)
+              <BrandIcon className="w-4 h-4" /> Hook CTR Comparison (%)
             </h2>
             <HooksChart data={hooks} />
           </div>

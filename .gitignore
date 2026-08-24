@@ -98,3 +98,9 @@ used_artifacts/
 used_artifact/
 **/used_artifact/
 archive/
+
+# deployment artifacts
+gen-v-deploy/
+**/gen-v-deploy/
+*.tgz
+*.tar.gz

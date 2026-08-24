@@ -2,9 +2,10 @@
 
 import React, { useState, useRef, useEffect, memo } from "react";
 import { 
-  Send, Sparkles, Terminal, ChevronRight, MessageSquare, Bot, Search, 
+  Send, Terminal, ChevronRight, MessageSquare, Bot, Search, 
   Video, Eye, Zap
 } from "lucide-react";
+import BrandIcon from "@/components/BrandIcon";
 import { OverseerVoice } from "./OverseerVoice";
 import type { VoiceState } from "@/factoryos/core/overseer/presence";
 
@@ -118,7 +119,7 @@ export const OverseerChat: React.FC<OverseerChatProps> = memo(({
         <div className="w-full rounded-2xl bg-[#1677FF]/10 border border-[#1677FF]/20 p-3.5 text-xs text-[#F5F7FA] space-y-1.5 shadow-lg animate-fade-in">
           <div className="flex items-center justify-between font-mono text-[11px] font-bold text-[#1677FF] uppercase tracking-wider">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#1677FF]" />
+              <BrandIcon className="w-3.5 h-3.5" />
               Proactive Intelligence HUD
             </span>
             <span className="text-[9px] bg-[#1677FF]/20 px-2 py-0.5 rounded text-[#1677FF]">Confidence: 94%</span>

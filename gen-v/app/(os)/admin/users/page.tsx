@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Users, Shield, Search, RefreshCw, 
   CheckCircle2, XCircle, AlertTriangle, Lock, 
-  Clock, UserPlus, Sparkles, Key, ArrowRight, ShieldCheck, Timer
+  Clock, UserPlus, Key, ArrowRight, ShieldCheck, Timer
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/hooks";
 
