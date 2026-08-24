@@ -33,7 +33,7 @@ class BenchmarkDatabaseClass {
   }
 
   private initDatabase() {
-    // Resolve repo root relative path: gen-v/generated/benchmarks.db
+    // Resolve repo root relative path: apps/web/generated/benchmarks.db
     const outDir = path.join(__dirname, "..", "generated");
     if (!fs.existsSync(outDir)) {
       try {

@@ -26,7 +26,7 @@ async function writeJobPayload(payload: {
   const fs = require("fs") as typeof import("fs");
   const path = require("path") as typeof import("path");
 
-  // Always write to repo-local gen-v/generated, regardless of current working directory.
+  // Always write to repo-local apps/web/generated, regardless of current working directory.
   const outDir = path.join(__dirname, "..", "generated", "jobs");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
@@ -37,8 +37,8 @@ async function writeJobPayload(payload: {
 
 function getPythonResultPath(jobId: string): string {
   const path = require("path") as typeof import("path");
-  // local-ai/output/{jobId}/result.json relative to gen-v root
-  const repoRoot = path.join(__dirname, "..", "..");
+  // local-ai/output/{jobId}/result.json relative to repo root
+  const repoRoot = path.join(__dirname, "..", "..", "..");
   return path.join(repoRoot, "local-ai", "output", jobId, "result.json");
 }
 

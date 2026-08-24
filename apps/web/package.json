@@ -1,5 +1,9 @@
 {
-  "name": "gen-v",
+  "name": "web",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "version": "0.1.0",
   "private": true,
   "scripts": {

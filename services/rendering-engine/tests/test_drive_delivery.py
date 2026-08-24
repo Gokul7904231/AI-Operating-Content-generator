@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-# Ensure vps-rendering-engine root is on sys.path
+# Ensure services/rendering-engine root is on sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 

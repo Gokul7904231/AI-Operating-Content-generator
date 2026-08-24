@@ -3,7 +3,7 @@ import path from "path";
 
 import { LLMProvider } from "../ai/provider";
 
-const JOBS_DIR = path.join(process.cwd(), "gen-v", "generated", "jobs");
+const JOBS_DIR = path.join(process.cwd(), "generated", "jobs");
 const MANIFEST_EXTENSION = ".json";
 
 export type ProviderTelemetryEvent = {

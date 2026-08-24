@@ -99,7 +99,7 @@ export default function WorkflowsPage() {
       retry: 1,
       timeoutMs: 120000,
       primaryModel: "azure-vm-pool",
-      fallbackModel: "vps-rendering-engine",
+      fallbackModel: "services/rendering-engine",
       avgDurationMs: 14500,
       logs: ["Assembled scene blocks on Azure VM Pool.", "Hardware acceleration nvenc enabled.", "FPS: 60"],
     },

@@ -3,11 +3,11 @@ import { spawn } from "child_process";
 import path from "path";
 
 // ── Local hybrid-video environment ───────────────────────────────────────────
-// Resolve hybrid-video relative to this repo (gen-v/ is a subfolder).
+// Resolve hybrid-video relative to this repo (apps/web/ is a subfolder).
 function getHybridRoot(): string {
-  // __dirname: <repo>/gen-v/lib
+  // __dirname: <repo>/apps/web/lib
   // hybrid-video: <repo>/hybrid-video
-  return path.join(/*turbopackIgnore: true*/ __dirname, "..", "..", "hybrid-video");
+  return path.join(/*turbopackIgnore: true*/ __dirname, "..", "..", "..", "hybrid-video");
 }
 
 function resolveHybridPython(): string {
@@ -51,6 +51,7 @@ function resolvePythonExecutable(): string {
     /*turbopackIgnore: true*/ __dirname,
     "..",
     "..",
+    "..",
     "local-ai",
     "venv",
     "Scripts",
@@ -78,7 +79,7 @@ export async function runLocalGeneration(jobPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn(pythonExe, [scriptPath, jobPath], {
       // cwd = repo root so relative paths inside the script work
-      cwd: path.join(/*turbopackIgnore: true*/ __dirname, "..", ".."),
+      cwd: path.join(/*turbopackIgnore: true*/ __dirname, "..", "..", ".."),
       shell: false,
       env: {
         ...process.env,

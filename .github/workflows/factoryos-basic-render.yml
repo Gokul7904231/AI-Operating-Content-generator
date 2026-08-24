@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: vps-rendering-engine/requirements.txt
+          cache-dependency-path: services/rendering-engine/requirements.txt
 
       - name: Install FFmpeg (cached binary)
         uses: FedericoCarboni/setup-ffmpeg@37062fbf7149fc5578d6c57e08aed62458b375d6 # v3.1
@@ -43,13 +43,13 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('vps-rendering-engine/requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('services/rendering-engine/requirements.txt') }}
           restore-keys: pip-${{ runner.os }}-
 
       - name: Install Render Dependencies
         run: |
           pip install --upgrade pip
-          pip install -r vps-rendering-engine/requirements.txt
+          pip install -r services/rendering-engine/requirements.txt
 
       - name: Resolve Job Inputs
         id: resolve_inputs
@@ -118,7 +118,7 @@ jobs:
           MANIFEST="$WORKSPACE_DIR/payload.json"
           echo "Rendering $JOB_ID via create_short.py manifest=$MANIFEST..."
           # Run real engine; timeout 6 min to stay inside <2min SLA for QUIZ (fast path 60-90s)
-          timeout 360 python vps-rendering-engine/scripts/create_short.py "$MANIFEST" || {
+          timeout 360 python services/rendering-engine/scripts/create_short.py "$MANIFEST" || {
             echo "::warning::create_short.py failed or timed out — falling back to placeholder check"
             # Ensure we still have a video for validation step to give actionable error
             exit 1

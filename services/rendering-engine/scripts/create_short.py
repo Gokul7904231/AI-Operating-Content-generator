@@ -408,11 +408,11 @@ def _sha256_text(s: str) -> str:
 def _get_cache_root() -> Path:
     script_parent = Path(__file__).resolve().parent
     engine_root = script_parent.parent
-    if "vps-rendering-engine" in str(script_parent.resolve()):
+    if "rendering-engine" in str(script_parent.resolve()):
         return engine_root / "output" / "image-cache"
     else:
         repo_root = script_parent.parent
-        return repo_root / "gen-v" / "generated" / "image-cache"
+        return repo_root / "apps" / "web" / "generated" / "image-cache"
 
 
 def _cache_paths(cache_key: str) -> tuple[Path, Path]:
@@ -964,7 +964,7 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         if not processed_flag:
             script_parent = Path(__file__).resolve().parent
             engine_root = script_parent.parent
-            if "vps-rendering-engine" in str(script_parent.resolve()):
+            if "rendering-engine" in str(script_parent.resolve()):
                 fallback_bg = engine_root / "assets" / "backgrounds" / f"{theme}.png"
                 if not fallback_bg.exists():
                     fallback_bg = engine_root / "assets" / "backgrounds" / "world_theme.png"
@@ -978,7 +978,7 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
 
         script_parent = Path(__file__).resolve().parent
         engine_root = script_parent.parent
-        if "vps-rendering-engine" not in str(script_parent.resolve()):
+        if "rendering-engine" not in str(script_parent.resolve()):
             engine_root = script_parent.parent / "hybrid-video"
         audio_assets = _ensure_audio_assets(engine_root)
 
@@ -1664,7 +1664,7 @@ def main() -> None:
 
     script_parent = Path(__file__).resolve().parent
     engine_root = script_parent.parent
-    if "vps-rendering-engine" in str(script_parent.resolve()):
+    if "rendering-engine" in str(script_parent.resolve()):
         out_dir = job_path.parent / job_id
     else:
         out_dir = job_path.parent.parent / "local-ai" / "output" / job_id

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="/opt/factoryos/gen-v"
+APP_DIR="/opt/factoryos/apps/web"
 SERVICE_NAME="factoryos-control-plane.service"
 
 echo "============================================================"
@@ -21,8 +21,8 @@ fi
 node --version
 npm --version
 
-# 2. Build gen-v application
-echo "[+] Installing dependencies and building gen-v Next.js bundle..."
+# 2. Build apps/web application
+echo "[+] Installing dependencies and building apps/web Next.js bundle..."
 cd "$APP_DIR"
 npm ci --production=false
 npm run build

@@ -1,5 +1,5 @@
 # ==============================================================================
-# FactoryOS v0.1 / gen-v — Multi-Stage Production Dockerfile for Northflank
+# FactoryOS v0.1 / apps/web — Multi-Stage Production Dockerfile for Northflank
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

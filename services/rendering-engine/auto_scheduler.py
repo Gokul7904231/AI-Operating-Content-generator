@@ -10,10 +10,10 @@ from pathlib import Path
 
 # Load env before any imports that require it
 def load_env():
-    # Try current directory first, then parent's gen-v folder
+    # Try current directory first, then apps/web folder
     current_env = Path(__file__).resolve().parent / ".env"
-    gen_v_env = Path(__file__).resolve().parent.parent / "gen-v" / ".env"
-    env_path = current_env if current_env.exists() else gen_v_env
+    web_env = Path(__file__).resolve().parent.parent / "apps" / "web" / ".env"
+    env_path = current_env if current_env.exists() else web_env
 
     if env_path.exists():
         print(f"[Scheduler] Loading environment variables from {env_path}")

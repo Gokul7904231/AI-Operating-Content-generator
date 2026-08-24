@@ -5,11 +5,11 @@ Welcome to the ShortFactory AI Memory Layer. This directory serves as the struct
 
 ### Directory Structure
 
-- **[`index.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/gen-v/.okf/index.md)**: This overview.
-- **[`architecture.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/gen-v/.okf/architecture.md)**: Full design schematic of the AI Factory OS.
-- **[`workflows.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/gen-v/.okf/workflows.md)**: Specifications for the dynamic generation pipelines.
-- **[`style-guide.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/gen-v/.okf/style-guide.md)**: Color palettes, UI component structures, typography tokens.
-- **[`decisions/001-sqlite-queue-persistence.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/gen-v/.okf/decisions/001-sqlite-queue-persistence.md)**: Architectural Decision Record (ADR) on queue persistence.
+- **[`index.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/apps/web/.okf/index.md)**: This overview.
+- **[`architecture.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/apps/web/.okf/architecture.md)**: Full design schematic of the AI Factory OS.
+- **[`workflows.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/apps/web/.okf/workflows.md)**: Specifications for the dynamic generation pipelines.
+- **[`style-guide.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/apps/web/.okf/style-guide.md)**: Color palettes, UI component structures, typography tokens.
+- **[`decisions/001-sqlite-queue-persistence.md`](file:///c:/Users/ASUS/OneDrive/Desktop/123/aishorts/apps/web/.okf/decisions/001-sqlite-queue-persistence.md)**: Architectural Decision Record (ADR) on queue persistence.
 
 ---
 

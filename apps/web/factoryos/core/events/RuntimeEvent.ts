@@ -13,7 +13,7 @@
  * Reuse strategy:
  *   We define FactoryOS-specific event types here.
  *   The underlying dispatch uses the same fire-and-forget pattern
- *   as the existing EventBus (gen-v/ai/event-bus.ts) but this module
+ *   as the existing EventBus (apps/web/ai/event-bus.ts) but this module
  *   is intentionally self-contained to avoid coupling FactoryOS core
  *   to ShortsFactory's EventBus singleton.
  */

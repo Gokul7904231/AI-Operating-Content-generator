@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 def load_env():
-    env_path = Path(__file__).resolve().parent.parent / "gen-v" / ".env"
+    env_path = Path(__file__).resolve().parent.parent / "apps" / "web" / ".env"
     if env_path.exists():
         print(f"Loading env from {env_path}")
         for line in env_path.read_text(encoding="utf-8").splitlines():

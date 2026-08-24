@@ -17,7 +17,7 @@ export class GStackTrigger {
   async triggerDeepInvestigation(caseItem: Case): Promise<GStackInvestigationResult> {
     return {
       caseId: caseItem.caseId,
-      suspectedFiles: [`gen-v/factoryos/core/${caseItem.floorId}.ts`],
+      suspectedFiles: [`apps/web/factoryos/core/${caseItem.floorId}.ts`],
       proposedDiff: `// Auto-generated remediation patch for Case ${caseItem.caseId}`,
       testCommand: "npm run factoryos:test",
       passesTests: true,
