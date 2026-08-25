@@ -624,25 +624,36 @@ WorkflowStepRegistry.register("image", async (context) => {
 
   const sharpPkg = "sharp";
   const getSharp = () => { try { return require(sharpPkg); } catch { return null; } };
+  const sharpMod = getSharp();
+
+  const writeImageFile = async (srcPath: string | undefined, destPath: string, fallbackColor: { r: number; g: number; b: number }) => {
+    if (srcPath && fs.existsSync(srcPath)) {
+      if (sharpMod) {
+        try {
+          await sharpMod(srcPath).jpeg().toFile(destPath);
+          return;
+        } catch {
+          fs.copyFileSync(srcPath, destPath);
+          return;
+        }
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+        return;
+      }
+    }
+
+    if (sharpMod) {
+      await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: fallbackColor } }).jpeg().toFile(destPath);
+    } else {
+      fs.writeFileSync(destPath, Buffer.from(""));
+    }
+  };
 
   // Hook
   {
     const hookBgPath = path.join(assetsDir, `scene_0_bg.jpg`);
     const packItem = visualPack[packIdx++];
-    const sharpMod = getSharp();
-    if (packItem && fs.existsSync(packItem.path)) {
-      if (sharpMod) {
-        try { sharpMod(packItem.path).jpeg().toFile(hookBgPath); } catch { fs.copyFileSync(packItem.path, hookBgPath); }
-      } else {
-        fs.copyFileSync(packItem.path, hookBgPath);
-      }
-    } else {
-      if (sharpMod) {
-        await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: { r: 15, g: 23, b: 42 } } }).jpeg().toFile(hookBgPath);
-      } else {
-        fs.writeFileSync(hookBgPath, Buffer.from(""));
-      }
-    }
+    await writeImageFile(packItem?.path, hookBgPath, { r: 15, g: 23, b: 42 });
   }
 
   // Per-Question: 4 unique images
@@ -651,20 +662,7 @@ WorkflowStepRegistry.register("image", async (context) => {
     for (let imgSub = 0; imgSub < 4; imgSub++) {
       const qBgPath = path.join(assetsDir, `q_${qNum}_bg_${imgSub}.jpg`);
       const packItem = visualPack[packIdx++];
-      const sharpMod = getSharp();
-      if (packItem && fs.existsSync(packItem.path)) {
-        if (sharpMod) {
-          try { sharpMod(packItem.path).jpeg().toFile(qBgPath); } catch { fs.copyFileSync(packItem.path, qBgPath); }
-        } else {
-          fs.copyFileSync(packItem.path, qBgPath);
-        }
-      } else {
-        if (sharpMod) {
-          await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: { r: 20, g: 30, b: 50 } } }).jpeg().toFile(qBgPath);
-        } else {
-          fs.writeFileSync(qBgPath, Buffer.from(""));
-        }
-      }
+      await writeImageFile(packItem?.path, qBgPath, { r: 20, g: 30, b: 50 });
     }
   }
 
@@ -672,20 +670,7 @@ WorkflowStepRegistry.register("image", async (context) => {
   {
     const outroBgPath = path.join(assetsDir, `outro_bg.jpg`);
     const packItem = visualPack[packIdx] || visualPack[visualPack.length - 1];
-    const sharpMod = getSharp();
-    if (packItem && fs.existsSync(packItem.path)) {
-      if (sharpMod) {
-        try { sharpMod(packItem.path).jpeg().toFile(outroBgPath); } catch { fs.copyFileSync(packItem.path, outroBgPath); }
-      } else {
-        fs.copyFileSync(packItem.path, outroBgPath);
-      }
-    } else {
-      if (sharpMod) {
-        await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: { r: 8, g: 18, b: 40 } } }).jpeg().toFile(outroBgPath);
-      } else {
-        fs.writeFileSync(outroBgPath, Buffer.from(""));
-      }
-    }
+    await writeImageFile(packItem?.path, outroBgPath, { r: 8, g: 18, b: 40 });
   }
 
   // Also write legacy scene_N_bg.jpg for fallback compatibility
