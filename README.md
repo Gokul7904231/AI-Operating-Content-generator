@@ -1,5 +1,6 @@
 # ShortForge — Forge viral Shorts
 
+
 > **One topic in. One viral Short out.** Topic → 45s 1080×1920 Short (script, voice, images, subtitles, FFmpeg) — fully automated.
 
 <p align="center">
