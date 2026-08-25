@@ -33,7 +33,6 @@
     "@google/genai": "^2.9.0",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query": "^5.101.2",
-    "@travisvn/edge-tts": "^1.0.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
     "@types/nodemailer": "^8.0.1",
