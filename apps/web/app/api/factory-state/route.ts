@@ -78,10 +78,14 @@ export async function GET(request: Request) {
       )
     );
 
-    // Hardware Report & Provider Discovery
+    // Hardware Report & Async Provider Discovery Bootstrap
     await CapabilityManager.init();
     const { ProviderDiscovery } = require("@/lib/core/ProviderDiscovery");
-    await ProviderDiscovery.init();
+    if (!ProviderDiscovery.isInitialized()) {
+      ProviderDiscovery.init().catch((err: any) => {
+        console.warn("[factory-state] Background ProviderDiscovery init error:", err?.message || String(err));
+      });
+    }
     const capReport = CapabilityManager.getReport();
 
     // 4. AI registry status
