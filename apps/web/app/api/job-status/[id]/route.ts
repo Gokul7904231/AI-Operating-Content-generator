@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/firebase-admin";
 import { ServiceRegistry } from "../../../../lib/core/ServiceRegistry";
+import { verifySession } from "@/lib/auth/auth";
+import { isAdminUser } from "@/lib/auth/roles";
 // ServiceRegistryInit pulls sharp transitively — load lazily inside GET so build collection doesn't DLOPEN the native binary
 
 export async function GET(
@@ -10,6 +12,17 @@ export async function GET(
   const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  }
+
+  // 🔒 Strict account isolation: job-status is per-user (admins excepted)
+  let caller: any;
+  try {
+    const session = await verifySession(_req as any);
+    caller = session.user;
+  } catch (err: any) {
+    const msg = err?.message || "Unauthorized";
+    const status = err?.status || 401;
+    return NextResponse.json({ error: msg }, { status });
   }
 
   try {
@@ -24,6 +37,30 @@ export async function GET(
     const renderQueue = ServiceRegistry.get("renderQueue");
     const qJob = await renderQueue.getJob(id);
     if (qJob) {
+      // Ownership barrier: SQLite payload or canonical Firestore doc must belong to caller
+      const payloadUid = (qJob as any)?.payload?.userId ?? (qJob as any)?.payload?.user_id ?? null;
+      let ownerUid: string | null = payloadUid;
+
+      // Prefer canonical Firestore owner when available (covers queues that didn't embed userId)
+      if (db) {
+        try {
+          const ownerDoc = await db.collection("videos").doc(id).get();
+          if (ownerDoc.exists) {
+            const d: any = ownerDoc.data();
+            if (d?.userId) ownerUid = d.userId;
+          }
+        } catch {}
+      }
+
+      if (ownerUid && ownerUid !== caller.uid && !isAdminUser(caller.role)) {
+        return NextResponse.json({ error: "Forbidden: You do not have permission to access this job." }, { status: 403 });
+      }
+      // If ownerUid is still null (legacy job without userId) — deny non-admin callers to prevent cross-account bleed
+      if (!ownerUid && !isAdminUser(caller.role)) {
+        // Fallback: treat as not found for non-admins to avoid leaking existence
+        return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      }
+
       // Map statuses to expected frontend state
       let apiStatus = qJob.status;
       if (["claimed", "running", "retrying"].includes(qJob.status)) {
@@ -52,9 +89,17 @@ export async function GET(
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    const job = doc.data();
+    const job = doc.data() as any;
     if (!job) {
       return NextResponse.json({ error: "Job data is empty" }, { status: 404 });
+    }
+
+    if (job.userId && job.userId !== caller.uid && !isAdminUser(caller.role)) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to access this job." }, { status: 403 });
+    }
+    // Legacy docs without userId — hide from non-admins
+    if (!job.userId && !isAdminUser(caller.role)) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
     return NextResponse.json({

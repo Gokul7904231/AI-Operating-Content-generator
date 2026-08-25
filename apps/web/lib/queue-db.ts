@@ -23,11 +23,11 @@ import fs from "fs";
 // Lazy-load better-sqlite3 (it's a native module — don't import at module-level)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Database = import("better-sqlite3").Database;
+import getSafeDatabase, { SafeDatabase } from "./safe-sqlite";
 
-let _db: Database | null = null;
+let _db: SafeDatabase | null = null;
 
-function getDB(): Database {
+function getDB(): SafeDatabase {
   if (_db) return _db;
 
   // Ensure data directory exists
@@ -35,11 +35,7 @@ function getDB(): Database {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   const dbPath = path.join(dataDir, "queues.db");
-
-  // Dynamic require to avoid issues in non-Node environments
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Database = require("better-sqlite3") as typeof import("better-sqlite3");
-  _db = new Database(dbPath);
+  _db = getSafeDatabase(dbPath);
   _db.pragma("journal_mode = WAL");   // WAL mode = faster writes
   _db.pragma("synchronous = NORMAL"); // Safe + fast
 
@@ -52,7 +48,7 @@ function getDB(): Database {
 // Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
-function initSchema(db: Database): void {
+function initSchema(db: SafeDatabase): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS upload_jobs (
       id              TEXT PRIMARY KEY,

@@ -16,6 +16,9 @@ const PUBLIC_PREFIXES = [
   "/_next",
   "/public",
   "/favicon.ico",
+  "/demo-short.mp4",
+  "/german-quiz.mp4",
+  "/german-quiz-poster.jpg",
 ];
 
 export function middleware(request: NextRequest) {
@@ -106,8 +109,8 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except static files with extensions (e.g. .css, .js, .png, .jpg, .svg)
+     * Match all request paths except static files with extensions (e.g. .css, .js, .png, .jpg, .svg, .mp4, .webm)
      */
-    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|mp4|webm|mov|mp3|wav|ogg)$).*)",
   ],
 };

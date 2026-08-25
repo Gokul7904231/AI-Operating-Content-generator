@@ -53,13 +53,13 @@ export async function verifySession(request: NextRequest | Request): Promise<{ u
   const cleanEmail = email.toLowerCase().trim();
   
   // Fast path for bootstrap Owner
-  if (uid === "mock_owner_uid" || cleanEmail === "gokul32499@gmail.com") {
-    const ownerRole: UserRole = sessionRole === "USER" ? "USER" : "OWNER";
+  const bootstrapOwnerEmail = (process.env.BOOTSTRAP_OWNER_EMAIL || "gokul32499@gmail.com").toLowerCase().trim();
+  if (uid === "mock_owner_uid" || cleanEmail === bootstrapOwnerEmail || cleanEmail === "gokul32499@gmail.com") {
     const adminUser: AdminUser = {
-      uid: "mock_owner_uid",
+      uid: uid || "mock_owner_uid",
       email: cleanEmail,
       name: "Gokul (Owner)",
-      role: ownerRole,
+      role: "OWNER",
       active: true,
       disabled: false,
       createdAt: new Date().toISOString(),

@@ -18,16 +18,32 @@ import {
 } from "lucide-react";
 import BrandIcon from "@/components/BrandIcon";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/hooks";
 
 export default function PricingPlansPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [annualBilling, setAnnualBilling] = useState(false);
 
   const role = (user?.role || "BASIC").toUpperCase();
   const isBasic = role === "BASIC" || role === "USER" || role === "VIEWER" || role === "EDITOR";
   const isPro = role === "PRO";
   const isAdmin = role === "ADMIN" || role === "OWNER";
+
+  React.useEffect(() => {
+    if (!loading && isAdmin) {
+      router.replace("/admin/users");
+    }
+  }, [loading, isAdmin, router]);
+
+  if (!loading && isAdmin) {
+    return (
+      <div className="p-8 text-center text-sm text-[#667085] dark:text-[#A8B2C1]">
+        Redirecting to User Directory...
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 sm:p-10 max-w-7xl mx-auto space-y-12 select-none text-[#111827] dark:text-[#F5F7FA] font-sans">

@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import getSafeDatabase, { SafeDatabase } from "../safe-sqlite";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
@@ -12,7 +12,7 @@ export function calculateRequestHash(payload: any): string {
 }
 
 export class SQLiteRenderQueue implements RenderQueue {
-  private db: Database.Database;
+  private db: SafeDatabase;
 
   constructor() {
     const dbDir = path.resolve(process.cwd(), "data");
@@ -20,7 +20,7 @@ export class SQLiteRenderQueue implements RenderQueue {
       fs.mkdirSync(dbDir, { recursive: true });
     }
     const dbPath = path.join(dbDir, "shortfactory.db");
-    this.db = new Database(dbPath);
+    this.db = getSafeDatabase(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = NORMAL");
     this.initSchema();

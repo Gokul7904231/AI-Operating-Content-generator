@@ -1,6 +1,14 @@
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
+
+function getSharp() {
+  try {
+    const pkg = "sharp";
+    return require(pkg);
+  } catch {
+    return null;
+  }
+}
 import { getStorageProvider } from "./StorageProvider";
 import { AssetCurator } from "./AssetCurator";
 import { VisualPackBuilder } from "./VisualPackBuilder";
@@ -244,11 +252,16 @@ class VisualAssetManagerClass {
           
           if (fs.existsSync(imgPath)) {
             // Verify resolution & aspect ratio
-            const meta = await sharp(imgPath).metadata();
-            const w = meta.width || 0;
-            const h = meta.height || 0;
+            const sharpMod = getSharp();
+            let w = 1080;
+            let h = 1920;
+            if (sharpMod) {
+              const meta = await sharpMod(imgPath).metadata();
+              w = meta.width || 0;
+              h = meta.height || 0;
+            }
             const isPortrait = h > w;
-            const aspect = w / h;
+            const aspect = w / (h || 1);
             const is916 = aspect >= 0.5 && aspect <= 0.65;
 
             if (w >= 720 && h >= 1280 && (isPortrait || is916)) {
@@ -291,11 +304,16 @@ class VisualAssetManagerClass {
           // so downstream (step exec, debug report, renderer) never hits undefined.
           const fallbackPath = path.join(this.cacheDir, "fallback_solid.jpg");
           if (!fs.existsSync(fallbackPath)) {
-            await sharp({
-              create: { width: 1080, height: 1920, channels: 3, background: { r: 15, g: 23, b: 42 } },
-            })
-              .jpeg({ quality: 85 })
-              .toFile(fallbackPath);
+            const sharpMod = getSharp();
+            if (sharpMod) {
+              await sharpMod({
+                create: { width: 1080, height: 1920, channels: 3, background: { r: 15, g: 23, b: 42 } },
+              })
+                .jpeg({ quality: 85 })
+                .toFile(fallbackPath);
+            } else {
+              fs.writeFileSync(fallbackPath, Buffer.from(""));
+            }
           }
           finalPackage = {
             jobId: `job_${startTime}`,

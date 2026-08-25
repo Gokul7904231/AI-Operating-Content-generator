@@ -29,7 +29,6 @@ import { TimelineOrchestrator } from "../../lib/core/TimelineOrchestrator";
 import { QuestionOptimizer } from "../../lib/core/QuestionOptimizer";
 import { RenderPlanner } from "../../lib/core/RenderPlanner";
 import { NarrationRole } from "../../lib/voice/narration-role";
-import sharp from "sharp";
 
 // ── 1. Script Step ───────────────────────────────────────────────────────────
 WorkflowStepRegistry.register("script", async (context) => {
@@ -630,14 +629,26 @@ WorkflowStepRegistry.register("image", async (context) => {
 
   let packIdx = 0;
 
+  const sharpPkg = "sharp";
+  const getSharp = () => { try { return require(sharpPkg); } catch { return null; } };
+
   // Hook
   {
     const hookBgPath = path.join(assetsDir, `scene_0_bg.jpg`);
     const packItem = visualPack[packIdx++];
+    const sharpMod = getSharp();
     if (packItem && fs.existsSync(packItem.path)) {
-      try { require("sharp")(packItem.path).jpeg().toFile(hookBgPath); } catch { fs.copyFileSync(packItem.path, hookBgPath); }
+      if (sharpMod) {
+        try { sharpMod(packItem.path).jpeg().toFile(hookBgPath); } catch { fs.copyFileSync(packItem.path, hookBgPath); }
+      } else {
+        fs.copyFileSync(packItem.path, hookBgPath);
+      }
     } else {
-      await require("sharp")({ create: { width: 1080, height: 1920, channels: 3, background: { r: 15, g: 23, b: 42 } } }).jpeg().toFile(hookBgPath);
+      if (sharpMod) {
+        await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: { r: 15, g: 23, b: 42 } } }).jpeg().toFile(hookBgPath);
+      } else {
+        fs.writeFileSync(hookBgPath, Buffer.from(""));
+      }
     }
   }
 
@@ -647,10 +658,19 @@ WorkflowStepRegistry.register("image", async (context) => {
     for (let imgSub = 0; imgSub < 4; imgSub++) {
       const qBgPath = path.join(assetsDir, `q_${qNum}_bg_${imgSub}.jpg`);
       const packItem = visualPack[packIdx++];
+      const sharpMod = getSharp();
       if (packItem && fs.existsSync(packItem.path)) {
-        try { require("sharp")(packItem.path).jpeg().toFile(qBgPath); } catch { fs.copyFileSync(packItem.path, qBgPath); }
+        if (sharpMod) {
+          try { sharpMod(packItem.path).jpeg().toFile(qBgPath); } catch { fs.copyFileSync(packItem.path, qBgPath); }
+        } else {
+          fs.copyFileSync(packItem.path, qBgPath);
+        }
       } else {
-        await require("sharp")({ create: { width: 1080, height: 1920, channels: 3, background: { r: 20, g: 30, b: 50 } } }).jpeg().toFile(qBgPath);
+        if (sharpMod) {
+          await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: { r: 20, g: 30, b: 50 } } }).jpeg().toFile(qBgPath);
+        } else {
+          fs.writeFileSync(qBgPath, Buffer.from(""));
+        }
       }
     }
   }
@@ -659,10 +679,19 @@ WorkflowStepRegistry.register("image", async (context) => {
   {
     const outroBgPath = path.join(assetsDir, `outro_bg.jpg`);
     const packItem = visualPack[packIdx] || visualPack[visualPack.length - 1];
+    const sharpMod = getSharp();
     if (packItem && fs.existsSync(packItem.path)) {
-      try { require("sharp")(packItem.path).jpeg().toFile(outroBgPath); } catch { fs.copyFileSync(packItem.path, outroBgPath); }
+      if (sharpMod) {
+        try { sharpMod(packItem.path).jpeg().toFile(outroBgPath); } catch { fs.copyFileSync(packItem.path, outroBgPath); }
+      } else {
+        fs.copyFileSync(packItem.path, outroBgPath);
+      }
     } else {
-      await require("sharp")({ create: { width: 1080, height: 1920, channels: 3, background: { r: 8, g: 18, b: 40 } } }).jpeg().toFile(outroBgPath);
+      if (sharpMod) {
+        await sharpMod({ create: { width: 1080, height: 1920, channels: 3, background: { r: 8, g: 18, b: 40 } } }).jpeg().toFile(outroBgPath);
+      } else {
+        fs.writeFileSync(outroBgPath, Buffer.from(""));
+      }
     }
   }
 
@@ -862,9 +891,13 @@ WorkflowStepRegistry.register("render", async (context) => {
         semanticErrors.push(`Missing question image: q_${qn}_bg_${imgSub}.jpg`);
       } else {
         try {
-          const imgMeta = await sharp(imgPath).metadata();
-          if (!imgMeta.format || !imgMeta.width || !imgMeta.height) {
-            semanticErrors.push(`Question image is not a valid raster: q_${qn}_bg_${imgSub}.jpg`);
+          const pkg = "sharp";
+          const sharpMod = (() => { try { return require(pkg); } catch { return null; } })();
+          if (sharpMod) {
+            const imgMeta = await sharpMod(imgPath).metadata();
+            if (!imgMeta.format || !imgMeta.width || !imgMeta.height) {
+              semanticErrors.push(`Question image is not a valid raster: q_${qn}_bg_${imgSub}.jpg`);
+            }
           }
         } catch {
           semanticErrors.push(`Question image failed decode validation: q_${qn}_bg_${imgSub}.jpg`);

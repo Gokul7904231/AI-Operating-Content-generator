@@ -7,18 +7,52 @@ const nextConfig = {
     maxInactiveAge: 60 * 1000,
     pagesBufferLength: 5,
   },
+  serverExternalPackages: ['sqlite3', 'better-sqlite3', '@xenova/transformers'],
   experimental: {
     optimizePackageImports: ['lucide-react'],
-    serverComponentsExternalPackages: ['sharp', 'sqlite3'],
   },
-  turbopack: {},
+  turbopack: {
+    root: '.',
+  },
+  outputFileTracingIncludes: {
+    '*': [
+      './node_modules/@firebase/util/**/*',
+    ],
+  },
   outputFileTracingExcludes: {
     '*': [
+      // ── Native modules excluded from CF Worker (Azure VM only) ──────────
+      '**/*better-sqlite3*/**',
+      '**/*sqlite3*/**',
+      '**/*@xenova*/**',
+      '**/*sharp*/**',
+      '**/*@img*/**',
+      '**/*.node',
+      '**/*.c',
+      '**/*.h',
+      '**/*.cc',
+      '**/*.cpp',
+      // ── Python / venv (Azure VM render side) ────────────────────────────
       '**/venv/**/*',
       '**/.venv/**/*',
-      '**/node_modules/**/*',
+      '**/local-ai/scripts/**/*',
       '**/local-ai/output/**/*',
-      '**/generated/local-ai/output/**/*',
+      // ── Generated / runtime output (never served from Worker) ───────────
+      '**/generated/**/*',
+      '**/data/**/*',                             // render proofs, AI doctor reports
+      '**/scratch/**/*',                           // stability test WAVs etc.
+      // ── SQLite source (C/H headers traced by sqlite3 npm package) ────────
+      '**/node_modules/sqlite3/deps/**/*',
+      // ── Demo / seed media in public (large, served by CDN not Worker) ──
+      '**/public/**/*.mp4',
+      '**/public/**/*.mov',
+      '**/public/**/*.avi',
+      '**/public/**/*.wav',
+      // ── Benchmarks / telemetry databases ────────────────────────────────
+      '**/*.db',
+      '**/*.db-journal',
+      '**/*.db-wal',
+      '**/*.db-shm',
     ],
   },
   webpack: (config, { isServer }) => {
@@ -49,9 +83,8 @@ const nextConfig = {
     config.externals = config.externals || [];
     if (isServer) {
       config.externals.push('sqlite3');
-      config.externals.push('sharp');
-      config.externals.push('@img/sharp-win32-x64');
-      config.externals.push('@img/sharp-libvips-win32-x64');
+      config.externals.push('better-sqlite3');
+      config.externals.push('@xenova/transformers');
     }
     // Suppress "critical dependency" warnings from dynamic require()
     config.module.exprContextCritical = false;

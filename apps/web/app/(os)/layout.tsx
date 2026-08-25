@@ -6,9 +6,9 @@ import TopNav from "@/components/TopNav";
 import { Providers } from "../providers";
 import GlobalOverlays from "@/components/GlobalOverlays";
 import MobileBottomNav from "@/components/MobileBottomNav";
-// ServiceRegistryInit pulls sharp transitively (RenderPlanner/step-registry) which breaks Windows prerender gathering.
-// Defer to runtime only — skip during production build collection.
-if (process.env.NEXT_PHASE !== 'phase-production-build') {
+// ServiceRegistryInit pulls sharp and better-sqlite3 transitively.
+// Skip during production build and when executing under Cloudflare Workers.
+if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.STORAGE_DRIVER !== 'cloudflare-worker') {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("@/lib/core/ServiceRegistryInit");
 }

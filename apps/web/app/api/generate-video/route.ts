@@ -127,12 +127,6 @@ export async function POST(req: Request) {
       if (err.message?.includes("Read-only access") || err.status === 403) {
         return NextResponse.json({ error: err.message }, { status: 403 });
       }
-      try {
-        const authResult = await auth();
-        if (authResult?.userId) {
-          authenticatedUser = { uid: authResult.userId, role: "USER" };
-        }
-      } catch {}
     }
 
     if (!authenticatedUser) {
@@ -349,39 +343,41 @@ export async function POST(req: Request) {
     // Initialize document in Firestore
     await saveJobManifest(jobId, finalPayload);
 
-    // Push execution payload to SQLite Render Queue
-    const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
-    
-    if (!ServiceRegistry.has("renderQueue")) {
-      const { SQLiteRenderQueue } = await import("../../../lib/core/SQLiteRenderQueue");
-      ServiceRegistry.register("renderQueue", new SQLiteRenderQueue());
-    }
+    // Push execution payload to SQLite Render Queue (Local Node.js pool only; bypassed for Workers & Basic)
+    if (process.env.STORAGE_DRIVER !== "cloudflare-worker" && tier !== "BASIC") {
+      const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
+      
+      if (!ServiceRegistry.has("renderQueue")) {
+        const { SQLiteRenderQueue } = await import("../../../lib/core/SQLiteRenderQueue");
+        ServiceRegistry.register("renderQueue", new SQLiteRenderQueue());
+      }
 
-    const { QueueProcessor } = await import("../../../lib/core/RenderQueueProcessor");
-    QueueProcessor.start();
+      const { QueueProcessor } = await import("../../../lib/core/RenderQueueProcessor");
+      QueueProcessor.start();
 
-    const renderQueue = ServiceRegistry.get("renderQueue");
-    await renderQueue.enqueue({
-      jobId,
-      payload: {
+      const renderQueue = ServiceRegistry.get("renderQueue");
+      await renderQueue.enqueue({
         jobId,
-        engine: engineId,
-        engineId,
-        engineSnapshot,
-        topic: parsed.data.topic,
-        profile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
-        platforms: ["youtube"],
-        options: {
-          humanApproval: false
+        payload: {
+          jobId,
+          engine: engineId,
+          engineId,
+          engineSnapshot,
+          topic: parsed.data.topic,
+          profile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
+          platforms: ["youtube"],
+          options: {
+            humanApproval: false
+          },
+          contentType: finalPayload.contentType,
+          quizData: finalPayload.quizData,
+          script: finalPayload.script,
+          scenes: finalPayload.scenes,
         },
-        contentType: finalPayload.contentType,
-        quizData: finalPayload.quizData,
-        script: finalPayload.script,
-        scenes: finalPayload.scenes,
-      },
-      priority: 0,
-      maxAttempts: 3
-    });
+        priority: 0,
+        maxAttempts: 3
+      });
+    }
 
     // Execution token: strong crypto — never jobId fallback (const-time compared in callback)
     const executionToken = crypto.randomBytes(32).toString("hex");

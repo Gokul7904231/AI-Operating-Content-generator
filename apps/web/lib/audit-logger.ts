@@ -9,6 +9,7 @@
 // Dynamically import better-sqlite3 to write directly to queues.db
 import path from "path";
 import fs from "fs";
+import getSafeDatabase, { SafeDatabase } from "./safe-sqlite";
 
 export interface AuditRecord {
   action: string;
@@ -18,17 +19,16 @@ export interface AuditRecord {
   ipAddress?: string;
 }
 
-let _db: any = null;
+let _db: SafeDatabase | null = null;
 
-function getAuditDB(): any {
+function getAuditDB(): SafeDatabase {
   if (_db) return _db;
 
   const dataDir = path.resolve(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   const dbPath = path.join(dataDir, "queues.db");
-  const Database = require("better-sqlite3") as typeof import("better-sqlite3");
-  _db = new Database(dbPath);
+  _db = getSafeDatabase(dbPath);
 
   _db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

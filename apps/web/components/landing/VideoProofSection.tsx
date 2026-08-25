@@ -8,21 +8,28 @@ export default function VideoProofSection() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
+  const togglePlay = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play().then(() => {
+        setIsPlaying(true);
+      }).catch(() => {
+        setIsPlaying(false);
+      });
     } else {
-      videoRef.current.play();
-      setIsPlaying(true);
+      video.pause();
+      setIsPlaying(false);
     }
   };
 
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
+  const toggleMute = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
   };
 
   return (
@@ -59,7 +66,7 @@ export default function VideoProofSection() {
                   INPUT BRIEF
                 </span>
                 <div className="p-4 bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl font-text text-xs text-[#1d1d1f] leading-relaxed shadow-xs">
-                  "Create a 45-second retention-optimized short explaining quantum computing password decryption, using high-contrast visual prompts and authoritative voice narration."
+                  "Create a fast-paced German Quiz short with vocabulary challenges, multiple-choice options, countdown timer, and native pronunciation."
                 </div>
               </div>
 
@@ -71,7 +78,7 @@ export default function VideoProofSection() {
                 <div className="grid grid-cols-2 gap-3 font-text text-xs">
                   <div className="p-3 bg-[#f5f5f7] border border-[#e8e8ed] rounded-xl shadow-xs">
                     <span className="text-[10px] text-[#86868b] uppercase font-bold">SCRIPT SYNTHESIS</span>
-                    <p className="font-semibold text-[#1d1d1f] mt-0.5">60sec Word Timestamps</p>
+                    <p className="font-semibold text-[#1d1d1f] mt-0.5">German Quiz · Timestamps</p>
                   </div>
                   <div className="p-3 bg-[#f5f5f7] border border-[#e8e8ed] rounded-xl shadow-xs">
                     <span className="text-[10px] text-[#86868b] uppercase font-bold">VOICE MODEL</span>
@@ -92,45 +99,52 @@ export default function VideoProofSection() {
             {/* Right: Rendered Media Player */}
             <div className="lg:col-span-5 flex justify-center">
               <div className="relative w-full max-w-[280px] sm:max-w-[310px] aspect-[9/16] bg-white border border-[#e8e8ed] rounded-2xl p-2 shadow-xl overflow-hidden group">
-                <div className="relative w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
+                <div 
+                  onClick={togglePlay}
+                  className="relative w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center cursor-pointer select-none"
+                >
                   <video
                     ref={videoRef}
-                    src="/demo-short.mp4"
+                    src="/german-quiz.mp4"
+                    poster="/german-quiz-poster.jpg"
+                    preload="metadata"
                     loop
                     muted={isMuted}
                     playsInline
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onVolumeChange={(e) => setIsMuted(e.currentTarget.muted)}
                     className="w-full h-full object-cover"
                   />
 
                   {/* Play Overlay Button */}
                   {!isPlaying && (
-                    <button
-                      onClick={togglePlay}
-                      className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center text-white transition-opacity group-hover:bg-black/30 cursor-pointer active:scale-95"
-                    >
-                      <div className="w-14 h-14 rounded-full bg-[#0071e3] text-white flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center text-white transition-opacity group-hover:bg-black/30 pointer-events-none">
+                      <div className="w-14 h-14 rounded-full bg-[#0071e3] text-white flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-105">
                         <Play className="w-6 h-6 fill-white ml-1" />
                       </div>
-                    </button>
-                  )}
-
-                  {/* Controls when playing */}
-                  {isPlaying && (
-                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-20">
-                      <button
-                        onClick={togglePlay}
-                        className="p-1.5 rounded-md bg-white/90 hover:bg-white text-[#1d1d1f] shadow-xs transition-colors cursor-pointer active:scale-90"
-                      >
-                        <Pause className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={toggleMute}
-                        className="p-1.5 rounded-md bg-white/90 hover:bg-white text-[#1d1d1f] shadow-xs transition-colors cursor-pointer active:scale-90"
-                      >
-                        {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                      </button>
                     </div>
                   )}
+
+                  {/* Controls when playing or hovering */}
+                  <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-20" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={togglePlay}
+                      className="p-2 rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white shadow-md transition-all cursor-pointer active:scale-90"
+                      title={isPlaying ? "Pause" : "Play"}
+                    >
+                      {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleMute}
+                      className="p-2 rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white shadow-md transition-all cursor-pointer active:scale-90"
+                      title={isMuted ? "Unmute Sound" : "Mute Sound"}
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

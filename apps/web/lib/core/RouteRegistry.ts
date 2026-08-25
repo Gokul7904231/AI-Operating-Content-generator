@@ -17,6 +17,7 @@ export interface RouteEntry {
   icon: string; // lucide icon name
   keywords?: string[]; // For search/CommandPalette
   minRole?: UserRole; // Minimum role required to view this route in navigation
+  maxRole?: UserRole; // Maximum role allowed to view this route (e.g. USER only)
 }
 
 export interface RouteSection {
@@ -26,6 +27,7 @@ export interface RouteSection {
   basePath: string;
   routes: RouteEntry[];
   minRole?: UserRole; // Minimum role required to view this section
+  maxRole?: UserRole; // Maximum role allowed to view this section
 }
 
 export const ROUTE_SECTIONS: RouteSection[] = [
@@ -129,12 +131,23 @@ export const ROUTE_SECTIONS: RouteSection[] = [
     ],
   },
   {
+    id: "admin-users-section",
+    title: "Registered Users",
+    icon: "UserCheck",
+    basePath: "/admin/users",
+    minRole: "ADMIN",
+    routes: [
+      { id: "admin-users", label: "User Directory", href: "/admin/users", section: "Registered Users", icon: "UserCheck", description: "View registered users, emails, and manage permissions", keywords: ["users", "admin", "roles", "emails", "registered"], minRole: "ADMIN" },
+    ],
+  },
+  {
     id: "pricing",
     title: "Plans & Pricing",
     icon: "Sparkles",
     basePath: "/pricing",
+    maxRole: "USER",
     routes: [
-      { id: "plans-pricing", label: "Plans & Pricing", href: "/pricing", section: "Plans & Pricing", icon: "Sparkles", description: "View Basic, Pro, and Enterprise subscription plans", keywords: ["pricing", "plans", "upgrade", "pro", "enterprise", "quota", "billing"] },
+      { id: "plans-pricing", label: "Plans & Pricing", href: "/pricing", section: "Plans & Pricing", icon: "Sparkles", description: "View Basic, Pro, and Enterprise subscription plans", keywords: ["pricing", "plans", "upgrade", "pro", "enterprise", "quota", "billing"], maxRole: "USER" },
     ],
   },
 ];
@@ -147,10 +160,12 @@ export function getNavigationForRole(role: string = "USER"): RouteSection[] {
 
   return ROUTE_SECTIONS.filter((section) => {
     if (section.minRole === "ADMIN" && !isAdmin) return false;
+    if (section.maxRole === "USER" && isAdmin) return false;
     return true;
   }).map((section) => {
     const allowedRoutes = section.routes.filter((route) => {
       if (route.minRole === "ADMIN" && !isAdmin) return false;
+      if (route.maxRole === "USER" && isAdmin) return false;
       return true;
     });
     return { ...section, routes: allowedRoutes };

@@ -1,7 +1,12 @@
 import { db } from "../firebase-admin";
 import { isAdminUser } from "../auth/roles";
 
-export const MAX_BASIC_USER_VIDEOS = 5;
+export const getBasicGenerationLimit = (): number => {
+  const parsed = parseInt(process.env.BASIC_GENERATION_LIMIT || "5", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+};
+
+export const MAX_BASIC_USER_VIDEOS = getBasicGenerationLimit();
 export const MAX_PRO_USER_VIDEOS = 8;
 
 export type QuotaPeriodType = "LIFETIME" | "CALENDAR_MONTH" | "SUBSCRIPTION_PERIOD";
@@ -158,15 +163,16 @@ export async function getUserQuota(userId: string, role: string = "USER"): Promi
     }
   }
 
+  const basicLimit = getBasicGenerationLimit();
   const totalUsed = completed + reserved;
-  const remaining = Math.max(0, MAX_BASIC_USER_VIDEOS - totalUsed);
-  const isExceeded = totalUsed >= MAX_BASIC_USER_VIDEOS;
+  const remaining = Math.max(0, basicLimit - totalUsed);
+  const isExceeded = totalUsed >= basicLimit;
 
   return {
     userId,
     tier: "BASIC",
     periodType: "LIFETIME",
-    limit: MAX_BASIC_USER_VIDEOS,
+    limit: basicLimit,
     completed,
     reserved,
     totalUsed,
@@ -215,7 +221,7 @@ export async function reserveGenerationSlot(
   const isPro = tier === "PRO";
   const { periodKey, start, end } = getCalendarMonthBounds();
   const quotaDocId = isPro ? `${userId}_${periodKey}` : userId;
-  const maxLimit = isPro ? MAX_PRO_USER_VIDEOS : MAX_BASIC_USER_VIDEOS;
+  const maxLimit = isPro ? MAX_PRO_USER_VIDEOS : getBasicGenerationLimit();
   const quotaRef = db.collection("quotas").doc(quotaDocId);
 
   return await db.runTransaction(async (transaction: any) => {

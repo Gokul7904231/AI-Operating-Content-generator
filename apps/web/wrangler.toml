@@ -1,0 +1,13 @@
+# ==============================================================================
+# ShortForge — Cloudflare Workers Free Configuration (OpenNext)
+# ==============================================================================
+name = "shortforge"
+main = ".open-next/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+assets = { directory = ".open-next/assets", binding = "ASSETS" }
+
+[vars]
+NEXT_PUBLIC_APP_NAME = "ShortForge"
+NEXT_PUBLIC_APP_URL = "https://shortforge.example.com"
+STORAGE_DRIVER = "cloudflare-worker"

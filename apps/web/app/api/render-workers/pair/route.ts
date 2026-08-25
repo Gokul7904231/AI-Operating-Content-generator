@@ -3,7 +3,7 @@ import { WorkerPoolRegistry } from "../../../../lib/rendering/WorkerPoolRegistry
 import crypto from "crypto";
 
 // Keep a map of active pairing codes in memory (in-process)
-export const activePairingCodes = new Map<string, { expiresAt: Date; tenantId: string }>();
+const activePairingCodes = new Map<string, { expiresAt: Date; tenantId: string }>();
 
 export async function POST(request: NextRequest) {
   try {

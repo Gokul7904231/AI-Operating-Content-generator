@@ -20,24 +20,29 @@ export async function POST(request: NextRequest) {
 
     let safeUser = { ...rawUser };
 
-    if (targetRole === "ADMIN") {
-      const isOwner = cleanEmail === "gokul32499@gmail.com";
-      const isAllowedAdmin = isOwner || isEffectiveAdmin(rawUser);
+    const bootstrapOwner = (process.env.BOOTSTRAP_OWNER_EMAIL || "gokul32499@gmail.com").toLowerCase().trim();
+    const isOwner = cleanEmail === bootstrapOwner || cleanEmail === "gokul32499@gmail.com" || rawUser.role === "OWNER";
 
-      if (!isAllowedAdmin) {
+    if (isOwner) {
+      safeUser.role = "OWNER";
+    } else if (rawUser.role === "ADMIN" || targetRole === "ADMIN") {
+      const isAllowedAdmin = isEffectiveAdmin(rawUser);
+      if (isAllowedAdmin) {
+        safeUser.role = "ADMIN";
+      } else if (targetRole === "ADMIN") {
         return NextResponse.json(
           {
             success: false,
-            error: "Access denied! Google account is not an authorized administrator.",
+            error: "Access denied! Account is not an authorized administrator.",
             code: "ACCESS_DENIED",
           },
           { status: 403 }
         );
+      } else {
+        safeUser.role = "USER";
       }
-      safeUser.role = isOwner || rawUser.role === "OWNER" ? "OWNER" : "ADMIN";
     } else {
-      // Basic User portal strictly frames the user as USER
-      safeUser.role = "USER";
+      safeUser.role = rawUser.role || "USER";
     }
 
     const response = NextResponse.json({ success: true, user: safeUser });

@@ -128,7 +128,8 @@ class AIDoctorClass {
     // 6. Pipeline Verifier
     let sharpLoaded = false;
     try {
-      require("sharp");
+      const pkg = "sharp";
+      require(pkg);
       sharpLoaded = true;
     } catch {}
     const pipelineStatus = {

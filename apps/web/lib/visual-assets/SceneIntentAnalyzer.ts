@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import getSafeDatabase, { SafeDatabase } from "../safe-sqlite";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
@@ -6,7 +6,7 @@ import { IntelligentRouter } from "../../ai/intelligent-router";
 import { SceneIntent, VisualContext } from "./VisualIntelligenceTypes";
 
 export class SceneIntentAnalyzer {
-  private db: Database.Database;
+  private db: SafeDatabase;
 
   constructor() {
     const dbDir = path.resolve(process.cwd(), "data");
@@ -14,7 +14,7 @@ export class SceneIntentAnalyzer {
       fs.mkdirSync(dbDir, { recursive: true });
     }
     const dbPath = path.join(dbDir, "shortfactory.db");
-    this.db = new Database(dbPath);
+    this.db = getSafeDatabase(dbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS scene_intent_cache (
         text_hash TEXT PRIMARY KEY,

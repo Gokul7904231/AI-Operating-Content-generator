@@ -4,6 +4,12 @@
     "nodemailer": "^9.0.5"
   },
   "devDependencies": {
-    "@types/nodemailer": "^8.0.1"
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@types/nodemailer": "^8.0.1",
+    "husky": "^9.1.7"
+  },
+  "scripts": {
+    "prepare": "husky"
   }
 }

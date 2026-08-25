@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import getSafeDatabase, { SafeDatabase } from "../safe-sqlite";
 import path from "path";
 import fs from "fs";
 
@@ -8,7 +8,7 @@ if (!fs.existsSync(dbDir)) {
 }
 
 const dbPath = path.join(dbDir, "shortfactory.db");
-const db = new Database(dbPath);
+const db: SafeDatabase = getSafeDatabase(dbPath);
 
 // Initialize table
 db.exec(`

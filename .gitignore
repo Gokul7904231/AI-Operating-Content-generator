@@ -18,10 +18,14 @@ __pycache__/
 # build outputs
 .next/
 **/.next/
+.open-next/
+**/.open-next/
 out/
 **/out/
 build/
 **/build/
+scratch/
+**/scratch/
 *.tsbuildinfo
 next-env.d.ts
 

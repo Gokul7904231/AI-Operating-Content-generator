@@ -63,7 +63,27 @@ export type CreateStep = "IDEA" | "REVIEW" | "RENDER" | "READY";
 
 const STEP_NUM: Record<CreateStep, number> = { IDEA: 1, REVIEW: 2, RENDER: 3, READY: 4 };
 const NUM_STEP: Record<number, CreateStep> = { 1: "IDEA", 2: "REVIEW", 3: "RENDER", 4: "READY" };
-const STORAGE_KEY = "factoryos:create:draft";
+const STORAGE_KEY_BASE = "factoryos:create:draft";
+const STORAGE_KEY_LEGACY = STORAGE_KEY_BASE;
+function storageKeyFor(uid?: string | null): string {
+  return uid ? `${STORAGE_KEY_BASE}:${uid}` : STORAGE_KEY_LEGACY;
+}
+function clearLegacyAndScopedStorage(uid?: string | null): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY_LEGACY);
+    if (uid) localStorage.removeItem(storageKeyFor(uid));
+    // Defense-in-depth: purge any stale per-user draft keys from previous sessions
+    // (localStorage is browser-scoped; a new login on same device must not inherit prior user's draft)
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(`${STORAGE_KEY_BASE}:`)) {
+        if (!uid || k !== storageKeyFor(uid)) toRemove.push(k);
+      }
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
 
 function humanStageLabel(status?: string, detailedStatus?: string): string {
   const s = (detailedStatus || status || "").toLowerCase();
@@ -83,7 +103,7 @@ function isDriveDelivered(job: any): boolean {
 }
 
 export default function QuickGenerateOverlay() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth() as any;
   const isOpen = useOSStore((state) => state.quickGenerateOpen);
   const setOpen = useOSStore((state) => state.setQuickGenerateOpen);
   const router = useRouter();
@@ -179,18 +199,77 @@ export default function QuickGenerateOverlay() {
     } catch {}
   };
 
-  // Restore draft/step from URL + localStorage on mount / open
+  // Strict account isolation: reset in-memory draft when uid switches on same device
+  const userIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUid = (user as any)?.uid ?? null;
+    if (authLoading) return;
+    if (userIdRef.current !== null && userIdRef.current !== currentUid) {
+      pollingRef.current = false;
+      setPolling(false);
+      setDraft(null);
+      setJobId(null);
+      setJobStatus(null);
+      setRendering(false);
+      setError("");
+      setFieldErrors({});
+      setEditingIndex(null);
+      setStep("IDEA");
+      clearLegacyAndScopedStorage(currentUid);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("step");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+    userIdRef.current = currentUid;
+  }, [authLoading, (user as any)?.uid, pathname, router, searchParams]);
+
+  // Restore draft/step from URL + localStorage on mount / open — strictly per-user
   useEffect(() => {
     if (!isOpen) return;
+    if (authLoading) return;
+    const uid = (user as any)?.uid ?? null;
     try {
-      const urlStep = searchParams.get("step");
-      if (urlStep) {
-        const n = parseInt(urlStep, 10);
-        if (n >= 1 && n <= 4 && NUM_STEP[n]) setStep(NUM_STEP[n]);
+      // Never inherit another account's draft on same browser
+      if (!uid) {
+        try {
+          localStorage.removeItem(STORAGE_KEY_LEGACY);
+        } catch {}
+        // Force clean stepper when identity is unknown — do not trust URL step
+        if (searchParams.get("step")) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("step");
+          const qs = params.toString();
+          router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+        }
+        setStep("IDEA");
+        return;
       }
-      const raw = localStorage.getItem(STORAGE_KEY);
+      // Purge legacy global key and any scoped keys for other users
+      try {
+        localStorage.removeItem(STORAGE_KEY_LEGACY);
+        const toRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(`${STORAGE_KEY_BASE}:`) && k !== storageKeyFor(uid)) toRemove.push(k);
+        }
+        toRemove.forEach((k) => localStorage.removeItem(k));
+      } catch {}
+      const raw = localStorage.getItem(storageKeyFor(uid));
       if (raw) {
         const saved = JSON.parse(raw);
+        // Defense-in-depth: discard if payload was tagged for a different user
+        if (saved.userId && saved.userId !== uid) {
+          try {
+            localStorage.removeItem(storageKeyFor(uid));
+          } catch {}
+          setStep("IDEA");
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("step");
+          const qs = params.toString();
+          router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+          return;
+        }
         if (saved.draft) setDraft(saved.draft);
         if (saved.topicBrief) setTopicBrief(saved.topicBrief);
         if (saved.jobId) setJobId(saved.jobId);
@@ -200,18 +279,55 @@ export default function QuickGenerateOverlay() {
         if (saved.selectedCountry) setSelectedCountry(saved.selectedCountry);
         if (saved.customMode) setCustomMode(saved.customMode);
         if (saved.multiTopics) setMultiTopics(saved.multiTopics);
-        if (!urlStep && saved.step && NUM_STEP[saved.step]) setStep(NUM_STEP[saved.step]);
+        const urlStep = searchParams.get("step");
+        if (urlStep) {
+          const n = parseInt(urlStep, 10);
+          // Only honor URL step 3/4 if we actually have an owned draft/job for this user
+          const hasOwnedContext = Boolean(saved.draft || saved.jobId);
+          if (!hasOwnedContext && n >= 3) {
+            setStep("IDEA");
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("step");
+            const qs2 = params.toString();
+            router.replace(qs2 ? `${pathname}?${qs2}` : pathname, { scroll: false });
+          } else if (n >= 1 && n <= 4 && NUM_STEP[n]) {
+            setStep(NUM_STEP[n]);
+          }
+        } else if (saved.step && NUM_STEP[saved.step]) {
+          // No URL step — restore from persisted step only if we have owned context
+          if (saved.draft || saved.jobId) setStep(NUM_STEP[saved.step]);
+        }
+      } else {
+        // No persisted draft for this account — force IDEA and clean stale URL step 3/4
+        const urlStep = searchParams.get("step");
+        if (urlStep) {
+          const n = parseInt(urlStep, 10);
+          if (n >= 3) {
+            setStep("IDEA");
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("step");
+            const qs = params.toString();
+            router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+          } else if (n >= 1 && n <= 2 && NUM_STEP[n]) {
+            setStep(NUM_STEP[n]);
+          }
+        } else {
+          setStep("IDEA");
+        }
       }
     } catch {}
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, authLoading, (user as any)?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Persist draft/step to URL + localStorage whenever they change while open
+  // Persist draft/step to URL + localStorage whenever they change while open — per-user only
   useEffect(() => {
     if (!isOpen) return;
+    if (authLoading || !(user as any)?.uid) return;
+    const uid = (user as any).uid as string;
     try {
       localStorage.setItem(
-        STORAGE_KEY,
+        storageKeyFor(uid),
         JSON.stringify({
+          userId: uid,
           step: STEP_NUM[step],
           draft,
           topicBrief,
@@ -224,6 +340,8 @@ export default function QuickGenerateOverlay() {
           multiTopics,
         })
       );
+      // Ensure legacy global key never persists
+      localStorage.removeItem(STORAGE_KEY_LEGACY);
     } catch {}
     const current = searchParams.get("step");
     const desired = String(STEP_NUM[step]);
@@ -244,6 +362,8 @@ export default function QuickGenerateOverlay() {
     customMode,
     multiTopics,
     isOpen,
+    authLoading,
+    (user as any)?.uid,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const clearDraft = useCallback(() => {
@@ -255,13 +375,15 @@ export default function QuickGenerateOverlay() {
     setEditingIndex(null);
     setStep("IDEA");
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      clearLegacyAndScopedStorage((user as any)?.uid ?? null);
+      const uid = (user as any)?.uid;
+      if (uid) localStorage.removeItem(storageKeyFor(uid));
     } catch {}
     const params = new URLSearchParams(searchParams.toString());
     params.delete("step");
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [router, pathname, searchParams]);
+  }, [router, pathname, searchParams, (user as any)?.uid]);
 
   // Compute live equal allocation preview
   const liveAllocation = React.useMemo(() => {

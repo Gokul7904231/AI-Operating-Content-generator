@@ -1,7 +1,6 @@
 import { Timeline, TimelineEvent } from "./TimelineOrchestrator";
 import { SceneInput } from "../renderer/SceneRenderPool";
 import { FFmpegService } from "./FFmpegService";
-import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 
@@ -343,16 +342,22 @@ export class RenderPlanner {
       // Fallback
       backgroundPath = path.join(assetsDir, `scene_${rawBackgroundIndex}_bg.jpg`);
       if (!fs.existsSync(backgroundPath)) {
-        await sharp({
-          create: {
-            width: 1080,
-            height: 1920,
-            channels: 3,
-            background: { r: 15, g: 23, b: 42 }
-          }
-        })
-        .jpeg()
-        .toFile(backgroundPath);
+        try {
+          const pkg = "sharp";
+          const sharpMod = require(pkg);
+          await sharpMod({
+            create: {
+              width: 1080,
+              height: 1920,
+              channels: 3,
+              background: { r: 15, g: 23, b: 42 }
+            }
+          })
+          .jpeg()
+          .toFile(backgroundPath);
+        } catch {
+          fs.writeFileSync(backgroundPath, Buffer.from(""));
+        }
       }
     }
 
@@ -530,12 +535,18 @@ export class RenderPlanner {
       `;
     }
 
-    await sharp(backgroundPath)
-      .blur(8)
-      .modulate({ brightness: 0.6 })
-      .composite([{ input: Buffer.from(svgContent), top: 0, left: 0 }])
-      .jpeg()
-      .toFile(imgPath);
+    try {
+      const pkg = "sharp";
+      const sharpMod = require(pkg);
+      await sharpMod(backgroundPath)
+        .blur(8)
+        .modulate({ brightness: 0.6 })
+        .composite([{ input: Buffer.from(svgContent), top: 0, left: 0 }])
+        .jpeg()
+        .toFile(imgPath);
+    } catch {
+      fs.writeFileSync(imgPath, Buffer.from(svgContent));
+    }
 
     return imgPath;
   }

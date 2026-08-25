@@ -7,29 +7,53 @@ import HeroBackgroundCanvas from "./HeroBackgroundCanvas";
 
 export default function HeroSection() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    const video = videoRef.current;
+    if (video) {
+      video.muted = true;
+      setIsMuted(true);
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch(() => {
+            setIsPlaying(false);
+          });
+      }
+    }
   }, []);
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
+  const togglePlay = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      video.play().then(() => {
+        setIsPlaying(true);
+      }).catch(() => {
+        setIsPlaying(false);
+      });
     } else {
-      videoRef.current.play();
-      setIsPlaying(true);
+      video.pause();
+      setIsPlaying(false);
     }
   };
 
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
+  const toggleMute = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
   };
 
   return (
@@ -110,38 +134,57 @@ export default function HeroSection() {
               <div className="absolute inset-0 rounded-[32px] border border-white/10 pointer-events-none" />
 
               {/* Video Player Container */}
-              <div className="relative w-full h-full rounded-[26px] overflow-hidden bg-black flex items-center justify-center">
+              <div 
+                onClick={togglePlay}
+                className="relative w-full h-full rounded-[26px] overflow-hidden bg-black flex items-center justify-center cursor-pointer select-none"
+              >
                 <video
                   ref={videoRef}
-                  src="/demo-short.mp4"
+                  src="/german-quiz.mp4"
+                  poster="/german-quiz-poster.jpg"
+                  preload="auto"
                   autoPlay
                   loop
                   muted
                   playsInline
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onVolumeChange={(e) => setIsMuted(e.currentTarget.muted)}
                   className="w-full h-full object-cover"
                 />
 
                 {/* Translucent Overlay Badge */}
-                <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-text text-white/90 flex items-center gap-2 z-20 shadow-xs">
+                <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-text text-white/90 flex items-center gap-2 z-20 shadow-xs pointer-events-none">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="font-medium tracking-wide">REAL SHORTFORGE RENDER</span>
                 </div>
 
+                {/* Center Big Play Button if Paused */}
+                {!isPlaying && (
+                  <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center z-15 transition-opacity">
+                    <div className="w-16 h-16 rounded-full bg-[#0071e3]/90 hover:bg-[#0071e3] text-white flex items-center justify-center shadow-xl shadow-sky-500/30 transform transition-transform hover:scale-105 active:scale-95">
+                      <Play className="w-7 h-7 fill-white ml-1" />
+                    </div>
+                  </div>
+                )}
+
                 {/* Playback Controls Overlay */}
-                <div className="absolute bottom-3.5 right-3.5 flex items-center gap-2 z-20">
+                <div className="absolute bottom-3.5 right-3.5 flex items-center gap-2 z-20" onClick={(e) => e.stopPropagation()}>
                   <button
+                    type="button"
                     onClick={togglePlay}
-                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer active:scale-90"
+                    className="p-2.5 rounded-full bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white transition-[transform,background-color] cursor-pointer active:scale-90 shadow-md"
                     title={isPlaying ? "Pause" : "Play"}
                   >
-                    {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
                   </button>
                   <button
+                    type="button"
                     onClick={toggleMute}
-                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-colors cursor-pointer active:scale-90"
-                    title={isMuted ? "Unmute" : "Mute"}
+                    className="p-2.5 rounded-full bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white transition-[transform,background-color] cursor-pointer active:scale-90 shadow-md"
+                    title={isMuted ? "Unmute Sound" : "Mute Sound"}
                   >
-                    {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
                   </button>
                 </div>
               </div>
@@ -149,7 +192,7 @@ export default function HeroSection() {
               {/* Bottom Caption */}
               <div className="mt-2 text-center">
                 <p className="text-[11px] font-text text-zinc-400">
-                  Topic: "Quantum Computing Decryption" · Rendered by ShortForge Pipeline
+                  Topic: "German Quiz" · Rendered by ShortForge Pipeline
                 </p>
               </div>
             </div>

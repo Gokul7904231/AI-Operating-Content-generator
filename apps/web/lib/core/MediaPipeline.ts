@@ -85,7 +85,8 @@ class MediaPipelineClass {
 
     try {
       // Lazy load sharp
-      const sharp = require("sharp");
+      const pkg = "sharp";
+      const sharp = require(pkg);
       const image = sharp(rawBuffer);
       const metadata = await image.metadata();
 

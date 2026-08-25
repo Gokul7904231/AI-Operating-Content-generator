@@ -63,6 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     setLoading(true);
+    // Defense-in-depth: purge per-account create-draft state so the next login on
+    // this browser can never inherit the prior account's RENDER stage/jobId.
+    try {
+      localStorage.removeItem("factoryos:create:draft");
+      const toRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("factoryos:create:draft:")) toRemove.push(k);
+      }
+      toRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
     await AuthService.logout();
     setUser(null);
     setLoading(false);

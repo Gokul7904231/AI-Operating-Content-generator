@@ -248,17 +248,27 @@ export class VisualPipeline {
     const prompt = `Highly detailed landscape photo representing ${context.topic}, category ${context.intent?.category || "Landmarks"}. 9:16 aspect vertical framing, cinematic light.`;
     
     // Stub AI generation: compile a mock solid buffer or call an AI route if needed
-    const sharpMod = require("sharp");
-    const buffer = await sharpMod({
-      create: {
-        width: 1080,
-        height: 1920,
-        channels: 3,
-        background: { r: 20, g: 30, b: 50 },
-      },
-    })
-    .jpeg({ quality: 85 })
-    .toBuffer();
+    const pkg = "sharp";
+    let sharpMod: any = null;
+    try {
+      sharpMod = require(pkg);
+    } catch {}
+
+    let buffer: Buffer;
+    if (sharpMod) {
+      buffer = await sharpMod({
+        create: {
+          width: 1080,
+          height: 1920,
+          channels: 3,
+          background: { r: 20, g: 30, b: 50 },
+        },
+      })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    } else {
+      buffer = Buffer.alloc(1080 * 1920 * 3, 0);
+    }
 
     // Verify the generated image decodes cleanly before packaging.
     const { report, optimizedBuffer } = await AssetCurator.curate(buffer, {

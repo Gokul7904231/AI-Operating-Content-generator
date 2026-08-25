@@ -223,10 +223,20 @@ export class AuthService {
   }
 
   /**
-   * Logout (Clear Session Cookie)
+   * Logout (Clear Session Cookie) + purge per-account draft keys so the next
+   * account on this browser never inherits the previous render stage.
    */
   static async logout(): Promise<AuthResponse> {
     try {
+      try {
+        localStorage.removeItem("factoryos:create:draft");
+        const toRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("factoryos:create:draft:")) toRemove.push(k);
+        }
+        toRemove.forEach((k) => localStorage.removeItem(k));
+      } catch {}
       await fetch("/api/auth/session", { method: "DELETE" });
       return { success: true };
     } catch (err: any) {

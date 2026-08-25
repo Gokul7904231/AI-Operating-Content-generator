@@ -165,7 +165,10 @@ export class SchedulerService {
   /**
    * Executes a claimed schedule: checks quota, dispatches standard generation job, updates logs and nextRunAt.
    */
-  static async executeSchedule(schedule: ScheduleDefinition, controlPlaneUrl: string = "http://localhost:3000"): Promise<void> {
+  static async executeSchedule(
+    schedule: ScheduleDefinition,
+    controlPlaneUrl: string = process.env.CONTROL_PLANE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  ): Promise<void> {
     const executionId = this.generateExecutionId(schedule.scheduleId, schedule.nextRunAt);
     const execDocRef = db.collection("schedule_executions").doc(executionId);
     const schedRef = db.collection("schedules").doc(schedule.scheduleId);

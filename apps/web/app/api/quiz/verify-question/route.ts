@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { ExternalEvidenceRetriever } from "@/factoryos/core/rag/external/ExternalEvidenceRetriever";
-import { QuizEvidenceVerifier } from "@/factoryos/core/guardian/QuizEvidenceVerifier";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    const { ExternalEvidenceRetriever } = await import("@/factoryos/core/rag/external/ExternalEvidenceRetriever");
+    const { QuizEvidenceVerifier } = await import("@/factoryos/core/guardian/QuizEvidenceVerifier");
+
     const body = await req.json().catch(() => ({}));
     const question = body.question;
     const topic = String(body.topic || question?.topicName || "General Knowledge").trim();
