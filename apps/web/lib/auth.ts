@@ -3,14 +3,23 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-// Initialize data directory and SQLite database
+// Initialize data directory and SQLite database (owner-only permissions)
 const dataDir = path.resolve(process.cwd(), "data");
 if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+} else {
+  try { fs.chmodSync(dataDir, 0o700); } catch {}
 }
 
 const dbPath = path.join(dataDir, "auth.db");
+// Pre-create file with 0o600 so better-sqlite3 inherits restrictive perms
+try {
+  const fd = fs.openSync(dbPath, "a", 0o600);
+  fs.closeSync(fd);
+} catch {}
 const db = new Database(dbPath);
+try { fs.chmodSync(dbPath, 0o600); } catch {}
+try { fs.chmodSync(dataDir, 0o700); } catch {}
 
 // Detect any social providers configured in environment
 const socialProviders: Record<string, { clientId: string; clientSecret: string }> = {};
