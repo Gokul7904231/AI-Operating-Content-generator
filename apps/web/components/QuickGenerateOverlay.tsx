@@ -647,6 +647,36 @@ export default function QuickGenerateOverlay() {
     check();
   }
 
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelRender = async () => {
+    if (!jobId || cancelling) return;
+    setCancelling(true);
+    try {
+      pollingRef.current = false;
+      setPolling(false);
+
+      // Call DELETE to cancel job and release quota reservation atomically
+      await fetch(`/api/jobs/${jobId}`, {
+        method: "DELETE",
+      }).catch(() => {});
+
+      // Refresh quota state immediately
+      await fetchQuota();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("quota:updated"));
+      }
+
+      setRendering(false);
+      setJobStatus(null);
+      setStep("REVIEW");
+    } catch (err) {
+      console.error("[QuickGenerate] Failed to cancel render:", err);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const handleClose = () => {
     pollingRef.current = false;
     setOpen(false);
@@ -1340,6 +1370,19 @@ export default function QuickGenerateOverlay() {
                         {isFailed && (
                           <button type="button" onClick={handleStartRender} className="mt-2 px-5 py-2.5 rounded-xl bg-[#1677FF] text-white text-xs font-bold cursor-pointer">Retry render</button>
                         )}
+                      </div>
+
+                      {/* Bottom Right Cancel Button */}
+                      <div className="w-full flex justify-end pt-4">
+                        <button
+                          type="button"
+                          onClick={handleCancelRender}
+                          disabled={cancelling}
+                          className="px-4 py-2 rounded-xl border border-red-500/20 hover:border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          {cancelling ? "Cancelling..." : "Cancel"}
+                        </button>
                       </div>
                     </>
                   );

@@ -63,6 +63,11 @@ export interface RenderQueue {
   fail(id: string, error: string, nextRetryDelaySec?: number): Promise<void>;
 
   /**
+   * Cancels a pending or running job.
+   */
+  cancel(jobId: string): Promise<boolean>;
+
+  /**
    * Retrieves a job by user-facing jobId.
    */
   getJob(jobId: string): Promise<QueueJob | null>;

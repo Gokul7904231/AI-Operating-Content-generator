@@ -245,6 +245,18 @@ export class SQLiteRenderQueue implements RenderQueue {
     }
   }
 
+  async cancel(jobId: string): Promise<boolean> {
+    const now = Date.now();
+    const info = this.db.prepare(`
+      UPDATE render_jobs
+      SET status = 'cancelled',
+          last_error = 'Cancelled by user',
+          updated_at = ?
+      WHERE (job_id = ? OR id = ?) AND status NOT IN ('completed')
+    `).run(now, jobId, jobId);
+    return info.changes > 0;
+  }
+
   async getJob(jobId: string): Promise<QueueJob | null> {
     const row = this.db.prepare("SELECT * FROM render_jobs WHERE job_id = ?").get(jobId);
     return row ? this.mapRow(row) : null;
