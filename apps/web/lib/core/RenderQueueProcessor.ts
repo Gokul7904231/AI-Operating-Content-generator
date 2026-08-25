@@ -167,8 +167,11 @@ export class RenderQueueProcessor {
         await this.handleJobFailure(job, errMsg);
       }
     } catch (err: any) {
-      console.error(`[RenderQueueProcessor] Exception caught during job run:`, err.message);
-      await this.handleJobFailure(job, err.message);
+      console.error(`[RenderQueueProcessor] Exception caught during job run:`, JSON.stringify({
+        jobId,
+        error: err?.message || String(err)
+      }));
+      await this.handleJobFailure(job, err?.message || String(err));
     } finally {
       // Clear heartbeats
       const timer = this.activeJobs.get(jobId);
@@ -180,14 +183,21 @@ export class RenderQueueProcessor {
   }
 
   private async handleJobFailure(job: QueueJob, error: string): Promise<void> {
-    // Calculate exponential backoff delay: 2 * 5^(attempts - 1)
-    // Attempt 1 -> 2 * 5^0 = 2 seconds
-    // Attempt 2 -> 2 * 5^1 = 10 seconds
-    // Attempt 3 -> 2 * 5^2 = 50 seconds
-    const backoffDelay = 2 * Math.pow(5, job.attempts - 1);
-    
-    await this.queue.fail(job.id, error, backoffDelay);
-    EventBus.publish("job.failed", { jobId: job.jobId, error, attempt: job.attempts, maxAttempts: job.maxAttempts }, job.jobId);
+    try {
+      // Calculate exponential backoff delay: 2 * 5^(attempts - 1)
+      // Attempt 1 -> 2 * 5^0 = 2 seconds
+      // Attempt 2 -> 2 * 5^1 = 10 seconds
+      // Attempt 3 -> 2 * 5^2 = 50 seconds
+      const backoffDelay = 2 * Math.pow(5, Math.max(0, job.attempts - 1));
+      
+      await this.queue.fail(job.id, error, backoffDelay);
+      EventBus.publish("job.failed", { jobId: job.jobId, error, attempt: job.attempts, maxAttempts: job.maxAttempts }, job.jobId);
+    } catch (failErr: any) {
+      console.error(`[RenderQueueProcessor] Failed to persist job failure state:`, JSON.stringify({
+        jobId: job.jobId,
+        error: failErr?.message || String(failErr)
+      }));
+    }
   }
 }
 

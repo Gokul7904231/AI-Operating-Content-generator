@@ -39,6 +39,15 @@ export class VoiceRouterClass {
     const providerId = requestedProviderId || process.env.DEFAULT_VOICE_PROVIDER || "edge";
     const provider = this.getProvider(providerId);
     if (!provider) {
+      console.error(
+        `[VoiceRouter] Unknown voice provider requested:`,
+        JSON.stringify({
+          jobId: videoId,
+          providerId,
+          operation: "get_provider",
+          error: "Unknown voice provider"
+        })
+      );
       throw new Error(`[VoiceRouter] Unknown voice provider: ${providerId}`);
     }
 
@@ -46,6 +55,15 @@ export class VoiceRouterClass {
     console.log(`[VoiceRouter] Performing health check on provider "${providerId}"...`);
     const check = await provider.health();
     if (!check.online) {
+      console.error(
+        `[VoiceRouter] Provider health check failed:`,
+        JSON.stringify({
+          jobId: videoId,
+          providerId,
+          operation: "health_check",
+          error: check.error || "Provider offline"
+        })
+      );
       throw new Error(`[VoiceRouter] Locked provider "${providerId}" is OFFLINE. Health error: ${check.error}`);
     }
 
@@ -115,6 +133,15 @@ export class VoiceRouterClass {
       }
       console.log(`[VoiceRouter] Test synthesis passed successfully.`);
     } catch (err: any) {
+      console.error(
+        `[VoiceRouter] Provider test synthesis failed:`,
+        JSON.stringify({
+          jobId: videoId,
+          providerId,
+          operation: "test_synthesis",
+          error: err?.message || String(err)
+        })
+      );
       throw new Error(`[VoiceRouter] Test synthesis failed for provider "${providerId}": ${err.message}`);
     }
 

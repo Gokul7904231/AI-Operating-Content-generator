@@ -1,4 +1,5 @@
 import { VoiceProvider } from "../voice-provider";
+import { Communicate, listVoices } from "@travisvn/edge-tts";
 
 export class EdgeProvider implements VoiceProvider {
   id = "edge";
@@ -13,12 +14,20 @@ export class EdgeProvider implements VoiceProvider {
   async health(): Promise<{ online: boolean; latencyMs: number; error?: string; cpu?: number; memory?: number }> {
     const t0 = Date.now();
     try {
-      const { execSync } = require("child_process");
-      execSync("edge-tts --version", { stdio: "ignore" });
-      const latencyMs = Date.now() - t0;
-      return { online: true, latencyMs, cpu: 1, memory: 10 };
+      // Lightweight availability check via listVoices API (HTTPS) with a bounded 5s timeout
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Edge TTS health check timeout after 5000ms")), 5000)
+      );
+      const voicesPromise = listVoices();
+      const voices = await Promise.race([voicesPromise, timeoutPromise]);
+
+      if (Array.isArray(voices) && voices.length > 0) {
+        const latencyMs = Date.now() - t0;
+        return { online: true, latencyMs, cpu: 1, memory: 10 };
+      }
+      return { online: false, latencyMs: Date.now() - t0, error: "No voices returned from Edge TTS service." };
     } catch (err: any) {
-      return { online: false, latencyMs: Date.now() - t0, error: err.message };
+      return { online: false, latencyMs: Date.now() - t0, error: err?.message || String(err) };
     }
   }
 
@@ -45,53 +54,47 @@ export class EdgeProvider implements VoiceProvider {
     language?: string;
   }): Promise<Buffer> {
     const voice = options.voiceId || "en-US-GuyNeural";
-    
+
     // Validate voiceId to enforce "en-US-" starting pattern
     if (!voice.startsWith("en-US-")) {
       throw new Error(`[EdgeProvider] Rejected voiceId "${voice}". Voice must start with "en-US-".`);
     }
 
-    const { exec } = require("child_process");
-    const fs = require("fs");
-    const path = require("path");
-    const crypto = require("crypto");
-    
-    const tempFileId = crypto.randomBytes(8).toString("hex");
-    const tempFile = path.join(process.cwd(), "scratch", `edge_tts_temp_${tempFileId}.mp3`);
-
     const rate = options.speed ? `${Math.round((options.speed - 1) * 100)}%` : "+0%";
     const rateString = rate.startsWith("-") || rate.startsWith("+") ? rate : `+${rate}`;
 
-    const cmd = `edge-tts --text "${text.replace(/"/g, '\\"')}" --voice "${voice}" --rate "${rateString}" --write-media "${tempFile}"`;
-
-    return new Promise<Buffer>((resolve, reject) => {
-      exec(cmd, (error: any, stdout: any, stderr: any) => {
-        if (error) {
-          if (fs.existsSync(tempFile)) {
-            try { fs.unlinkSync(tempFile); } catch {}
-          }
-          return reject(new Error(`edge-tts CLI synthesis failed: ${error.message}. Stderr: ${stderr}`));
-        }
-
-        try {
-          if (!fs.existsSync(tempFile)) {
-            return reject(new Error("edge-tts CLI synthesis succeeded but output file was not created."));
-          }
-          const buf = fs.readFileSync(tempFile);
-          if (!buf || buf.length === 0) {
-            try { fs.unlinkSync(tempFile); } catch {}
-            return reject(new Error("edge-tts CLI synthesis created an empty file."));
-          }
-          fs.unlinkSync(tempFile);
-          resolve(buf);
-        } catch (readErr: any) {
-          if (fs.existsSync(tempFile)) {
-            try { fs.unlinkSync(tempFile); } catch {}
-          }
-          reject(readErr);
-        }
+    try {
+      const communicate = new Communicate(text, {
+        voice,
+        rate: rateString,
+        connectionTimeout: 10000
       });
-    });
+
+      const chunks: Buffer[] = [];
+      const timeoutMs = 20000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Edge TTS synthesis timed out after ${timeoutMs}ms`)), timeoutMs)
+      );
+
+      const streamPromise = (async () => {
+        for await (const chunk of communicate.stream()) {
+          if (chunk.type === "audio" && chunk.data) {
+            chunks.push(chunk.data);
+          }
+        }
+        return Buffer.concat(chunks);
+      })();
+
+      const audioBuffer = await Promise.race([streamPromise, timeoutPromise]);
+
+      if (!audioBuffer || audioBuffer.length === 0) {
+        throw new Error("[EdgeProvider] Synthesis completed but returned empty audio buffer.");
+      }
+
+      return audioBuffer;
+    } catch (err: any) {
+      throw new Error(`[EdgeProvider] Synthesis failed: ${err?.message || String(err)}`);
+    }
   }
 }
 
