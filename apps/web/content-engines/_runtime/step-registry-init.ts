@@ -398,109 +398,102 @@ WorkflowStepRegistry.register("voice", async (context) => {
     const t0 = Date.now();
     const clipReports: any[] = [];
     const failures: string[] = [];
-
-    for (let i = 0; i < narrativeScenes.length; i++) {
-      const scene = narrativeScenes[i];
-      let filename = "";
-      if (scene.isHook) filename = "hook_voice.wav";
-      else if (scene.isOutro) filename = "outro_voice.wav";
-      else if (scene.isQuestionRead) filename = `q_${scene.questionNumber}_read.wav`;
-      else if (scene.isQuestionReveal) filename = `q_${scene.questionNumber}_reveal.wav`;
-      
-      const sceneAudioPath = path.join(assetsDir, filename);
-      const cleanEmojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F100}-\u{1F2FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F1E0}-\u{1F1FF}]/gu;
-      scene.narrative = (scene.narrative || "").replace(cleanEmojiRegex, "").replace(/\s+/g, " ").trim();
-      const text = scene.narrative || "Empty scene narration.";
-      
-      // Determine NarrationRole
-      const role = scene.isHook ? NarrationRole.INTRO : NarrationRole.MAIN;
-      const startSynth = Date.now();
-
-      try {
-        const generateResult = await VoiceWorker.generate({
-          jobId: context.jobId,
-          text,
-          outputPath: sceneAudioPath,
-          session,
-          role
-        });
-
-        totalLatency += (Date.now() - startSynth);
-        totalRetries += Math.max(0, generateResult.attempts - 1);
+    await Promise.all(
+      narrativeScenes.map(async (scene, i) => {
+        let filename = "";
+        if (scene.isHook) filename = "hook_voice.wav";
+        else if (scene.isOutro) filename = "outro_voice.wav";
+        else if (scene.isQuestionRead) filename = `q_${scene.questionNumber}_read.wav`;
+        else if (scene.isQuestionReveal) filename = `q_${scene.questionNumber}_reveal.wav`;
         
-        const meta = await MediaInspector.inspectAudio(sceneAudioPath);
-        const voiceId = role === NarrationRole.INTRO ? session.introVoiceId : session.mainVoiceId;
-        const pipelineMs = Date.now() - startSynth;
+        const sceneAudioPath = path.join(assetsDir, filename);
+        const cleanEmojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F100}-\u{1F2FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F1E0}-\u{1F1FF}]/gu;
+        scene.narrative = (scene.narrative || "").replace(cleanEmojiRegex, "").replace(/\s+/g, " ").trim();
+        const text = scene.narrative || "Empty scene narration.";
         
-        // ── Actual Duration Integration ──
-        // Update scene duration from real synthesized audio + safety padding.
-        // Outro gets extra padding to guarantee the final word is never cut off.
-        if (meta.isValid && meta.duration > 0) {
-          const padding = scene.isOutro ? 0.8 : 0.5;
-          scene.duration = parseFloat((meta.duration + padding).toFixed(3));
-          console.log(`[StepExecutor] Scene duration updated from audio: ${scene.duration.toFixed(2)}s (audio: ${meta.duration.toFixed(2)}s + ${padding}s padding)`);
+        const role = scene.isHook ? NarrationRole.INTRO : NarrationRole.MAIN;
+        const startSynth = Date.now();
+
+        try {
+          const generateResult = await VoiceWorker.generate({
+            jobId: context.jobId,
+            text,
+            outputPath: sceneAudioPath,
+            session,
+            role
+          });
+
+          totalLatency += (Date.now() - startSynth);
+          totalRetries += Math.max(0, generateResult.attempts - 1);
+          
+          const meta = await MediaInspector.inspectAudio(sceneAudioPath);
+          const voiceId = role === NarrationRole.INTRO ? session.introVoiceId : session.mainVoiceId;
+          const pipelineMs = Date.now() - startSynth;
+          
+          if (meta.isValid && meta.duration > 0) {
+            const padding = scene.isOutro ? 0.8 : 0.5;
+            scene.duration = parseFloat((meta.duration + padding).toFixed(3));
+          }
+          
+          const isSceneIdValid = scene.id && scene.id !== "undefined" && scene.id !== "scene_undefined";
+          clipReports.push({
+            scene: scene.index !== undefined ? scene.index : i,
+            sceneId: isSceneIdValid ? scene.id : `scene_${i}`,
+            role,
+            provider: session.providerId,
+            voiceId,
+            textHash: (generateResult as any).textHash || "",
+            cacheHash: (generateResult as any).cacheHash || "",
+            generationStart: new Date(startSynth).toISOString(),
+            generationEnd: new Date().toISOString(),
+            pipelineMs,
+            textLength: text.length,
+            wavGenerated: fs.existsSync(sceneAudioPath),
+            wavSize: fs.existsSync(sceneAudioPath) ? fs.statSync(sceneAudioPath).size : 0,
+            duration: meta.isValid ? parseFloat(meta.duration.toFixed(2)) : 0,
+            timelineInserted: true,
+            ffmpegInput: true,
+            finalVideo: true,
+            status: "ok",
+            cacheHit: generateResult.cacheHit,
+            attempts: generateResult.attempts
+          });
+
+          scene.audioPath = generateResult.outputPath;
+        } catch (err: any) {
+          console.error(`[StepExecutor] Synthesis aborted: ${err.message}`);
+          failures.push(err.message);
+          
+          const crypto = require("crypto");
+          const fallbackTextHash = crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
+          const voiceId = role === NarrationRole.INTRO ? session.introVoiceId : session.mainVoiceId;
+
+          const isSceneIdValid = scene.id && scene.id !== "undefined" && scene.id !== "scene_undefined";
+          clipReports.push({
+            scene: scene.index !== undefined ? scene.index : i,
+            sceneId: isSceneIdValid ? scene.id : `scene_${i}`,
+            role,
+            provider: session.providerId,
+            voiceId,
+            textHash: fallbackTextHash,
+            cacheHash: "",
+            generationStart: new Date(startSynth).toISOString(),
+            generationEnd: new Date().toISOString(),
+            pipelineMs: Date.now() - startSynth,
+            textLength: text.length,
+            wavGenerated: false,
+            wavSize: 0,
+            duration: 0,
+            timelineInserted: false,
+            ffmpegInput: false,
+            finalVideo: false,
+            status: "failed",
+            cacheHit: false,
+            attempts: 3
+          });
         }
-        
-        const isSceneIdValid = scene.id && scene.id !== "undefined" && scene.id !== "scene_undefined";
-        clipReports.push({
-          scene: scene.index !== undefined ? scene.index : i,
-          sceneId: isSceneIdValid ? scene.id : `scene_${i}`,
-          role,
-          provider: session.providerId,
-          voiceId,
-          textHash: (generateResult as any).textHash || "",
-          cacheHash: (generateResult as any).cacheHash || "",
-          generationStart: new Date(startSynth).toISOString(),
-          generationEnd: new Date().toISOString(),
-          pipelineMs,
-          textLength: text.length,
-          wavGenerated: fs.existsSync(sceneAudioPath),
-          wavSize: fs.existsSync(sceneAudioPath) ? fs.statSync(sceneAudioPath).size : 0,
-          duration: meta.isValid ? parseFloat(meta.duration.toFixed(2)) : 0,
-          timelineInserted: true,
-          ffmpegInput: true,
-          finalVideo: true,
-          status: "ok",
-          cacheHit: generateResult.cacheHit,
-          attempts: generateResult.attempts
-        });
-
-        scene.audioPath = generateResult.outputPath;
-      } catch (err: any) {
-        console.error(`[StepExecutor] Synthesis aborted: ${err.message}`);
-        failures.push(err.message);
-        
-        const crypto = require("crypto");
-        const fallbackTextHash = crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
-        const voiceId = role === NarrationRole.INTRO ? session.introVoiceId : session.mainVoiceId;
-
-        const isSceneIdValid = scene.id && scene.id !== "undefined" && scene.id !== "scene_undefined";
-        clipReports.push({
-          scene: scene.index !== undefined ? scene.index : i,
-          sceneId: isSceneIdValid ? scene.id : `scene_${i}`,
-          role,
-          provider: session.providerId,
-          voiceId,
-          textHash: fallbackTextHash,
-          cacheHash: "",
-          generationStart: new Date(startSynth).toISOString(),
-          generationEnd: new Date().toISOString(),
-          pipelineMs: Date.now() - startSynth,
-          textLength: text.length,
-          wavGenerated: false,
-          wavSize: 0,
-          duration: 0,
-          timelineInserted: false,
-          ffmpegInput: false,
-          finalVideo: false,
-          status: "failed",
-          cacheHit: false,
-          attempts: 3
-        });
-
-        throw err; // Fail hard
-      }
-    }
+      })
+    );
 
     const stepDuration = Date.now() - t0;
     let totalAudioDuration = 0;
