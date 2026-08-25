@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { RenderQueueProcessor } from "../lib/core/RenderQueueProcessor";
 import { ServiceRegistry } from "../lib/core/ServiceRegistry";
 
-describe("Basic Render Control Plane Architecture Suite", () => {
+describe("Production Control Plane Architecture Suite (All Tiers: BASIC, ADMIN, OWNER, SUPERADMIN)", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
@@ -41,55 +41,82 @@ describe("Basic Render Control Plane Architecture Suite", () => {
     processor.stop();
   });
 
-  it("C. SQLite queue is bypassed for BASIC jobs when BASIC_RENDER_API_URL is set", async () => {
+  it("C. Local queue is bypassed for ALL tiers in production worker mode (BASIC, ADMIN, OWNER, SUPERADMIN)", async () => {
     process.env.BASIC_RENDER_API_URL = "https://azure-worker.shortforge.ai";
-    const isBasicWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
+    const productionWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
 
-    expect(isBasicWorkerMode).toBe(true);
+    expect(productionWorkerMode).toBe(true);
 
-    const mockEnqueue = vi.fn();
-    const mockQueue = { enqueue: mockEnqueue };
-    ServiceRegistry.register("renderQueue", mockQueue as any);
+    const tiers = ["BASIC", "ADMIN", "OWNER", "SUPERADMIN"];
+    for (const tier of tiers) {
+      const mockEnqueue = vi.fn();
+      const mockQueue = { enqueue: mockEnqueue };
+      ServiceRegistry.register("renderQueue", mockQueue as any);
 
-    // In basic worker mode, enqueue to SQLite is skipped
-    if (!isBasicWorkerMode) {
-      await mockQueue.enqueue({ jobId: "job_test_1" });
+      // In productionWorkerMode, enqueue to SQLite is skipped regardless of tier
+      if (!productionWorkerMode) {
+        await mockQueue.enqueue({ jobId: `job_${tier}_1` });
+      }
+
+      expect(mockEnqueue).not.toHaveBeenCalled();
     }
-
-    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
-  it("D. Exactly one Azure dispatch request is constructed for BASIC job", () => {
+  it("D. Azure dispatch request is constructed correctly for both BASIC and ADMIN/OWNER/SUPERADMIN jobs", () => {
     const basicRenderApiUrl = "https://azure-worker.shortforge.ai";
     const basicRenderSecret = "test-secret-123";
-    const jobId = "job_basic_12345";
-    const executionToken = "crypto_tok_abc";
+    const tiers = ["BASIC", "ADMIN", "OWNER", "SUPERADMIN"];
 
-    const payload = {
-      jobId,
-      executionToken,
-      tier: "BASIC",
-      topic: "Space Exploration",
-      renderProfile: "FAST_QUIZ",
-      contentType: "QUIZ_SHORTS",
-      quizData: { questions: [] }
-    };
+    for (const tier of tiers) {
+      const jobId = `job_${tier}_12345`;
+      const executionToken = "crypto_tok_abc";
 
-    const targetUrl = `${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`;
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${basicRenderSecret}`,
-    };
+      const payload = {
+        jobId,
+        executionToken,
+        tier: "BASIC", // Target worker protocol format accepted by Azure FastAPI
+        topic: "World Capitals",
+        renderProfile: "FAST_QUIZ",
+        contentType: "QUIZ_SHORTS",
+        quizData: { questions: [] }
+      };
 
-    expect(targetUrl).toBe("https://azure-worker.shortforge.ai/api/render/jobs");
-    expect(headers.Authorization).toBe("Bearer test-secret-123");
-    expect(payload.jobId).toBe(jobId);
-    expect(payload.executionToken).toBe(executionToken);
+      const targetUrl = `${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`;
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${basicRenderSecret}`,
+      };
+
+      expect(targetUrl).toBe("https://azure-worker.shortforge.ai/api/render/jobs");
+      expect(headers.Authorization).toBe("Bearer test-secret-123");
+      expect(payload.jobId).toBe(jobId);
+      expect(payload.tier).toBe("BASIC");
+    }
   });
 
-  it("E. Firestore job status can be read directly without starting queue daemon", () => {
+  it("E. RenderQueueProcessor executeJob refuses local execution on Control Plane", async () => {
+    process.env.BASIC_RENDER_API_URL = "https://azure-worker.shortforge.ai";
+    delete process.env.ENABLE_LOCAL_QUEUE_PROCESSOR;
+
+    const processor = new RenderQueueProcessor();
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await (processor as any).executeJob({
+      id: "q_1",
+      jobId: "job_admin_999",
+      payload: {},
+      attempts: 0,
+      maxAttempts: 3
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Refusing local rendering execution of job job_admin_999")
+    );
+  });
+
+  it("F. Firestore job status can be read directly without starting queue daemon", () => {
     const mockJob = {
-      id: "job_firestore_1",
+      id: "job_firestore_admin_1",
       status: "processing",
       progress: 50,
       videoUrl: null

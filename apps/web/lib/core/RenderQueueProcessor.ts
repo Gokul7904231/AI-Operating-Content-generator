@@ -143,6 +143,14 @@ export class RenderQueueProcessor {
 
   private async executeJob(job: QueueJob): Promise<void> {
     const jobId = job.jobId;
+
+    // Defense-in-depth: Control plane must never execute video rendering jobs locally
+    const isControlPlaneWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
+    if (isControlPlaneWorkerMode && process.env.ENABLE_LOCAL_QUEUE_PROCESSOR !== "true") {
+      console.warn(`[RenderQueueProcessor] Refusing local rendering execution of job ${jobId}: Production Control Plane delegates all renders to Azure.`);
+      return;
+    }
+
     console.log(`[RenderQueueProcessor] Starting pipeline execution for Job: ${jobId}`);
 
     // Publish event bus WorkflowStarted equivalent

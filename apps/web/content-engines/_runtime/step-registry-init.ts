@@ -749,6 +749,11 @@ WorkflowStepRegistry.register("render", async (context) => {
     throw new Error("[Simulation] FFmpeg subprocess execution crashed unexpectedly.");
   }
 
+  // Defense-in-depth: Control plane must never run heavy FFmpeg/SceneRenderPool in production
+  if (process.env.NODE_ENV === "production" && Boolean(process.env.BASIC_RENDER_API_URL) && process.env.ENABLE_LOCAL_FFMPEG !== "true") {
+    throw new Error("[ControlPlaneGuard] Local SceneRenderPool/FFmpeg execution is disabled on the Render Control Plane. All production rendering must execute on the Azure worker.");
+  }
+
   console.log(`[StepExecutor] [${context.jobId}] Executing scene-by-scene rendering via TimelineOrchestrator and RenderPlanner...`);
   const assetsDir = TempManager.getTempDir(context.jobId);
   if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
