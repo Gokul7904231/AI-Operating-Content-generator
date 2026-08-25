@@ -4,66 +4,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FactoryOS — AI Operating Content Generator. Enterprise microservice suite for automated short-form video generation, compliance vetting, and rendering. Three decoupled services communicate over HTTPS + bearer-token auth (`INTERNAL_API_SECRET_KEY`):
+ShortForge (rebrand of FactoryOS — infra names `factoryos` preserved) — AI Short-form video factory. Enterprise microservice suite: **Control Plane** orchestrates, **Execution Plane** renders, **Pipeline Floors** slice the DAG. Services communicate only over HTTPS + bearer-token auth (`INTERNAL_API_SECRET_KEY` + per-job `executionToken`).
 
-- **Control Plane** (`apps/web/`) — Next.js 16 dashboard / orchestrator
-- **Compliance Gate** (`archive/floor07_compliance_2026-08-23/`) — FastAPI quality gate — **archived, not in live path** (must issue a signed certificate before any content renders when enabled)
-- **Rendering Engine** (`services/rendering-engine/`) — FastAPI worker for MoviePy + FFmpeg compilation
-- **Pipeline Stages** (`services/pipeline/floor01_*` … `floor06_*` + `guardian/`) — domain slices of the video assembly line
+- **Control Plane** (`apps/web/`) — Next.js 16 dashboard / orchestrator (109 API routes, Clerk + Firebase `__session` HMAC)
+- **Execution Plane** (`services/rendering-engine/`) — FastAPI workers (warm Basic pool `:8100` + fallback `:8080`, Pillow/FFmpeg/edge-tts/whisper → Cloudinary)
+- **Pipeline Stages** (`services/pipeline/floor01_*` … `floor06_*` + `guardian/`) — domain slices of the assembly line (hexagonal `app/`)
+- **Compliance Gate** (`archive/floor07_compliance_2026-08-23/`) — FastAPI quality gate — **archived, not in live path**
 
-Flow: `apps/web` generates draft → (archived) `POST /v1/validate` on floor07 → (Fact/Policy/Risk/Certificate workers) → if approved, `POST /render-video` or `POST /api/render/jobs` on rendering engine → FFmpeg/MoviePy + edge-tts → Cloudinary/Firebase.
-
-Live path today: `apps/web` → `services/rendering-engine` directly (floor07 archived at `archive/floor07_compliance_2026-08-23/` — see [Archived Components in docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
+Live path: `apps/web POST /api/generate-video` (Zod + atomic quota + scriptAgent) → `saveJobManifest + SQLiteRenderQueue.enqueue + executionToken` → warm pool `POST {BASIC_RENDER_API_URL}/api/render/jobs` (sub-60s) or `repository_dispatch` → `services/rendering-engine/scripts/create_short.py` → FFmpeg/Pillow/edge-tts/whisper → ffprobe → Cloudinary/Firestore → `POST /api/rendering/callback` (`timingSafeEqual`, idempotent) → `GET /api/job-status/[id]` poll + SSE. See `docs/ARCHITECTURE.md` (authoritative, 698 lines).
 
 ## Repository Structure
 
 ```
-aishorts/
-├── apps/
-│   └── web/                          # Next.js Control Plane (root for npm)
-│       ├── app/                      # App Router pages (landing, login, new-ui, prototypes)
-│       │   └── (os)/                 # Authenticated OS shell (dashboard, factory, media, overseer)
-│       ├── factoryos/                # FactoryOS framework: capability router, agents, evals
-│       │   └── tests/                # Vitest tests (scoped to this dir)
-│       ├── components/, lib/, rag/, ai/, content-engines/, publishing/, storage/
-│       ├── middleware.ts             # Clerk auth middleware
-│       ├── vitest.config.ts          # include: factoryos/tests/**/*.test.ts, node env
-│       └── tsconfig.factoryos.json   # strict build for factoryos/ only
+aishorts/   (monorepo — git ls-files is source of truth; gen-v/ and floors/ on disk are legacy, gitignored)
+├── apps/web/                         # Control Plane — root for npm (node >=20, npm >=10)
+│   ├── app/                          # App Router
+│   │   ├── (os)/                     # Authenticated OS shell (dashboard, factory, media, overseer)
+│   │   └── api/                      # 109 route handlers (see docs/ARCHITECTURE.md §13)
+│   ├── components/                   # QuickGenerateOverlay (4-step wizard), Sidebar, TopNav, landing/*
+│   ├── lib/
+│   │   ├── auth/                     # Firebase + Clerk, HMAC __session, roles, audit
+│   │   ├── quota/quota-service.ts    # Atomic 5-lifetime (Basic) / 8-per-month (Pro)
+│   │   ├── core/                     # RouteRegistry · EngineRegistry · ServiceRegistry · SQLiteRenderQueue · CheckpointDB · etc
+│   │   ├── visual-assets/ · voice/   # Scene/voice pipelines
+│   │   ├── ai-provider/              # Legacy ProviderRouter + model-discovery (dual with ai/)
+│   │   └── shortforge-skills/        # ShortForge-native Skill Engine — docs-only (5 SKILL.md)
+│   ├── ai/                           # AI Router — capability-registry · ai-config-manager · intelligent-router · runtime
+│   │   └── providers/                # gemini, groq, openrouter, nvidia, local-ai-manager, pollinations, …
+│   ├── agents/                       # Legacy LLM agents — script-agent, scene-agent, hook-score-agent, …
+│   ├── factoryos/                    # FactoryOS kernel — contracts, cognitive, guardian, missions, leases, checkpoint
+│   │   └── tests/                    # Vitest — node env (also tests/**, shortforge/tests/**)
+│   ├── content-engines/              # Declarative engines — quiz, facts, story, … (_runtime/workflow-runtime.ts)
+│   ├── rag/ · publishing/ · storage/ · prompts/ · config/
+│   ├── middleware.ts                 # Clerk auth gate — fail-closed, PUBLIC_PREFIXES allowlist
+│   ├── next.config.mjs               # reactCompiler, Turbopack, serverExternalPackages, outputFileTracingExcludes (CF worker)
+│   ├── vitest.config.ts              # include: factoryos/tests/** + tests/** + shortforge/tests/**
+│   └── open-next.config.ts  wrangler.toml  tsconfig.factoryos.json (strict only here)
 ├── services/
-│   ├── rendering-engine/             # Rendering worker (FastAPI)
-│   │   ├── main.py                   # FastAPI app: /render-video, /job-status/{id}, /logs/stream (SSE)
-│   │   ├── basic_render_api.py       # Warm Basic pool :8100
-│   │   ├── basic_render_worker.py    # Async worker (queue, isolated workspaces, ffprobe)
-│   │   ├── scripts/create_short.py   # MoviePy/FFmpeg pipeline (spawned via subprocess)
-│   │   ├── assets/{backgrounds,audio}/
-│   │   └── output/jobs/              # Persistent job manifests (JSON per jobId)
-│   └── pipeline/                     # Domain slices — video assembly line
-│       ├── floor01_strategy/
-│       ├── floor02_scripting/
-│       ├── floor03_asset_realization/
-│       ├── floor04_media_synthesis/
-│       ├── floor05_timeline_composition/
-│       ├── floor06_rendering/
-│       └── guardian/                 # Autonomous watchdog & self-healing telemetry
+│   ├── rendering-engine/             # FastAPI workers — Python 3.11+, FFmpeg on PATH
+│   │   ├── main.py                   # :8080 — /render-video, /job-status/{id}, /logs/stream (SSE deque 500)
+│   │   ├── basic_render_api.py       # :8100 — warm pool POST /api/render/jobs
+│   │   ├── basic_render_worker.py    # Async worker — isolated workspaces, ffprobe, Cloudinary, callback
+│   │   ├── scripts/create_short.py   # Pillow 1080×1920 · 30fps · edge-tts · faster-whisper · FFmpeg
+│   │   └── output/jobs/              # Job manifests (JSON per jobId)
+│   └── pipeline/                     # Domain slices
+│       ├── floor01_strategy/  floor02_scripting/  floor03_asset_realization/
+│       ├── floor04_media_synthesis/  floor05_timeline_composition/  floor06_rendering/
+│       └── guardian/                 # Watchdog, Decision Ledger, CircuitBreaker
 ├── docs/
-│   ├── ARCHITECTURE.md               # Full 512-line system design (previous README body)
-│   ├── akb/                          # Architecture Knowledge Base (docs/ADRs) — moved from floors/factoryos-akb
-│   ├── deployment/README.md          # Deployment guides
-│   └── factoryos/                    # FactoryOS frontier progress docs
-├── archive/
-│   └── floor07_compliance_2026-08-23/ # Archived Compliance Gate (Poetry, Hexagonal)
-│       ├── app/{api,core,domain,application,infrastructure,workers,pipelines,schemas,security}
-│       ├── data/policies/            # default.json, youtube.json policy packs
-│       ├── migrations/               # Alembic
-│       ├── tests/{unit,integration,api}/
-│       └── docker-compose.yml        # api + postgres:16 + redis:7 + migrate
-├── .github/workflows/                # ci.yml, factoryos-render-worker.yml (1-min dispatcher), factoryos-basic-render.yml
-├── firebase.json                     # Hosting: public=firebase-hosting
-├── vercel.json                       # Now at apps/web/vercel.json (crons)
-└── LICENSE                           # MIT
+│   ├── ARCHITECTURE.md               # Authoritative live design (698 lines) — read this first
+│   ├── architecture/                 # AUTHENTICATION.md · BASIC_CLOUD_RENDERING.md · BYOLM.md
+│   ├── akb/                          # Architecture Knowledge Base (EA-001, RA-007, …)
+│   ├── deployment/                   # AUTH_MIGRATION.md · LOCAL_AI_SETUP.md
+│   └── factoryos/                    # frontier-v2-*, overseer-*, STRIX_SECURITY_WORKFLOW.md
+├── archive/floor07_compliance_2026-08-23/ # Archived Compliance Gate — Poetry, Hexagonal (docker-compose: api+postgres+redis)
+├── .github/workflows/                # ci.yml · factoryos-render-worker.yml (cron * * * * *) · factoryos-basic-render.yml
+├── firebase.json  vercel.json  commitlint.config.js  LICENSE (MIT)
+└── docs/ARCHITECTURE.md              # Full system design — 109 routes, data layer, skill system, security, deployment
 ```
-
-Legacy physical dirs `gen-v/` and `floors/` may remain on disk (ignored via `.gitignore`) until manual cleanup — canonical tracked paths are `apps/web` and `services/*` (verified via `git ls-files`).
 
 ## Commands
 
@@ -72,49 +70,21 @@ Legacy physical dirs `gen-v/` and `floors/` may remain on disk (ignored via `.gi
 cd apps/web
 npm install
 npm run dev          # Next.js dev on http://localhost:3000 (Turbopack)
-npm run build        # next build
+npm run build        # next build (109 routes)
 npm start            # next start
-npm run lint         # eslint (eslint-config-next/core-web-vitals)
-npm run factoryos:test              # vitest run --config vitest.config.ts (all FactoryOS tests)
+npm run lint         # eslint (next/core-web-vitals)
+npm run factoryos:test              # vitest run --config vitest.config.ts (factoryos + tests + shortforge)
 npm run factoryos:typecheck         # tsc --project tsconfig.factoryos.json --noEmit (strict)
 npm run factoryos:eval:rag          # vitest run factoryos/tests/rag-eval.test.ts
 npm run factoryos:eval:quiz         # vitest run factoryos/tests/quiz-eval.test.ts
 npx vite-node factoryos/demo.ts              # FactoryOS demo
 npx vite-node factoryos/demo-production.ts   # production demo
-# Single test file:
-npx vitest run factoryos/tests/<name>.test.ts --config vitest.config.ts
+npx vitest run factoryos/tests/<name>.test.ts --config vitest.config.ts  # single file
+npm run preview     # opennextjs-cloudflare build && preview
+npm run audit       # node scripts/check-cloudflare-free.mjs
+npm run deploy      # next build && opennextjs-cloudflare build && audit && wrangler deploy
 ```
-Webpack ignores `venv/`, `data/`, `generated/`, `*.db` for watcher performance. `better-sqlite3` / `sqlite3` are server-only externals.
-
-### Compliance Gate (`archive/floor07_compliance_2026-08-23/`) — Python 3.12, Poetry, Docker — ARCHIVED
-```bash
-cd archive/floor07_compliance_2026-08-23
-cp .env.example .env   # then fill DATABASE_URL, REDIS_URL, SIGNING_SECRET_KEY, etc.
-
-# Docker (preferred — includes Postgres + Redis)
-docker compose up --build -d   # or: make up / make up-build
-docker compose logs -f api     # or: make logs
-docker compose down            # or: make down
-
-# Local dev (requires Postgres + Redis running)
-poetry install
-poetry run alembic upgrade head        # or: make migrate
-poetry run uvicorn main:app --reload --port 8000   # docs at /docs, health at /health
-
-# Tests — pytest with --cov-fail-under=95
-make test                          # poetry run pytest (all)
-make test-unit                     # tests/unit
-make test-integration              # tests/integration
-make test-api                      # tests/api
-poetry run pytest tests/unit/workers/test_fact_worker.py -v   # single file
-
-# Quality
-make lint          # ruff check app tests
-make lint-fix      # ruff check --fix
-make format        # black app tests main.py
-make format-check  # black --check
-make typecheck     # mypy app  (strict=true, pydantic plugin)
-```
+Webpack ignores `venv/`, `data/`, `generated/`, `*.db` for watcher. `better-sqlite3` / `sqlite3` / `@xenova/transformers` / `sharp` are server-only externals (excluded from CF Worker via `outputFileTracingExcludes`).
 
 ### Rendering Engine (`services/rendering-engine/`) — Python 3.11+, FFmpeg on PATH
 ```bash
@@ -122,59 +92,47 @@ cd services/rendering-engine
 python -m venv venv; source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python -m uvicorn main:app --reload --port 8080
-# Warm Basic pool:
-python -m uvicorn basic_render_api:app --port 8100
-# Alternative worker entry (loads apps/web/.env):
-python start_worker.py
-
-# Manual validation:
-curl http://localhost:8080/job-status/<jobId>
-curl http://localhost:8080/logs/stream   # SSE log stream
+python -m uvicorn basic_render_api:app --port 8100        # warm Basic pool
+python start_worker.py                                      # alt entry (loads apps/web/.env)
+curl http://localhost:8080/health; curl http://localhost:8100/ready
+curl http://localhost:8080/job-status/<jobId>; curl http://localhost:8080/logs/stream  # SSE
 ```
-
-No formal test harness in this service; job manifests persist to `output/jobs/<jobId>.json`.
 
 ### Pipeline Stages (`services/pipeline/*`) — Python 3.11+
-Each floor is a domain slice (strategy → scripting → asset realization → media synthesis → timeline composition → rendering) plus `guardian/` watchdog. See `services/pipeline/<floor>/README.md` and `docs/akb/`.
+Each floor: `app/` hexagonal + `tests/` + `README.md` + `main.py`. See `services/pipeline/<floor>/README.md` and `docs/akb/`.
 
-## Architecture
-
-### Control Plane (`apps/web/`)
-- **Next.js 16 / React 19 / Tailwind v4 / Framer Motion**, `reactCompiler: true`, Turbopack. Path alias `@/*` → `./*`.
-- **Auth**: Clerk (`@clerk/nextjs`, `middleware.ts`). **Data**: `firebase-admin` + `firebase` (Firestore), `mongodb` driver, `better-sqlite3` for local telemetry/benchmarks, `cloudinary` CDN.
-- **AI Router** (`factoryos/` + `ai/` + `lib/`): binds capabilities (`SCRIPT v1`, `QUIZ v2`) to providers (Gemini via `@ai-sdk/google`, Groq, OpenRouter, local Ollama/LM Studio). See `apps/web/factoryos/README.md`.
-- **Rendering**: calls `NEXT_PUBLIC_RENDER_ENGINE_URL` if set; otherwise falls back to Next.js API routes requiring local FFmpeg. `ENABLE_LOCAL_RENDER` controls the local background worker. Warm pool at `BASIC_RENDER_API_URL` (`services/rendering-engine` :8100) for sub-60s path.
-- **Vitest** is scoped strictly to `factoryos/tests/` (node env, 60s timeout); do not expect it to run `app/` or `tests/` suites.
-
-### Compliance Gate (`archive/floor07_compliance_2026-08-23/`) — Hexagonal / Clean Architecture — ARCHIVED
+### Archived Gate (`archive/floor07_compliance_2026-08-23/`) — Python 3.12, Poetry, Docker — ARCHIVED
+```bash
+cd archive/floor07_compliance_2026-08-23
+cp .env.example .env; docker compose up --build -d   # api + postgres:16 + redis:7
+poetry run alembic upgrade head; poetry run uvicorn main:app --reload --port 8000
+make test && make lint && make format && make typecheck   # ruff + black + mypy strict
 ```
-POST /v1/validate → app/api/v1/validation.py → ValidationPipeline (app/pipelines/validation_pipeline.py)
-                                           ├─ FactWorker       (app/workers/fact_worker.py) — hallucination/confidence
-                                           ├─ PolicyWorker     (app/workers/policy_worker.py) — platform rules from data/policies/
-                                           ├─ RiskWorker       (app/workers/risk_worker.py) — LOW/MEDIUM/HIGH/CRITICAL
-                                           └─ CertificateWorker(app/workers/certificate_worker.py) — HMAC-SHA256 via app/security/signing.py → Postgres
-```
-Layers: `app/domain` (entities: certificate/validation_run/audit_log, value_objects: risk_rating/decision/platform) → `app/application` (use_cases/commands/dto) → `app/infrastructure` (SQLAlchemy async + asyncpg, Redis asyncio, repos) → `app/api`. Cross-cutting: `app/core/config/settings.py` (pydantic-settings), `app/core/exceptions.py`, `app/logging/setup.py` (structlog json), `app/security/auth.py`, middleware `request_id` + `error_handler`. Metrics via `prometheus-client`, serialization via `orjson`. Not in live request path — see `docs/ARCHITECTURE.md` Archived Components.
 
-### Rendering Engine (`services/rendering-engine/`)
-- FastAPI (`main.py` :8080 + `basic_render_api.py` :8100) with `ThreadPoolExecutor(max_workers=MAX_CONCURRENT_JOBS)` and `HTTPBearer` auth. Warm pool `basic_render_worker.py` with isolated workspaces and `ffprobe` validation.
-- `POST /render-video` writes `output/jobs/<jobId>.json` (queued) → `executor.submit(execute_render_task)` → spawns `scripts/create_short.py` as subprocess with a temp payload JSON → on success writes `output/<jobId>/final.mp4` + `thumbnail.png` + `subtitles.srt` + `result.json`, updates manifest to `completed` (or `failed`). On startup, re-queues any `queued`/`processing` jobs. Basic pool: `POST /api/render/jobs` with `executionToken` + `timingSafeEqual`.
-- `GET /job-status/{jobId}` returns `videoUrl`/`thumbnailUrl`/`subtitlesUrl` as absolute `/static/...` URLs. `GET /logs/stream` is SSE over an in-memory `deque(500)` fed by a `_DequeHandler`.
+## Architecture — Live System (Summary)
 
-### Pipeline Stages (`services/pipeline/*`)
-- `floor01_strategy` → `floor02_scripting` → `floor03_asset_realization` → `floor04_media_synthesis` → `floor05_timeline_composition` → `floor06_rendering` + `guardian` (watchdog, self-healing, Decision Ledger, CircuitBreaker). Each floor is a domain slice with `app/` hexagonal layout. Knowledge base at `docs/akb/`.
+**Control Plane** — Next.js 16 / React 19 / Tailwind v4 / Zustand 5 / TanStack Query 5. Auth: Clerk `@clerk/nextjs` + Firebase `__session` HMAC (`middleware.ts` fail-closed). Data: `firebase-admin` + `firebase` (Firestore `quotas/videos`), `mongodb` 7.5 (`factoryos` db, InMemory fallback), `better-sqlite3` 12 (`data/shortfactory.db` WAL) via `SQLiteRenderQueue`, `cloudinary` CDN. AI: dual routers — `ai/` (`IntelligentRouter`/`AIRuntime` with `capability-registry`, scored `quality/latency/cost/availability` + health `errorRate>0.85` skip, `AIProfile`) + legacy `lib/ai-provider` (`ProviderRouter`, `model-discovery`), bridging via `factory_with_fallback`. Skills: 9 FactoryOS domain skills (`factoryos/skills/`) + 5 docs-only ShortForge-native skills (`lib/shortforge-skills/`). Vitest scoped to `factoryos/tests/**` + `tests/**` + `shortforge/tests/**` (node, 60s).
+
+**Rendering** — `main.py :8080` (`ThreadPoolExecutor 1` + `HTTPBearer`) writes `output/jobs/{jobId}.json` → `create_short.py` subprocess (Pillow 1080×1920, 30fps, edge-tts, faster-whisper, FFmpeg libx264 ultrafast, `drawtext` sanitized) → `output/{jobId}/final.mp4` + `result.json` + ffprobe → Cloudinary. Warm pool `basic_render_api.py :8100` + `basic_render_worker.py` (isolated workspaces, `POST /api/render/jobs` with `executionToken timingSafeEqual`).
+
+**Pipeline** — `floor01_strategy` → `floor02_scripting` → `floor03_asset_realization` → `floor04_media_synthesis` → `floor05_timeline_composition` → `floor06_rendering` + `guardian` (watchdog, Decision Ledger, CircuitBreaker). Bridged via `factoryos/core/bridge/PythonFloorBridge.ts`. Full design → `docs/ARCHITECTURE.md`.
+
+**Security invariants:** `jobId ^[a-zA-Z0-9_-]{8,64}$` at boundary + worker `realpath` prefix check; `executionToken = crypto.randomBytes(32).hex()` never `jobId`, `timingSafeEqual` on `claim`/`callback`; tier-isolated dispatch (`azure↔ADMIN`, `github-actions/basic-fastapi↔BASIC`, `Basic→Azure` forbidden); `Host`-derived SSRF via canonical `APP_ORIGIN||CONTROL_PLANE_URL`; GH Actions SHA-pinned + `INPUT_*` indirection.
 
 ## Environment
 
-Each service has its own `.env` (all gitignored; see `*.example`):
+Each service has its own `.env` (gitignored; see `*.example`):
 
-- `archive/floor07_compliance_2026-08-23/.env` — `DATABASE_URL` (asyncpg), `REDIS_URL`, `SIGNING_SECRET_KEY` (hex 32 bytes), `POLICY_DATA_DIR`, `LOG_LEVEL`/`LOG_FORMAT`, `RISK_*_THRESHOLD`, `API_HOST`/`API_PORT` — archived, not required to run.
-- `apps/web/.env` — `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEFAULT_LLM_PROVIDER`, `NEXT_PUBLIC_RENDER_ENGINE_URL`, `ENABLE_LOCAL_RENDER`, `TOGETHER_API_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`/`CLERK_SECRET_KEY`, `FIREBASE_*`, `CLOUDINARY_*`, `INTERNAL_API_SECRET_KEY`, `BASIC_RENDER_API_URL`, `MONGODB_URI`.
-- `services/rendering-engine/.env` (or `apps/web/.env` via `start_worker.py`) — `CLOUDINARY_*`, `INTERNAL_API_SECRET_KEY`, `BASIC_RENDER_API_SECRET`, `MAX_CONCURRENT_JOBS`, `CONTROL_PLANE_URL`.
+- `apps/web/.env` — `GEMINI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `DEFAULT_LLM_PROVIDER` · `TOGETHER_API_KEY` · `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`/`CLERK_SECRET_KEY` · `FIREBASE_*` · `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `BASIC_RENDER_API_URL` · `MONGODB_URI` · `BASIC_RENDER_API_SECRET` · `GITHUB_PAT`/`GITHUB_REPO` · `BASIC_GENERATION_LIMIT` · `APP_ORIGIN`/`CONTROL_PLANE_URL` · `CRON_SECRET` · `AI_EXECUTION_TIMEOUT_MS`
+- `services/rendering-engine/.env` (or `apps/web/.env` via `start_worker.py`) — `CLOUDINARY_*` · `INTERNAL_API_SECRET_KEY` · `BASIC_RENDER_API_SECRET` · `MAX_CONCURRENT_JOBS` · `CONTROL_PLANE_URL` · `RENDER_WORKER_SECRET`
+- `archive/floor07_compliance_2026-08-23/.env` — archived, not required to run.
 
-Host requirement: system `ffmpeg` on PATH for both `apps/web` local rendering and `services/rendering-engine`.
+Host requirement: system `ffmpeg` on PATH.
 
 ## Git & CI
 
-- Main branch: `main`. Remote: `https://github.com/Gokul7904231/AI-Operating-Content-generator`.
-- Workflows: `ci.yml` (Build & TypeCheck at `apps/web`), `factoryos-render-worker.yml` (cron `* * * * *` — claims queued jobs via `POST /api/rendering/claim` and dispatches `factoryos-basic-render.yml`); `factoryos-basic-render.yml` (per-job: `services/rendering-engine/scripts/create_short.py`).
+- Main: `main`. Remotes: `shortforge https://github.com/Gokul7904231/ShortForge.git` (canonical), `origin https://github.com/Gokul7904231/AI-Shorts-Maker` (redirect). Branch `chore/rename-shortforge` (FactoryOS→ShortForge rebrand, infra preserved).
+- Commitlint: `commitlint.config.js` — only `refactor:` | `feature:` | `bug:` (lower-case, `header-max-length 100`, husky `commit-msg`).
+- Workflows: `ci.yml` (Build & TypeCheck at `apps/web` — `tsc --noEmit` + `next build`), `factoryos-render-worker.yml` (cron `* * * * *` dispatcher), `factoryos-basic-render.yml` (per-job `create_short.py`).
+
+Full authoritative design → `docs/ARCHITECTURE.md` (698 lines — data layer, skill system, 109 routes, deployment, archived components, roadmap).
