@@ -1,3 +1,4 @@
+// VisualAssetManager — Unified Asset Pipeline & Concurrent Retrieval (Refreshed)
 import fs from "fs";
 import path from "path";
 
