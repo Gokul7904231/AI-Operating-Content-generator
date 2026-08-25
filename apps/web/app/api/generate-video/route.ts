@@ -343,8 +343,8 @@ export async function POST(req: Request) {
     // Initialize document in Firestore
     await saveJobManifest(jobId, finalPayload);
 
-    // Push execution payload to SQLite Render Queue (Local Node.js pool only; bypassed for Workers & Basic)
-    if (process.env.STORAGE_DRIVER !== "cloudflare-worker" && tier !== "BASIC") {
+    // Push execution payload to SQLite Render Queue (ensures all jobs are tracked and processed locally or by active workers)
+    if (process.env.STORAGE_DRIVER !== "cloudflare-worker") {
       const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
       
       if (!ServiceRegistry.has("renderQueue")) {
@@ -360,6 +360,7 @@ export async function POST(req: Request) {
         jobId,
         payload: {
           jobId,
+          userId,
           engine: engineId,
           engineId,
           engineSnapshot,
@@ -374,7 +375,7 @@ export async function POST(req: Request) {
           script: finalPayload.script,
           scenes: finalPayload.scenes,
         },
-        priority: 0,
+        priority: isAdminOrOwner ? 1 : 0,
         maxAttempts: 3
       });
     }
