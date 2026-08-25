@@ -11,6 +11,7 @@ import {
 import CreatorEmptyState from "@/components/creator/CreatorEmptyState";
 import NewEngineForm from "@/components/NewEngineForm";
 import WebsiteModal from "@/components/WebsiteModal";
+import { useAuth } from "@/lib/auth/hooks";
 
 interface EngineMeta {
   id: string;
@@ -56,6 +57,8 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 export default function EnginesGalleryPage() {
+  const { user } = useAuth();
+  const isAdmin = ["ADMIN", "OWNER", "SUPERADMIN"].includes(user?.role?.toUpperCase() || "");
   const queryClient = useQueryClient();
   const [showNewEngineModal, setShowNewEngineModal] = useState(false);
 
@@ -109,15 +112,23 @@ export default function EnginesGalleryPage() {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-bold text-zinc-50">Content Engines Gallery</h1>
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> QUIZ — LIVE NOW</span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold tracking-wider">OTHER ENGINES — COMING SOON</span>
+            {!isAdmin && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold tracking-wider">OTHER ENGINES — COMING SOON</span>
+            )}
           </div>
-          <p className="text-xs text-zinc-500 mt-1"><span className="text-zinc-300 font-semibold">Quiz Shorts is live.</span> Other engines are coming soon — same pipeline, new formats.</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            <span className="text-zinc-300 font-semibold">Quiz Shorts is live.</span> {isAdmin ? "All engines are fully unlocked for Admin." : "Other engines are coming soon — same pipeline, new formats."}
+          </p>
         </div>
         <button
           onClick={() => setShowNewEngineModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-semibold transition-colors cursor-not-allowed opacity-60"
-          title="Coming soon — Quiz Shorts is live now"
-          disabled
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            isAdmin
+              ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow"
+              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-400 cursor-not-allowed opacity-60"
+          }`}
+          title={!isAdmin ? "Coming soon — Quiz Shorts is live now" : undefined}
+          disabled={!isAdmin}
         >
           <Plus className="w-3.5 h-3.5" /> New Engine Wizard
         </button>
@@ -140,7 +151,7 @@ export default function EnginesGalleryPage() {
             const Icon = ICON_MAP[e.id] || BookOpenText;
             const colorClass = COLOR_MAP[e.id] || "text-emerald-400 border-emerald-500/20";
             const isOfficial = OFFICIAL_IDS.includes(e.id);
-            const isLive = e.id === "quiz";
+            const isLive = isAdmin || e.id === "quiz";
             const comingSoon = !isLive;
 
             return (

@@ -231,7 +231,8 @@ export default function Sidebar() {
                       const RouteIcon = getIcon(route.icon);
                       const isActive = pathname === route.href || pathname.startsWith(route.href + "/");
                       const isEngineSection = section.id === "engines";
-                      const isComingSoonEngine = isEngineSection && !["engines-index", "engines-quiz"].includes(route.id) && route.href.startsWith("/engines/");
+                      const isAdmin = ["ADMIN", "OWNER", "SUPERADMIN"].includes(effectiveRole?.toUpperCase());
+                      const isComingSoonEngine = !isAdmin && isEngineSection && !["engines-index", "engines-quiz"].includes(route.id) && route.href.startsWith("/engines/");
                       return (
                         <Link
                           key={route.id}

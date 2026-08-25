@@ -10,8 +10,11 @@ import {
 import BrandIcon from "@/components/BrandIcon";
 import { useOSStore } from "@/lib/os-store";
 import { useFactoryStore } from "@/lib/factory-store";
+import { useAuth } from "@/lib/auth/hooks";
 
 export default function DynamicEnginePage() {
+  const { user } = useAuth();
+  const isAdmin = ["ADMIN", "OWNER", "SUPERADMIN"].includes(user?.role?.toUpperCase() || "");
   const params = useParams();
   const engineId = params.id as string;
 
@@ -165,7 +168,7 @@ export default function DynamicEnginePage() {
     );
   };
 
-  const isQuizLive = engineId === "quiz";
+  const isQuizLive = isAdmin || engineId === "quiz";
   const comingSoonEngine = !isQuizLive;
 
   return (

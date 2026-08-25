@@ -780,10 +780,11 @@ export default function QuickGenerateOverlay() {
                         { engineId: "story", name: "Story Engine", description: "Engaging narrative storytelling with suspenseful retention hooks.", category: "STORY" },
                       ];
                 const activeEngine = engineList.find((e: any) => e.engineId === selectedEngineId) || engineList[0];
+                const isAdmin = ["ADMIN", "OWNER", "SUPERADMIN"].includes(user?.role?.toUpperCase() || "");
 
                 return (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                       <label className="text-xs font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
                         1. Select Content Engine
                       </label>
@@ -799,14 +800,14 @@ export default function QuickGenerateOverlay() {
                         value={selectedEngineId}
                         onChange={(e) => {
                           const next = e.target.value;
-                          // Only Quiz is live — block switching to coming-soon engines
-                          if (next !== "quiz") return;
+                          // Only Quiz is live for non-admins — block switching to coming-soon engines
+                          if (!isAdmin && next !== "quiz") return;
                           setSelectedEngineId(next);
                         }}
                         className="w-full rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-4 py-3 text-xs font-bold text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none cursor-pointer appearance-none pr-10 transition-all hover:border-black/[0.2] dark:hover:border-white/[0.2]"
                       >
                         {engineList.map((eng: any) => {
-                          const live = eng.engineId === "quiz";
+                          const live = isAdmin || eng.engineId === "quiz";
                           return (
                             <option
                               key={eng.engineId}
@@ -825,23 +826,25 @@ export default function QuickGenerateOverlay() {
                       </div>
                     </div>
 
-                    {/* Live / coming-soon legend */}
-                    <div className="flex flex-wrap items-center gap-2 px-1">
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
-                        <span className="text-[#34c759]">QUIZ — LIVE NOW</span>
-                      </span>
-                      <span className="text-[#e8e8ed]">·</span>
-                      <span className="text-[10px] font-semibold text-[#86868b]" title="Coming soon — Quiz Shorts is live now">
-                        Other engines — Coming soon
-                      </span>
-                      <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-[10px] font-bold tracking-wider">MORE FORMATS COMING SOON</span>
-                    </div>
+                    {/* Live / coming-soon legend for regular users */}
+                    {!isAdmin && (
+                      <div className="flex flex-wrap items-center gap-2 px-1">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
+                          <span className="text-[#34c759]">QUIZ — LIVE NOW</span>
+                        </span>
+                        <span className="text-[#e8e8ed]">·</span>
+                        <span className="text-[10px] font-semibold text-[#86868b]" title="Coming soon — Quiz Shorts is live now">
+                          Other engines — Coming soon
+                        </span>
+                        <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-[10px] font-bold tracking-wider">MORE FORMATS COMING SOON</span>
+                      </div>
+                    )}
 
                     {activeEngine?.description && (
                       <p className="text-[11px] text-[#667085] dark:text-[#A8B2C1] px-1">
                         {activeEngine.description}
-                        {activeEngine.engineId !== "quiz" && (
+                        {!isAdmin && activeEngine.engineId !== "quiz" && (
                           <span className="ml-1 text-amber-600 font-semibold"> — Coming soon.</span>
                         )}
                       </p>
