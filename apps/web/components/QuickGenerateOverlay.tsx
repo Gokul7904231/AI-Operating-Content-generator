@@ -168,7 +168,7 @@ export default function QuickGenerateOverlay() {
   const [jobStatus, setJobStatus] = useState<any>(null);
   const [polling, setPolling] = useState(false);
 
-  // Fetch available active engines
+  // Fetch available active engines — quiz-only live
   useEffect(() => {
     async function loadEngines() {
       try {
@@ -176,8 +176,10 @@ export default function QuickGenerateOverlay() {
         const data = await res.json();
         if (data.success && Array.isArray(data.engines)) {
           setAvailableEngines(data.engines);
-          const defaultEng = data.engines.find((e: any) => e.isDefault) || data.engines[0];
-          if (defaultEng) setSelectedEngineId(defaultEng.engineId);
+          // Only Quiz is live — force quiz even if API default is another engine
+          const liveEng = data.engines.find((e: any) => e.engineId === "quiz");
+          const defaultEng = liveEng || data.engines.find((e: any) => e.isDefault) || data.engines[0];
+          if (defaultEng) setSelectedEngineId(defaultEng.engineId === "quiz" ? defaultEng.engineId : "quiz");
         }
       } catch (err) {
         console.warn("[QuickGenerate] Failed to load available engines:", err);
@@ -792,30 +794,56 @@ export default function QuickGenerateOverlay() {
                       )}
                     </div>
 
-                    <div className="relative">
+                    <div className="relative group/select">
                       <select
                         value={selectedEngineId}
-                        onChange={(e) => setSelectedEngineId(e.target.value)}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          // Only Quiz is live — block switching to coming-soon engines
+                          if (next !== "quiz") return;
+                          setSelectedEngineId(next);
+                        }}
                         className="w-full rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-[#0E1728] px-4 py-3 text-xs font-bold text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none cursor-pointer appearance-none pr-10 transition-all hover:border-black/[0.2] dark:hover:border-white/[0.2]"
                       >
-                        {engineList.map((eng: any) => (
-                          <option
-                            key={eng.engineId}
-                            value={eng.engineId}
-                            className="bg-white dark:bg-[#070D18] text-[#111827] dark:text-[#F5F7FA] py-1"
-                          >
-                            {eng.name} ({eng.category || "OTHER"})
-                          </option>
-                        ))}
+                        {engineList.map((eng: any) => {
+                          const live = eng.engineId === "quiz";
+                          return (
+                            <option
+                              key={eng.engineId}
+                              value={eng.engineId}
+                              disabled={!live}
+                              title={!live ? "Coming soon — Quiz Shorts is live now" : undefined}
+                              className={`py-1 ${live ? "bg-white dark:bg-[#070D18] text-[#111827] dark:text-[#F5F7FA]" : "bg-[#f5f5f7] text-[#86868b]"}`}
+                            >
+                              {eng.name} ({eng.category || "OTHER"}){!live ? " — Coming soon" : " · Live"}
+                            </option>
+                          );
+                        })}
                       </select>
                       <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
                         <ChevronDown className="w-4 h-4" />
                       </div>
                     </div>
 
+                    {/* Live / coming-soon legend */}
+                    <div className="flex flex-wrap items-center gap-2 px-1">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
+                        <span className="text-[#34c759]">QUIZ — LIVE NOW</span>
+                      </span>
+                      <span className="text-[#e8e8ed]">·</span>
+                      <span className="text-[10px] font-semibold text-[#86868b]" title="Coming soon — Quiz Shorts is live now">
+                        Other engines — Coming soon
+                      </span>
+                      <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-[10px] font-bold tracking-wider">MORE FORMATS COMING SOON</span>
+                    </div>
+
                     {activeEngine?.description && (
                       <p className="text-[11px] text-[#667085] dark:text-[#A8B2C1] px-1">
                         {activeEngine.description}
+                        {activeEngine.engineId !== "quiz" && (
+                          <span className="ml-1 text-amber-600 font-semibold"> — Coming soon.</span>
+                        )}
                       </p>
                     )}
                   </div>

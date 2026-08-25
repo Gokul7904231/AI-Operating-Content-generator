@@ -230,21 +230,32 @@ export default function Sidebar() {
                     {sectionRoutes.map((route) => {
                       const RouteIcon = getIcon(route.icon);
                       const isActive = pathname === route.href || pathname.startsWith(route.href + "/");
-
+                      const isEngineSection = section.id === "engines";
+                      const isComingSoonEngine = isEngineSection && !["engines-index", "engines-quiz"].includes(route.id) && route.href.startsWith("/engines/");
                       return (
                         <Link
                           key={route.id}
                           href={route.href}
-                          onMouseEnter={() => router.prefetch(route.href)}
+                          aria-disabled={isComingSoonEngine}
+                          tabIndex={isComingSoonEngine ? -1 : 0}
+                          onClick={(e) => { if (isComingSoonEngine) e.preventDefault(); }}
+                          onMouseEnter={() => { if (!isComingSoonEngine) router.prefetch(route.href); }}
                           className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-xs ${
-                            isActive
+                            isComingSoonEngine
+                              ? "text-[#86868b] opacity-60 cursor-not-allowed"
+                              : isActive
                               ? "bg-[#1769E8]/10 text-[#1769E8] font-bold border border-[#1769E8]/20"
                               : "text-[#667085] dark:text-[#A7B0BC] hover:text-[#111827] dark:hover:text-[#F5F7FA] hover:bg-black/[0.04] dark:hover:bg-[#08101B]"
                           } ${!sidebarOpen ? "justify-center" : ""}`}
-                          title={!sidebarOpen ? route.label : undefined}
+                          title={isComingSoonEngine ? "Coming soon — Quiz Shorts is live now" : (!sidebarOpen ? route.label : undefined)}
                         >
-                          <RouteIcon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#1769E8]" : "text-[#667085] dark:text-[#A7B0BC]"}`} />
-                          {sidebarOpen && <span className="truncate">{route.label}</span>}
+                          <RouteIcon className={`w-4 h-4 flex-shrink-0 ${isComingSoonEngine ? "text-[#86868b]" : isActive ? "text-[#1769E8]" : "text-[#667085] dark:text-[#A7B0BC]"}`} />
+                          {sidebarOpen && (
+                            <span className="truncate flex items-center gap-1.5">
+                              {route.label}
+                              {isComingSoonEngine && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600">SOON</span>}
+                            </span>
+                          )}
                         </Link>
                       );
                     })}

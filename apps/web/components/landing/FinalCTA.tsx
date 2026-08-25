@@ -12,14 +12,15 @@ export default function FinalCTA() {
 
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 text-center space-y-10 relative z-10" data-reveal>
         <div className="space-y-6">
-          <span className="px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#0071e3] font-semibold uppercase tracking-wider shadow-xs inline-block">
-            FRONTIER PRODUCTION OPERATING SYSTEM
+          <span className="px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#0071e3] font-semibold uppercase tracking-wider shadow-xs inline-flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" /> QUIZ SHORTS — LIVE NOW · OTHER FORMATS COMING SOON
           </span>
           <h2 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-[#1d1d1f] font-display tracking-[-0.035em] leading-[1.04]">
-            START CREATING.
+            START CREATING <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0071e3] to-indigo-600">QUIZ SHORTS</span>
           </h2>
           <p className="text-lg sm:text-xl font-text text-[#6e6e73] max-w-2xl mx-auto tracking-apple-body">
-            Give the factory an idea. The autonomous production system handles the rest.
+            Start with Quiz Shorts — live today. Give the factory a topic and get a finished 9:16 short. Facts, Stories & more are coming soon.
           </p>
         </div>
 

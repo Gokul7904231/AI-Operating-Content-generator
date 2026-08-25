@@ -72,9 +72,10 @@ export default function HeroSection() {
             
             {/* Frontier Category Badge */}
             <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#e8e8ed] text-xs font-text text-[#1d1d1f] shadow-xs reveal ${mounted ? "visible" : ""}`}>
-              <span className="w-2 h-2 rounded-full bg-[#0071e3] animate-pulse" />
-              <span className="text-[#86868b] font-medium">CATEGORY:</span>
-              <span className="text-[#1d1d1f] font-semibold tracking-wide">PRODUCTION OPERATING SYSTEM</span>
+              <span className="w-2 h-2 rounded-full bg-[#34c759] animate-pulse" />
+              <span className="text-[#86868b] font-medium">NOW LIVE:</span>
+              <span className="text-[#1d1d1f] font-semibold tracking-wide">QUIZ SHORTS GENERATION</span>
+              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-[#0071e3]/10 border border-[#0071e3]/20 text-[10px] font-bold tracking-wider text-[#0071e3]">MORE FORMATS COMING SOON</span>
             </div>
 
             {/* Main Headline */}
@@ -87,8 +88,7 @@ export default function HeroSection() {
 
             {/* Supporting Copy */}
             <p className={`text-lg sm:text-xl font-text text-[#6e6e73] max-w-2xl leading-relaxed tracking-apple-body reveal reveal-d2 ${mounted ? "visible" : ""}`}>
-              ShortForge is an autonomous production system for short-form video.
-              Give the factory a concept — the system orchestrates scripting, visual synthesis, voice timing, and compliance into a finished short.
+              ShortForge is an autonomous production system — <span className="text-[#1d1d1f] font-semibold">Quiz Shorts are live today</span>. Give the factory a topic and it orchestrates scripting, visuals, voice and mux into a finished 9:16 short. <span className="text-[#86868b]">Other formats — Facts, Stories, History & more — coming soon.</span>
             </p>
 
             {/* Action Buttons */}

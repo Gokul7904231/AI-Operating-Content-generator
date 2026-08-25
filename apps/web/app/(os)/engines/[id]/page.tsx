@@ -165,6 +165,9 @@ export default function DynamicEnginePage() {
     );
   };
 
+  const isQuizLive = engineId === "quiz";
+  const comingSoonEngine = !isQuizLive;
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -174,11 +177,28 @@ export default function DynamicEnginePage() {
             <Cpu className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-50 tracking-tight capitalize">{manifest?.name ?? engineId} Engine</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">Version {manifest?.version ?? "1.0"} • Profile: {selectedProfile}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold text-zinc-50 tracking-tight capitalize">{manifest?.name ?? engineId} Engine</h2>
+              {isQuizLive ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE NOW</span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold tracking-wider">COMING SOON</span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">Version {manifest?.version ?? "1.0"} • Profile: {selectedProfile}{comingSoonEngine ? " · Coming soon — Quiz Shorts is live now" : ""}</p>
           </div>
         </div>
       </div>
+
+      {comingSoonEngine && (
+        <div
+          className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+          title="Coming soon — Quiz Shorts is live now"
+        >
+          <p className="text-xs font-semibold text-amber-300">This engine is coming soon. Quiz Shorts is the live production path — create from the Quiz engine today.</p>
+          <a href="/factory/jobs" className="px-3 py-1.5 rounded-lg bg-white text-zinc-900 text-xs font-bold hover:bg-zinc-100 transition-colors">Create Quiz Short →</a>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs font-semibold text-rose-400 flex items-center gap-2">

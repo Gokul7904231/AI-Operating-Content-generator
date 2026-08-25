@@ -61,6 +61,16 @@ export default function FactoryDepthSection() {
             </div>
 
             <div className="space-y-4 font-text text-xs text-[#1d1d1f]">
+              <div className="p-4 bg-sky-50 border border-[#0071e3]/20 rounded-2xl space-y-1.5 shadow-xs">
+                <div className="flex justify-between font-bold text-[#1d1d1f]">
+                  <span className="font-semibold">Quiz Shorts Generation</span>
+                  <span className="inline-flex items-center gap-1 text-[#0071e3] font-bold"><span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" /> LIVE NOW</span>
+                </div>
+                <p className="text-[11px] text-[#6e6e73] leading-relaxed">
+                  End-to-end quiz shorts — topic → script, visuals, voice, subtitles and mux — validated by Guardian checks and delivered via Cloudinary + Drive.
+                </p>
+              </div>
+
               <div className="p-4 bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl space-y-1.5 shadow-xs">
                 <div className="flex justify-between font-bold text-[#1d1d1f]">
                   <span className="font-semibold">Guardian Quality Checks</span>
@@ -71,23 +81,13 @@ export default function FactoryDepthSection() {
                 </p>
               </div>
 
-              <div className="p-4 bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl space-y-1.5 shadow-xs">
+              <div className="p-4 bg-white border border-dashed border-[#e8e8ed] rounded-2xl space-y-1.5 shadow-xs opacity-80">
                 <div className="flex justify-between font-bold text-[#1d1d1f]">
-                  <span className="font-semibold">Specialized Video Workers</span>
-                  <span className="text-[#34c759] font-bold">ACTIVE</span>
+                  <span className="font-semibold">Facts · Stories · History & more</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-[10px] font-bold tracking-wider">COMING SOON</span>
                 </div>
-                <p className="text-[11px] text-[#6e6e73] leading-relaxed">
-                  FFmpeg & Remotion workers synthesize 60fps vertical frames, audio stems, and burned subtitles.
-                </p>
-              </div>
-
-              <div className="p-4 bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl space-y-1.5 shadow-xs">
-                <div className="flex justify-between font-bold text-[#1d1d1f]">
-                  <span className="font-semibold">Google Drive Delivery Outbox</span>
-                  <span className="text-[#34c759] font-bold">ACTIVE</span>
-                </div>
-                <p className="text-[11px] text-[#6e6e73] leading-relaxed">
-                  Idempotent delivery pipeline pushes completed short-form video artifacts directly to cloud outboxes.
+                <p className="text-[11px] text-[#86868b] leading-relaxed">
+                  Additional short formats are in the roadmap — the same pipeline, new engines. Quiz Shorts are the live production path today.
                 </p>
               </div>
             </div>

@@ -104,14 +104,20 @@ export default function EnginesGalleryPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex items-start justify-between border-b border-zinc-900 pb-4">
+      <div className="flex items-start justify-between border-b border-zinc-900 pb-4 gap-4">
         <div>
-          <h1 className="text-xl font-bold text-zinc-50">Content Engines Gallery</h1>
-          <p className="text-xs text-zinc-500 mt-1">Select a specialized AI pipeline worker below to customize prompts, rules, and launch video jobs.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold text-zinc-50">Content Engines Gallery</h1>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> QUIZ — LIVE NOW</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold tracking-wider">OTHER ENGINES — COMING SOON</span>
+          </div>
+          <p className="text-xs text-zinc-500 mt-1"><span className="text-zinc-300 font-semibold">Quiz Shorts is live.</span> Other engines are coming soon — same pipeline, new formats.</p>
         </div>
         <button
           onClick={() => setShowNewEngineModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-zinc-950 text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-semibold transition-colors cursor-not-allowed opacity-60"
+          title="Coming soon — Quiz Shorts is live now"
+          disabled
         >
           <Plus className="w-3.5 h-3.5" /> New Engine Wizard
         </button>
@@ -134,12 +140,25 @@ export default function EnginesGalleryPage() {
             const Icon = ICON_MAP[e.id] || BookOpenText;
             const colorClass = COLOR_MAP[e.id] || "text-emerald-400 border-emerald-500/20";
             const isOfficial = OFFICIAL_IDS.includes(e.id);
+            const isLive = e.id === "quiz";
+            const comingSoon = !isLive;
 
             return (
-              <div key={e.id} className="relative group">
+              <div
+                key={e.id}
+                className={`relative group ${comingSoon ? "opacity-60" : ""}`}
+                title={comingSoon ? "Coming soon — Quiz Shorts is live now" : undefined}
+              >
                 <Link
                   href={`/engines/${e.id}`}
-                  className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 hover:border-zinc-700 transition-all flex flex-col justify-between cursor-pointer hover:shadow-lg h-full"
+                  aria-disabled={comingSoon}
+                  tabIndex={comingSoon ? -1 : 0}
+                  onClick={(ev) => { if (comingSoon) ev.preventDefault(); }}
+                  className={`border rounded-xl p-5 transition-all flex flex-col justify-between h-full ${
+                    comingSoon
+                      ? "bg-zinc-900/30 border-zinc-800/60 cursor-not-allowed"
+                      : "bg-zinc-900/60 border-zinc-800/80 hover:border-zinc-700 cursor-pointer hover:shadow-lg"
+                  }`}
                 >
                   <div className="space-y-4">
                     <div className="flex justify-between items-start">
@@ -148,8 +167,15 @@ export default function EnginesGalleryPage() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded font-mono uppercase ${
-                          e.status === "active" 
+                          isLive
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        }`}>
+                          {isLive ? "LIVE" : "COMING SOON"}
+                        </span>
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded font-mono uppercase ${
+                          e.status === "active"
+                            ? "bg-zinc-800 text-zinc-400 border border-zinc-700/60"
                             : "bg-zinc-800 text-zinc-500 border border-zinc-700/60"
                         }`}>
                           {e.status}
