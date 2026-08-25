@@ -26,105 +26,73 @@ export async function GET(
   }
 
   try {
-    // 1. Check local SQLite queue first
-    if (!ServiceRegistry.has("renderQueue")) {
-      const { SQLiteRenderQueue } = await import("../../../../lib/core/SQLiteRenderQueue");
-      ServiceRegistry.register("renderQueue", new SQLiteRenderQueue());
-    }
-    const { QueueProcessor } = await import("../../../../lib/core/RenderQueueProcessor");
-    QueueProcessor.start();
+    // 1. Check authoritative Firestore manifest first
+    if (db) {
+      const doc = await db.collection("videos").doc(id).get();
+      if (doc.exists) {
+        const job = doc.data() as any;
+        if (!job) {
+          return NextResponse.json({ error: "Job data is empty" }, { status: 404 });
+        }
 
-    const renderQueue = ServiceRegistry.get("renderQueue");
-    const qJob = await renderQueue.getJob(id);
-    if (qJob) {
-      // Ownership barrier: SQLite payload or canonical Firestore doc must belong to caller
-      const payloadUid = (qJob as any)?.payload?.userId ?? (qJob as any)?.payload?.user_id ?? null;
-      let ownerUid: string | null = payloadUid;
+        if (job.userId && job.userId !== caller.uid && !isAdminUser(caller.role)) {
+          return NextResponse.json({ error: "Forbidden: You do not have permission to access this job." }, { status: 403 });
+        }
+        if (!job.userId && !isAdminUser(caller.role)) {
+          return NextResponse.json({ error: "Job not found" }, { status: 404 });
+        }
 
-      // Prefer canonical Firestore owner when available (covers queues that didn't embed userId)
-      if (db) {
-        try {
-          const ownerDoc = await db.collection("videos").doc(id).get();
-          if (ownerDoc.exists) {
-            const d: any = ownerDoc.data();
-            if (d?.userId) ownerUid = d.userId;
-          }
-        } catch {}
+        return NextResponse.json({
+          id: doc.id,
+          videoId: doc.id,
+          status: job.status || "processing",
+          progress: job.progress ?? (job.status === "completed" ? 100 : 50),
+          error: job.error,
+          videoUrl: job.videoUrl || (job.status === "completed" ? `/api/media/video/${doc.id}` : null),
+          output: job.videoUrl ? { videoUrl: job.videoUrl } : null
+        });
       }
+    }
 
-      if (ownerUid && ownerUid !== caller.uid && !isAdminUser(caller.role)) {
-        return NextResponse.json({ error: "Forbidden: You do not have permission to access this job." }, { status: 403 });
+    // 2. Fallback to local SQLite queue (e.g. offline/dev) without auto-starting the processor
+    if (ServiceRegistry.has("renderQueue")) {
+      const renderQueue = ServiceRegistry.get("renderQueue");
+      const qJob = await renderQueue.getJob(id);
+      if (qJob) {
+        const payloadUid = (qJob as any)?.payload?.userId ?? (qJob as any)?.payload?.user_id ?? null;
+        if (!payloadUid && !isAdminUser(caller.role)) {
+          return NextResponse.json({ error: "Job not found" }, { status: 404 });
+        }
+        if (payloadUid && payloadUid !== caller.uid && !isAdminUser(caller.role)) {
+          return NextResponse.json({ error: "Forbidden: You do not have permission to access this job." }, { status: 403 });
+        }
+
+        let apiStatus = qJob.status;
+        if (["claimed", "running", "retrying"].includes(qJob.status)) {
+          apiStatus = "processing";
+        }
+        const progress = (qJob as any).progress_percentage ?? 0;
+
+        return NextResponse.json({
+          id: qJob.jobId,
+          videoId: qJob.jobId,
+          status: apiStatus,
+          detailedStatus: qJob.status,
+          progress: progress,
+          attempts: qJob.attempts,
+          error: qJob.lastError,
+          videoUrl: qJob.status === "completed" ? `/api/media/video/${qJob.jobId}` : null,
+          output: qJob.status === "completed" ? { videoUrl: `/api/media/video/${qJob.jobId}` } : null
+        });
       }
-      // If ownerUid is still null (legacy job without userId) — deny non-admin callers to prevent cross-account bleed
-      if (!ownerUid && !isAdminUser(caller.role)) {
-        // Fallback: treat as not found for non-admins to avoid leaking existence
-        return NextResponse.json({ error: "Job not found" }, { status: 404 });
-      }
-
-      // Map statuses to expected frontend state
-      let apiStatus = qJob.status;
-      if (["claimed", "running", "retrying"].includes(qJob.status)) {
-        apiStatus = "processing";
-      }
-
-      // Check checkpoint to fetch progress percentage
-      const progress = (qJob as any).progress_percentage ?? 0;
-
-      return NextResponse.json({
-        id: qJob.jobId,
-        videoId: qJob.jobId,
-        status: apiStatus,
-        detailedStatus: qJob.status,
-        progress: progress,
-        attempts: qJob.attempts,
-        error: qJob.lastError,
-        videoUrl: qJob.status === "completed" ? `/api/media/video/${qJob.jobId}` : null,
-        output: qJob.status === "completed" ? { videoUrl: `/api/media/video/${qJob.jobId}` } : null
-      });
     }
 
-    // 2. Fallback to Firestore
-    const doc = await db.collection("videos").doc(id).get();
-    if (!doc.exists) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
-    }
-
-    const job = doc.data() as any;
-    if (!job) {
-      return NextResponse.json({ error: "Job data is empty" }, { status: 404 });
-    }
-
-    if (job.userId && job.userId !== caller.uid && !isAdminUser(caller.role)) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to access this job." }, { status: 403 });
-    }
-    // Legacy docs without userId — hide from non-admins
-    if (!job.userId && !isAdminUser(caller.role)) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      id: doc.id,
-      videoId: doc.id,
-      status: job.status,
-      error: job.error,
-      videoUrl: job.videoUrl,
-      thumbnailUrl: job.thumbnailUrl,
-      subtitlesUrl: job.subtitlesUrl,
-      output:
-        job.status === "completed"
-          ? {
-              renderProfile: job.renderProfile,
-              fps: job.fps,
-              resolution: job.resolution,
-              videoUrl: job.videoUrl,
-              thumbnailUrl: job.thumbnailUrl,
-              subtitlesUrl: job.subtitlesUrl,
-              timings: job.timings,
-              cache: job.cache,
-            }
-          : null,
-    });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  } catch (err: any) {
+    console.error("[job-status] Error fetching status:", err);
+    return NextResponse.json(
+      { error: "Internal server error fetching job status" },
+      { status: 500 }
+    );
   }
 }

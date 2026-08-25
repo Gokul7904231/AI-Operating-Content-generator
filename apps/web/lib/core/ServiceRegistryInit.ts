@@ -57,13 +57,21 @@ db.collection("providers").get()
 
 console.log("[ServiceRegistryInit] Core services successfully bound.");
 
-// Boot AIDoctor startup diagnosis
-import { AIDoctor } from "./AIDoctor";
-AIDoctor.runDiagnosis().catch((err) =>
-  console.error("[ServiceRegistryInit] AIDoctor startup diagnosis failed:", err)
-);
+// Boot AIDoctor startup diagnosis on-demand (disabled on production boot to keep startup lightweight)
+if (process.env.ENABLE_STARTUP_DIAGNOSIS === "true") {
+  const { AIDoctor } = require("./AIDoctor");
+  AIDoctor.runDiagnosis().catch((err: any) =>
+    console.error("[ServiceRegistryInit] AIDoctor startup diagnosis failed:", err)
+  );
+}
 
-// Boot background RenderQueueProcessor daemon
-import { QueueProcessor } from "./RenderQueueProcessor";
-QueueProcessor.start();
+// Boot background RenderQueueProcessor daemon only when local rendering is enabled
+const isAzureWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
+if (!isAzureWorkerMode || process.env.ENABLE_LOCAL_QUEUE_PROCESSOR === "true") {
+  const { QueueProcessor } = require("./RenderQueueProcessor");
+  QueueProcessor.start();
+} else {
+  console.log("[ServiceRegistryInit] Control Plane mode: Local RenderQueueProcessor disabled (delegated to Azure worker).");
+}
+
 

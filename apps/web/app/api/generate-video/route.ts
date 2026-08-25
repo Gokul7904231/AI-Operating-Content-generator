@@ -7,6 +7,8 @@ import { saveJobManifest } from "../../../lib/jobs-history";
 import { validateContent } from "../../../lib/content-pipeline";
 import { EngineRegistry } from "@/lib/core/EngineRegistry";
 import { EngineJobSnapshot } from "@/lib/core/EngineContracts";
+import { advancePointer, hasHardcodedCountry } from "@/lib/quiz/GeoRotationService";
+import { resolveTier } from "@/lib/quota/quota-service";
 
 const SceneInputSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
@@ -135,8 +137,8 @@ export async function POST(req: Request) {
 
     userId = authenticatedUser.uid;
     const userRole = (authenticatedUser.role || "USER").toUpperCase();
-    const isAdminOrOwner = userRole === "ADMIN" || userRole === "OWNER";
-    const tier = isAdminOrOwner ? "ADMIN" : "BASIC";
+    const tier = resolveTier(userRole);
+    const isAdminOrOwner = tier === "ADMIN" || tier === "OWNER";
     const targetWorkerPool = isAdminOrOwner ? "azure" : "basic-fastapi";
 
     const body = await req.json();
@@ -316,6 +318,19 @@ export async function POST(req: Request) {
       };
     }
 
+    // Advance per-country rotation for BASIC geo hardcoded sets (best-effort — never blocks render)
+    // Only advances when the draft was actually served from the hardcoded set (source === "hardcoded")
+    try {
+      const qc: any = parsed.data.quizContext;
+      const geoCode = qc?.countryCode ? String(qc.countryCode).toUpperCase().trim() : "";
+      const geoSource = qc?.source ? String(qc.source) : "";
+      if (tier === "BASIC" && geoCode && geoSource === "hardcoded" && hasHardcodedCountry(geoCode)) {
+        advancePointer(userId, geoCode)
+          .then((next) => console.log(`[generate-video] geoHardcoded:advance ${geoCode} -> ${next} user=${userId} job=${jobId}`))
+          .catch((e) => console.warn(`[generate-video] geoHardcoded:advance failed for ${geoCode}:`, e?.message));
+      }
+    } catch {}
+
     // Build immutable engine configuration snapshot for runtime safety
     const engineId = parsed.data.engineId || (parsed.data.contentType === "QUIZ_SHORTS" ? "quiz" : "facts");
     const engineDef = await EngineRegistry.getEngine(engineId);
@@ -340,11 +355,19 @@ export async function POST(req: Request) {
     finalPayload.engineId = engineId;
     finalPayload.engineSnapshot = engineSnapshot;
 
-    // Initialize document in Firestore
+    // Execution token: strong crypto — never jobId fallback (const-time compared in callback)
+    const executionToken = crypto.randomBytes(32).toString("hex");
+    finalPayload.executionToken = executionToken;
+    finalPayload.status = "processing";
+    finalPayload.dispatchedAt = new Date().toISOString();
+
+    // Initialize document in Firestore as single source of truth
     await saveJobManifest(jobId, finalPayload);
 
-    // Push execution payload to SQLite Render Queue (ensures all jobs are tracked and processed locally or by active workers)
-    if (process.env.STORAGE_DRIVER !== "cloudflare-worker") {
+    const isBasicWorkerMode = tier === "BASIC" && Boolean(process.env.BASIC_RENDER_API_URL);
+
+    // Push execution payload to SQLite Render Queue only for local/dev non-BASIC rendering
+    if (!isBasicWorkerMode && process.env.STORAGE_DRIVER !== "cloudflare-worker") {
       const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
       
       if (!ServiceRegistry.has("renderQueue")) {
@@ -378,17 +401,15 @@ export async function POST(req: Request) {
         priority: isAdminOrOwner ? 1 : 0,
         maxAttempts: 3
       });
+    } else if (isBasicWorkerMode) {
+      console.log(`[generate-video] Production BASIC worker mode: Bypassing local queue for job ${jobId}; delegating to Azure worker.`);
     }
-
-    // Execution token: strong crypto — never jobId fallback (const-time compared in callback)
-    const executionToken = crypto.randomBytes(32).toString("hex");
-    await saveJobManifest(jobId, { executionToken } as any);
 
     // P0: Dispatch for BASIC
     const basicRenderApiUrl = process.env.BASIC_RENDER_API_URL;
     const basicRenderSecret = process.env.BASIC_RENDER_API_SECRET || process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
 
-    if (tier === "BASIC") {
+    if (!isAdminOrOwner) {
       if (basicRenderApiUrl) {
         // Priority 1: Persistent Basic FastAPI Service (sub-60s warm render on Azure VM)
         fetch(`${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`, {

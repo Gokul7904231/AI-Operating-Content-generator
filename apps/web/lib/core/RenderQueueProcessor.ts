@@ -31,6 +31,14 @@ export class RenderQueueProcessor {
    */
   start(intervalMs = 3000): void {
     if (this.pollInterval) return;
+
+    // In production with Azure rendering enabled, the Control Plane must not process local render jobs
+    const isAzureWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
+    if (isAzureWorkerMode && process.env.ENABLE_LOCAL_QUEUE_PROCESSOR !== "true") {
+      console.log(`[RenderQueueProcessor] Production Control Plane mode: Local queue processor daemon disabled (delegated to Azure worker).`);
+      return;
+    }
+
     console.log(`[RenderQueueProcessor] Starting queue processor daemon. Worker ID: ${this.workerId}`);
     
     // Subscribe to EventBus to track job progress and update queue rows
