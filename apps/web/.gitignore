@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Render production secret file is local-only. NEVER commit it.
+.env.render.production
+# The sanitized template below is safe to commit.
+!.env.render.production.example
+
 # vercel
 .vercel
 
