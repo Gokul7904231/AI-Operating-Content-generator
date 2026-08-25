@@ -28,6 +28,7 @@ interface OverseerHeroProps {
   faceParameters?: FaceParameters;
   intent: OverseerIntent;
   thoughtSummary?: string;
+  userName?: string;
   voiceState: VoiceState;
   activeJobsCount?: number;
   hasErrors?: boolean;
@@ -47,6 +48,7 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
   faceParameters,
   intent,
   thoughtSummary = "All factory systems are operating at peak efficiency.",
+  userName,
   voiceState,
   activeJobsCount = 0,
   hasErrors = false,
@@ -126,9 +128,16 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
       </div>
 
       {/* 4. Soft Operational Thought Narrative */}
-      <p className="mt-2.5 text-xs sm:text-sm font-sans italic text-[#667085] dark:text-[#A7B0BC] max-w-lg px-4 line-clamp-2">
-        &ldquo;{thoughtSummary}&rdquo;
-      </p>
+      {(() => {
+        const displayThought = userName && (!thoughtSummary || thoughtSummary.includes("All systems are operational") || thoughtSummary.includes("All factory systems are operating"))
+          ? `Welcome back, ${userName}! All systems are operational across 4 production floors.`
+          : thoughtSummary;
+        return (
+          <p className="mt-2.5 text-xs sm:text-sm font-sans italic text-[#667085] dark:text-[#A7B0BC] max-w-lg px-4 line-clamp-2">
+            &ldquo;{displayThought}&rdquo;
+          </p>
+        );
+      })()}
 
       {/* 5. Contextual Active Mission Card (When a render/generation is active) */}
       {activeMission && (

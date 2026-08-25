@@ -18,6 +18,7 @@ import type {
 import type { FactoryMetrics } from "./OverseerMetricsHUD";
 import type { ChatMessage, OverseerMode } from "./OverseerChat";
 import { Activity, Layers, ShieldCheck, Bot } from "lucide-react";
+import { useAuth } from "@/lib/auth/hooks";
 
 const OverseerProgressiveDisclosure = dynamic(
   () => import("./OverseerProgressiveDisclosure").then((mod) => mod.OverseerProgressiveDisclosure),
@@ -63,6 +64,23 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
   const [isConnected, setIsConnected] = useState(false);
   const [activePanel, setActivePanel] = useState<DisclosurePanel | null>(null);
   const [stateData, setStateData] = useState<OperationalStateData | undefined>(undefined);
+  const [sessionUser, setSessionUser] = useState<any>(null);
+
+  const { user } = useAuth();
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authenticated && data?.user) {
+          setSessionUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const activeUser = user || sessionUser;
+  const activeUserName = activeUser?.name || (activeUser?.email ? activeUser.email.split("@")[0] : "");
 
   const [metrics, setMetrics] = useState<FactoryMetrics>({
     factoryHealthPercent: 100,
@@ -301,6 +319,7 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
           faceParameters={presence.faceParameters}
           intent={presence.intent}
           thoughtSummary={presence.thoughtSummary}
+          userName={activeUserName}
           voiceState={presence.voiceState}
           activeJobsCount={stateData?.missions?.length || 0}
           hasErrors={(metrics?.criticalCasesCount || 0) > 0}

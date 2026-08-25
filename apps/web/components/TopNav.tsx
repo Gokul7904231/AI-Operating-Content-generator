@@ -31,11 +31,29 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [quota, setQuota] = useState<{ completed: number; limit: number; remaining: number; isUnlimited: boolean } | null>(null);
+  const [sessionUser, setSessionUser] = useState<any>(null);
 
   const sidebarOpen = useOSStore((s) => s.sidebarOpen);
   const toggleSidebar = useOSStore((s) => s.toggleSidebar);
-  const displayAvatar = user?.photoURL || selectedAvatar || "/avatars/factory-avatar-01.png";
-  const isAdmin = user?.role === "ADMIN" || user?.role === "OWNER";
+  
+  useEffect(() => {
+    // Fallback direct session lookup for immediate name resolution
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authenticated && data?.user) {
+          setSessionUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const activeUser = user || sessionUser;
+  const effectiveUserName = activeUser?.name || (activeUser?.email ? activeUser.email.split("@")[0] : "Creator");
+  const effectiveUserEmail = activeUser?.email || (activeUser?.name ? `${activeUser.name.toLowerCase().replace(/\s+/g, '')}@shortforge.ai` : "user@shortforge.ai");
+  const displayAvatar = activeUser?.photoURL || selectedAvatar || "/avatars/factory-avatar-01.png";
+  const effectiveRole = activeUser?.role || "USER";
+  const isAdmin = effectiveRole === "ADMIN" || effectiveRole === "OWNER";
 
   useEffect(() => {
     async function fetchQuota() {
@@ -52,11 +70,11 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
     fetchQuota();
   }, [user]);
 
-  const userRoleBadge = user?.role === "EDITOR" || !user?.role 
+  const userRoleBadge = effectiveRole === "EDITOR" || effectiveRole === "USER" || !effectiveRole 
     ? "CREATOR" 
-    : user?.role === "VIEWER" 
+    : effectiveRole === "VIEWER" 
     ? "VIEWER" 
-    : user?.role;
+    : effectiveRole;
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -205,13 +223,13 @@ export default function TopNav({ title = "Dashboard" }: TopNavProps) {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-[#F5F7FA] flex items-center gap-1.5 truncate">
-                        {user?.email ? user.email.split("@")[0].toUpperCase() : "OPERATOR"}
+                        <span className="truncate">{effectiveUserName}</span>
                         <span className="text-[8px] bg-[#1677FF]/20 text-[#1677FF] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider border border-[#1677FF]/30 flex-shrink-0">
                           {userRoleBadge}
                         </span>
                       </div>
                       <div className="text-[9px] text-[#667085] font-mono truncate">
-                        {user?.email || "operator@shortforge.internal"}
+                        {effectiveUserEmail}
                       </div>
                     </div>
                   </div>
