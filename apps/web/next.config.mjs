@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactCompiler: true,
+  typescript: {
+    // Separate type-checking from Next.js build for Render Free 512MB RAM compatibility
+    ignoreBuildErrors: true,
+  },
   // Windows CI: sharp native binary may be missing — avoid Image Optimization requiring it during prerender
   images: { unoptimized: true },
   onDemandEntries: {
