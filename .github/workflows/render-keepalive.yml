@@ -1,0 +1,43 @@
+name: FactoryOS Render Keepalive
+
+on:
+  schedule:
+    # Every 10 minutes, offset from the top of the hour.
+    - cron: "3,13,23,33,43,53 * * * *"
+
+  # Lets us test it manually from GitHub Actions.
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wake FactoryOS Render service
+        env:
+          FACTORYOS_URL: ${{ secrets.FACTORYOS_URL }}
+        run: |
+          set -euo pipefail
+
+          echo "Pinging ${FACTORYOS_URL}/health"
+
+          response="$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5 \
+            --write-out '\nHTTP_STATUS:%{http_code}' \
+            "${FACTORYOS_URL}/health")"
+
+          echo "$response"
+
+          status="$(printf '%s\n' "$response" | sed -n 's/^HTTP_STATUS://p')"
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 400 ]; then
+            echo "FactoryOS health check failed with HTTP $status"
+            exit 1
+          fi
+
+          echo "FactoryOS is reachable."
