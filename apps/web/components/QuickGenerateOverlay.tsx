@@ -104,6 +104,7 @@ function isDriveDelivered(job: any): boolean {
 
 export default function QuickGenerateOverlay() {
   const { user, loading: authLoading } = useAuth() as any;
+  const isAdmin = ["ADMIN", "OWNER", "SUPERADMIN"].includes(user?.role?.toUpperCase() || "");
   const isOpen = useOSStore((state) => state.quickGenerateOpen);
   const setOpen = useOSStore((state) => state.setQuickGenerateOpen);
   const router = useRouter();
@@ -120,6 +121,60 @@ export default function QuickGenerateOverlay() {
   // Quiz Engine Specific Modes: "geo" (Default) vs "custom"
   const [quizMode, setQuizMode] = useState<"geo" | "custom">("geo");
   const [selectedCountry, setSelectedCountry] = useState<string>("IN");
+  // BYOK transient — never persisted to localStorage
+  const [useByok, setUseByok] = useState(false);
+  const [byokKey, setByokKey] = useState("");
+
+  // API Config Status for Basic User BYOK verification
+  const [apiConfigStatus, setApiConfigStatus] = useState<{
+    loading: boolean;
+    hasConfiguredKey: boolean;
+    activeProviderName: string | null;
+  }>({
+    loading: true,
+    hasConfiguredKey: false,
+    activeProviderName: null,
+  });
+
+  const checkApiConfig = useCallback(async () => {
+    try {
+      setApiConfigStatus((prev) => ({ ...prev, loading: true }));
+      const res = await fetch("/api/settings/api");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.providers)) {
+          const connected = data.providers.find(
+            (p: any) => p.primary?.status === "connected" && p.primary?.hasKey
+          );
+          if (connected) {
+            setApiConfigStatus({
+              loading: false,
+              hasConfiguredKey: true,
+              activeProviderName: connected.name?.replace(" (Primary)", "") || connected.id,
+            });
+            return;
+          }
+        }
+      }
+      setApiConfigStatus({
+        loading: false,
+        hasConfiguredKey: false,
+        activeProviderName: null,
+      });
+    } catch {
+      setApiConfigStatus({
+        loading: false,
+        hasConfiguredKey: false,
+        activeProviderName: null,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && !isAdmin) {
+      checkApiConfig();
+    }
+  }, [isOpen, isAdmin, checkApiConfig]);
 
   // Custom Quiz Sub-mode: "single" vs "multiple"
   const [customMode, setCustomMode] = useState<"single" | "multiple">("single");
@@ -418,6 +473,11 @@ export default function QuickGenerateOverlay() {
           payload.quizMode = "geo";
           payload.countryCode = cObj.code;
           payload.countryName = cObj.name;
+          if (useByok) {
+            payload.useByok = true;
+            payload.byokMode = "byok";
+            if (byokKey.trim().length > 10) payload.byokKey = byokKey.trim();
+          }
         } else {
           payload.quizMode = "custom";
           if (customMode === "multiple") {
@@ -557,6 +617,9 @@ export default function QuickGenerateOverlay() {
         topics: draft.topics,
         totalQuestions: draft.questions?.length,
         allocationStrategy: "EQUAL",
+        source: draft.meta?.source || undefined,
+        geoSetId: draft.meta?.setId,
+        geoSetLabel: draft.meta?.setLabel,
       };
 
       const payload = {
@@ -780,7 +843,6 @@ export default function QuickGenerateOverlay() {
                         { engineId: "story", name: "Story Engine", description: "Engaging narrative storytelling with suspenseful retention hooks.", category: "STORY" },
                       ];
                 const activeEngine = engineList.find((e: any) => e.engineId === selectedEngineId) || engineList[0];
-                const isAdmin = ["ADMIN", "OWNER", "SUPERADMIN"].includes(user?.role?.toUpperCase() || "");
 
                 return (
                   <div className="space-y-2">
@@ -909,6 +971,129 @@ export default function QuickGenerateOverlay() {
                           </button>
                         ))}
                       </div>
+                      {/* Mode Selector for Basic Users: Demo (Curated Sets) vs BYOK (Custom LLM API) */}
+                      {!isAdmin && (
+                        <div className="pt-3 border-t border-black/[0.06] dark:border-white/[0.06] space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-1.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.06]">
+                            {/* Demo Switch */}
+                            <button
+                              type="button"
+                              onClick={() => setUseByok(false)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                !useByok
+                                  ? "bg-white dark:bg-[#0E1626] text-[#111827] dark:text-[#F5F7FA] shadow-sm border border-black/[0.06] dark:border-white/[0.08]"
+                                  : "text-[#667085] hover:text-[#111827] dark:hover:text-[#F5F7FA]"
+                              }`}
+                            >
+                              <span className="w-2 h-2 rounded-full bg-blue-500" />
+                              <span>Demo (Curated 1→5)</span>
+                            </button>
+
+                            {/* BYOK Switch */}
+                            <button
+                              type="button"
+                              onClick={() => setUseByok(true)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                useByok
+                                  ? "bg-white dark:bg-[#0E1626] text-[#1677FF] dark:text-[#388BFF] shadow-sm border border-[#1677FF]/30 dark:border-[#1677FF]/40"
+                                  : "text-[#667085] hover:text-[#111827] dark:hover:text-[#F5F7FA]"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={useByok}
+                                onChange={(e) => setUseByok(e.target.checked)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded border-black/20 text-[#1677FF] focus:ring-[#1677FF]/30 h-3.5 w-3.5"
+                              />
+                              <span>BYOK (Use My API)</span>
+                            </button>
+                          </div>
+
+                          {/* BYOK Details & Senior LLM API Toolkit */}
+                          {useByok && (
+                            <div className="space-y-2.5 rounded-xl p-3 bg-[#1677FF]/5 dark:bg-[#1677FF]/10 border border-[#1677FF]/20">
+                              {apiConfigStatus.hasConfiguredKey ? (
+                                <div className="flex items-start gap-2.5">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                        API Key Configured: {apiConfigStatus.activeProviderName}
+                                      </span>
+                                      <Link
+                                        href="/settings/api"
+                                        target="_blank"
+                                        className="text-[11px] text-[#1677FF] hover:underline flex items-center gap-0.5"
+                                      >
+                                        Manage <ExternalLink className="w-2.5 h-2.5" />
+                                      </Link>
+                                    </div>
+                                    <p className="text-[11px] text-[#667085] dark:text-[#94A3B8]">
+                                      Senior LLM pipeline will use your configured API to generate fresh custom trivia questions, script, and narration.
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-start gap-2.5">
+                                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                                        No API Key Configured in API Settings
+                                      </p>
+                                      <p className="text-[11px] text-[#667085] dark:text-[#94A3B8]">
+                                        To generate custom AI questions, configure your Gemini / OpenAI key in the API Config page or paste a transient key below.
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <Link
+                                      href="/settings/api"
+                                      target="_blank"
+                                      className="px-2.5 py-1.5 rounded-lg bg-[#1677FF] text-white text-[11px] font-semibold hover:bg-[#1677FF]/90 transition-colors flex items-center gap-1.5 shrink-0"
+                                    >
+                                      <span>Configure API in Settings</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </Link>
+                                    <button
+                                      type="button"
+                                      onClick={checkApiConfig}
+                                      className="px-2 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-[11px] text-[#667085] hover:text-[#111827] dark:hover:text-white transition-colors flex items-center gap-1"
+                                      title="Refresh Status"
+                                    >
+                                      <RefreshCw className={`w-3 h-3 ${apiConfigStatus.loading ? "animate-spin" : ""}`} />
+                                      <span>Refresh</span>
+                                    </button>
+                                  </div>
+
+                                  {/* Optional Transient Key Input */}
+                                  <div className="pt-1.5 space-y-1">
+                                    <input
+                                      type="password"
+                                      value={byokKey}
+                                      onChange={(e) => setByokKey(e.target.value)}
+                                      placeholder="Or paste transient API key here..."
+                                      autoComplete="off"
+                                      className="w-full rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#070D18] px-3 py-2 text-xs text-[#111827] dark:text-[#F5F7FA] focus:border-[#1677FF] focus:outline-none"
+                                    />
+                                    <p className="text-[10px] text-[#667085]">
+                                      Transient keys are used only for this draft request and never persisted.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {!useByok && (
+                            <p className="text-[11px] text-[#667085] italic">
+                              5 curated sets per country — edit any question in the next step. BASIC rotates Set 1→5 with your 5-video quota.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1180,14 +1365,30 @@ export default function QuickGenerateOverlay() {
 
               {/* Questions Grid with Per-Question Edit and Reverification */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#667085] dark:text-[#A8B2C1]">
                     Generated Questions ({draft.questions?.length ?? 0})
                   </h4>
-                  <span className="text-[11px] text-[#667085] font-mono">
-                    Engine: {draft.engineId || selectedEngineId}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {draft.meta?.source === "hardcoded" && draft.meta?.setLabel && (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-[#1677FF]/10 border border-[#1677FF]/20 text-[#1677FF] font-mono font-bold">
+                        Set {draft.meta.setLabel} · {draft.countryCode} · Curated
+                      </span>
+                    )}
+                    {draft.meta?.source === "byok" && (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 font-mono font-bold">AI-generated · BYOK</span>
+                    )}
+                    {draft.meta?.source === "llm" && (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-black/[0.04] border border-black/[0.06] text-[#667085] font-mono">AI-generated</span>
+                    )}
+                    <span className="text-[11px] text-[#667085] font-mono">
+                      Engine: {draft.engineId || selectedEngineId}
+                    </span>
+                  </div>
                 </div>
+                {draft.meta?.source === "hardcoded" && (
+                  <p className="text-[11px] text-[#667085] italic">Curated set {draft.meta.setLabel} for {draft.countryCode} — edit any question below. Next render rotates to the next set.</p>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {draft.questions?.map((q: any, idx: number) => {

@@ -76,27 +76,33 @@ export class DriveDeliveryAdapter {
       };
     }
 
-    // 2. Check Drive credentials
-    // 2. Resolve Drive Connection (Admin fallback or User OAuth)
+    // 2. Resolve Drive Connection (per-user OAuth, with admin SYSTEM fallback for autonomous/system jobs)
     const { DriveConnectionManager } = await import("../../../lib/drive/DriveConnectionManager");
-    const connection = await DriveConnectionManager.resolveDriveConnection({
+    let connection = await DriveConnectionManager.resolveDriveConnection({
       ownerId: (job as any).userId ?? (job as any).ownerId ?? undefined,
       purpose: "USER_JOB",
     });
 
+    // Autonomous/system jobs without ownerId fall back to admin credentials when available
     if (connection.status !== "CONNECTED" || !connection.refreshToken) {
-      console.log(`[DriveDeliveryAdapter] Drive connection not active for user (${connection.status}: ${connection.error || "unconfigured"}). Storing artifact in LOCAL_OUTBOX for job ${job.id}.`);
-      
-      const artifact: DeliveryArtifact = {
-        deliveryMethod: "LOCAL_OUTBOX",
-        verified: true,
-        uploadedAt: new Date().toISOString(),
-      };
+      const fallback = await DriveConnectionManager.resolveDriveConnection({ purpose: "SYSTEM_JOB" } as any);
+      if (fallback.status === "CONNECTED" && fallback.refreshToken) {
+        console.log(`[DriveDeliveryAdapter] User Drive unavailable (${connection.status}) — falling back to admin SYSTEM connection for job ${job.id}.`);
+        connection = fallback;
+      } else {
+        console.log(`[DriveDeliveryAdapter] Drive connection not active for user (${connection.status}: ${connection.error || "unconfigured"}). Storing artifact in LOCAL_OUTBOX for job ${job.id}.`);
 
-      record.status = "UPLOADED";
-      record.deliveryArtifact = artifact;
-      this._saveOutboxToDisk(record);
-      return artifact;
+        const artifact: DeliveryArtifact = {
+          deliveryMethod: "LOCAL_OUTBOX",
+          verified: true,
+          uploadedAt: new Date().toISOString(),
+        };
+
+        record.status = "UPLOADED";
+        record.deliveryArtifact = artifact;
+        this._saveOutboxToDisk(record);
+        return artifact;
+      }
     }
 
     // 3. Real Google Drive Upload Path with resolved credentials

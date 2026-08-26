@@ -37,7 +37,7 @@ export const ROUTE_SECTIONS: RouteSection[] = [
     icon: "Factory",
     basePath: "/factory",
     routes: [
-      { id: "factory-jobs",      label: "Jobs",       href: "/factory/jobs",      section: "Factory", icon: "ListOrdered",  description: "View and manage all generation jobs",          keywords: ["jobs", "queue", "history"], minRole: "ADMIN" },
+      { id: "factory-jobs",      label: "Jobs",       href: "/factory/jobs",      section: "Factory", icon: "ListOrdered",  description: "View and manage all generation jobs",          keywords: ["jobs", "queue", "history"] },
       { id: "factory-templates", label: "Templates",  href: "/factory/templates", section: "Factory", icon: "FileCode",     description: "Browse and manage workflow templates",          keywords: ["templates", "presets", "workflow"] },
       { id: "factory-queue",     label: "Queue",      href: "/factory/queue",     section: "Factory", icon: "Loader2",      description: "Live job queue with retry controls",            keywords: ["queue", "pending", "workers"], minRole: "ADMIN" },
       { id: "factory-scheduler", label: "Scheduler",  href: "/factory/scheduler", section: "Factory", icon: "Calendar",     description: "Schedule recurring content generation jobs",    keywords: ["cron", "schedule", "recurring"], minRole: "ADMIN" },

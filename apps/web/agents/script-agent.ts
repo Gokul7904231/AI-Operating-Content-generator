@@ -10,6 +10,7 @@ export type ScriptAgentInput = {
   style?: string;
   trend?: string;
   provider?: LLMProvider;
+  apiKey?: string;
   contentType?: string;
   renderProfile?: string;
   topics?: Array<{ topicId: string; name: string; questionBudget: number }>;
@@ -91,7 +92,7 @@ export async function scriptAgent(
     input.provider ??
     (process.env.DEFAULT_LLM_PROVIDER as LLMProvider | undefined) ??
     "gemini";
-  const llm = providerFactory(provider, { apiKey: undefined });
+  const llm = providerFactory(provider, { apiKey: input.apiKey });
 
   if (input.contentType === "QUIZ_SHORTS") {
     // Resolve expected question count based on mode

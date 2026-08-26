@@ -14,20 +14,39 @@ export default function HeroSection() {
   useEffect(() => {
     setMounted(true);
     const video = videoRef.current;
-    if (video) {
+    if (!video) return;
+
+    // Guarantee muted before any play attempt — required for autoplay policy
+    video.muted = true;
+    video.defaultMuted = true;
+    setIsMuted(true);
+
+    const attemptPlay = () => {
+      if (!video) return;
       video.muted = true;
-      setIsMuted(true);
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsPlaying(true);
-          })
-          .catch(() => {
-            setIsPlaying(false);
-          });
+      const p = video.play();
+      if (p !== undefined) {
+        p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
       }
+    };
+
+    // If metadata already loaded, play immediately; otherwise wait for canplay
+    if (video.readyState >= 2) {
+      attemptPlay();
+    } else {
+      video.addEventListener("canplay", attemptPlay, { once: true });
     }
+
+    // Retry when tab becomes visible again (browser may pause hidden videos)
+    const onVisibility = () => {
+      if (!document.hidden && video.paused && video.muted) attemptPlay();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      video.removeEventListener("canplay", attemptPlay);
+    };
   }, []);
 
   const togglePlay = (e?: React.MouseEvent) => {
@@ -52,8 +71,13 @@ export default function HeroSection() {
     const video = videoRef.current;
     if (!video) return;
 
+    const willUnmute = video.muted;
     video.muted = !video.muted;
     setIsMuted(video.muted);
+    // If user unmutes while paused, resume so they hear sound immediately
+    if (willUnmute && video.paused) {
+      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
   };
 
   return (
@@ -184,7 +208,7 @@ export default function HeroSection() {
                     className="p-2.5 rounded-full bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white transition-[transform,background-color] cursor-pointer active:scale-90 shadow-md"
                     title={isMuted ? "Unmute Sound" : "Mute Sound"}
                   >
-                    {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+                    {isMuted ? <VolumeX className="w-4 h-4 text-white/80" /> : <Volume2 className="w-4 h-4 text-white" />}
                   </button>
                 </div>
               </div>

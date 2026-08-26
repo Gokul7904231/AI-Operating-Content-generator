@@ -137,7 +137,8 @@ export class GeminiTTSProvider {
         model: selectedModel,
         voice,
         evidenceRecord: evidence,
-      };
+        evidence: evidence.data as any,
+      } as any;
     } catch (err: any) {
       throw new Error(`VOICE_GENERATION_UNAVAILABLE: ${err.message}`);
     }

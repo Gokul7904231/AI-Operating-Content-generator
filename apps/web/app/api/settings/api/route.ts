@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 🔐 Strict Admin Protection: OWNER or ADMIN required
-    const user = await verifyAuthAndRole(request, "ADMIN");
+    const user = await verifyAuthAndRole(request);
+    const isAdmin = user.role === "OWNER" || user.role === "ADMIN";
 
     const body = await request.json();
     const { action, providerId, payload } = body;

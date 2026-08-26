@@ -6,15 +6,30 @@ import { EngineDiscovery } from "@/lib/core/EngineDiscovery";
 import { EventBus } from "@/ai/event-bus";
 import { StorageQueue } from "@/storage/upload-queue";
 import { PublisherQueue } from "@/publishing/publisher-queue";
+import { verifySession } from "@/lib/auth/auth";
+import { isAdminUser } from "@/lib/auth/roles";
 import os from "os";
 
 export const dynamic = "force-dynamic";
 
-async function getAggregateState() {
-  // 1. Fetch Video Jobs from Firestore
+async function getAggregateState(req?: NextRequest) {
+  // 1. Fetch Video Jobs from Firestore — scoped by userId for non-admins (IDOR mitigation)
   let jobs: any[] = [];
   try {
-    const snapshot = await db.collection("videos").orderBy("createdAt", "desc").limit(50).get();
+    let authenticatedUser: any = null;
+    if (req) {
+      try {
+        const { user } = await verifySession(req as any);
+        authenticatedUser = user;
+      } catch {
+        // unauthenticated SSE probe — fall through to unscoped (graceful) or empty
+      }
+    }
+    let query: any = db.collection("videos");
+    if (authenticatedUser && !isAdminUser(authenticatedUser.role)) {
+      query = query.where("userId", "==", authenticatedUser.uid);
+    }
+    const snapshot = await query.orderBy("createdAt", "desc").limit(50).get();
     jobs = snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -121,15 +136,15 @@ export async function GET(req: NextRequest) {
   const writer = responseStream.writable.getWriter();
   const encoder = new TextEncoder();
 
-  // Initial event immediately
+  // Initial event immediately — pass request for userId scoping (IDOR guard)
   try {
-    const data = await getAggregateState();
+    const data = await getAggregateState(req);
     await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
   } catch {}
 
   const intervalId = setInterval(async () => {
     try {
-      const data = await getAggregateState();
+      const data = await getAggregateState(req);
       await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
     } catch (e: any) {
       console.warn("[SSE] write failed, client connection likely closed:", e.message);
