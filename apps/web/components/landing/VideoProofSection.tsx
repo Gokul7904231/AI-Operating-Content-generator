@@ -1,12 +1,29 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Play, Pause, Volume2, VolumeX, Film } from "lucide-react";
 
 export default function VideoProofSection() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    (video as HTMLVideoElement).defaultMuted = true;
+    setIsMuted(true);
+    const attemptPlay = () => {
+      if (!video) return;
+      video.muted = true;
+      const p = video.play();
+      if (p !== undefined) p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    };
+    if (video.readyState >= 2) attemptPlay();
+    else video.addEventListener("canplay", attemptPlay, { once: true });
+    return () => video.removeEventListener("canplay", attemptPlay);
+  }, []);
 
   const togglePlay = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -28,8 +45,12 @@ export default function VideoProofSection() {
     if (e) e.stopPropagation();
     const video = videoRef.current;
     if (!video) return;
+    const willUnmute = video.muted;
     video.muted = !video.muted;
     setIsMuted(video.muted);
+    if (willUnmute && video.paused) {
+      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
   };
 
   return (
@@ -107,9 +128,10 @@ export default function VideoProofSection() {
                     ref={videoRef}
                     src="/german-quiz.mp4"
                     poster="/german-quiz-poster.jpg"
-                    preload="metadata"
+                    preload="auto"
+                    autoPlay
                     loop
-                    muted={isMuted}
+                    muted
                     playsInline
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
@@ -142,7 +164,7 @@ export default function VideoProofSection() {
                       className="p-2 rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white shadow-md transition-all cursor-pointer active:scale-90"
                       title={isMuted ? "Unmute Sound" : "Mute Sound"}
                     >
-                      {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+                      {isMuted ? <VolumeX className="w-4 h-4 text-white/80" /> : <Volume2 className="w-4 h-4 text-white" />}
                     </button>
                   </div>
                 </div>

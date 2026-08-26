@@ -66,9 +66,28 @@ export class SemanticOptionValidator {
 
       // LEVEL 2: Semantic Embedding Similarity (Synonyms / Paraphrases)
       if (rawOptions.length > 1) {
+        // Fast lexical synonym check (covers hash-fallback 0-sim case like USA/United States)
+        for (let i = 0; i < rawOptions.length; i++) {
+          for (let j = i + 1; j < rawOptions.length; j++) {
+            if (this._areLexicallySynonymous(rawOptions[i], rawOptions[j])) {
+              issues.push({
+                code: "SEMANTIC_EQUIVALENT_OPTIONS",
+                questionIndex: qIdx,
+                message: `Question ${qIdx + 1} options "${rawOptions[i]}" and "${rawOptions[j]}" are lexically synonymous.`,
+                details: { optionA: rawOptions[i], optionB: rawOptions[j], similarity: 1.0 },
+              });
+            }
+          }
+        }
+        // Embedding similarity — skip pure-numeric options to avoid hash-collision false positives (e.g. 1889 vs 1900)
         const embeddings = await this.embeddingProvider.generateEmbeddings(rawOptions);
         for (let i = 0; i < rawOptions.length; i++) {
           for (let j = i + 1; j < rawOptions.length; j++) {
+            const a = String(rawOptions[i] ?? "").trim();
+            const b = String(rawOptions[j] ?? "").trim();
+            const isNumericPair = /^\d+(\.\d+)?$/.test(a) && /^\d+(\.\d+)?$/.test(b);
+            if (isNumericPair) continue;
+            if (this._areLexicallySynonymous(a, b)) continue; // already reported
             const sim = this._cosineSimilarity(embeddings[i], embeddings[j]);
             if (sim >= 0.82) {
               issues.push({
@@ -155,6 +174,27 @@ export class SemanticOptionValidator {
 
     // Strip punctuation and extra whitespace
     return s.replace(/[^a-z0-9]/g, "");
+  }
+
+  private _areLexicallySynonymous(a: string, b: string): boolean {
+    const normA = String(a ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normB = String(b ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!normA || !normB || normA === normB) return false;
+    // Curated alias set — extendable without new infra
+    const aliases: Record<string, string[]> = {
+      usa: ["unitedstates", "unitedstatesofamerica", "america"],
+      unitedstates: ["usa", "unitedstatesofamerica", "america"],
+      uk: ["unitedkingdom", "britain", "greatbritain"],
+      uae: ["unitedarabemirates", "emirates"],
+    };
+    if (aliases[normA]?.includes(normB) || aliases[normB]?.includes(normA)) return true;
+    // Abbreviation expansion: all caps short form matches its long form prefix
+    if (normA.length <= 4 && normB.includes(normA) && normB.length > normA.length) {
+      // e.g. usa vs unitedstates — already covered, but generic guard for 2-4 char acronyms
+      return true;
+    }
+    if (normB.length <= 4 && normA.includes(normB) && normA.length > normB.length) return true;
+    return false;
   }
 
   private _cosineSimilarity(vecA: number[], vecB: number[]): number {

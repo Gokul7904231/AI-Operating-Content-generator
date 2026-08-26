@@ -32,9 +32,9 @@ export class RenderQueueProcessor {
   start(intervalMs = 3000): void {
     if (this.pollInterval) return;
 
-    // In production with Azure rendering enabled, the Control Plane must not process local render jobs
-    const isAzureWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
-    if (isAzureWorkerMode && process.env.ENABLE_LOCAL_QUEUE_PROCESSOR !== "true") {
+    // In production with Azure rendering enabled or on Render Control Plane, the Control Plane must not process local render jobs
+    const isControlPlane = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || Boolean(process.env.BASIC_RENDER_API_URL);
+    if (isControlPlane && process.env.ENABLE_LOCAL_QUEUE_PROCESSOR !== "true") {
       console.log(`[RenderQueueProcessor] Production Control Plane mode: Local queue processor daemon disabled (delegated to Azure worker).`);
       return;
     }
@@ -145,8 +145,8 @@ export class RenderQueueProcessor {
     const jobId = job.jobId;
 
     // Defense-in-depth: Control plane must never execute video rendering jobs locally
-    const isControlPlaneWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
-    if (isControlPlaneWorkerMode && process.env.ENABLE_LOCAL_QUEUE_PROCESSOR !== "true") {
+    const isControlPlane = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || Boolean(process.env.BASIC_RENDER_API_URL);
+    if (isControlPlane && process.env.ENABLE_LOCAL_QUEUE_PROCESSOR !== "true") {
       console.warn(`[RenderQueueProcessor] Refusing local rendering execution of job ${jobId}: Production Control Plane delegates all renders to Azure.`);
       return;
     }

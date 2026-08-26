@@ -364,52 +364,23 @@ export async function POST(req: Request) {
     // Initialize document in Firestore as single source of truth
     await saveJobManifest(jobId, finalPayload);
 
-    const productionWorkerMode = Boolean(process.env.BASIC_RENDER_API_URL);
-
-    // Push execution payload to SQLite Render Queue ONLY when NOT in production worker mode
-    if (!productionWorkerMode && process.env.STORAGE_DRIVER !== "cloudflare-worker") {
-      const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
-      
-      if (!ServiceRegistry.has("renderQueue")) {
-        const { SQLiteRenderQueue } = await import("../../../lib/core/SQLiteRenderQueue");
-        ServiceRegistry.register("renderQueue", new SQLiteRenderQueue());
-      }
-
-      const { QueueProcessor } = await import("../../../lib/core/RenderQueueProcessor");
-      QueueProcessor.start();
-
-      const renderQueue = ServiceRegistry.get("renderQueue");
-      await renderQueue.enqueue({
-        jobId,
-        payload: {
-          jobId,
-          userId,
-          engine: engineId,
-          engineId,
-          engineSnapshot,
-          topic: parsed.data.topic,
-          profile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
-          platforms: ["youtube"],
-          options: {
-            humanApproval: false
-          },
-          contentType: finalPayload.contentType,
-          quizData: finalPayload.quizData,
-          script: finalPayload.script,
-          scenes: finalPayload.scenes,
-        },
-        priority: isAdminOrOwner ? 1 : 0,
-        maxAttempts: 3
-      });
-    } else if (productionWorkerMode) {
-      console.log(`[generate-video] Production Control Plane mode: Bypassing local queue for job ${jobId} (tier: ${tier}); delegating to Azure worker.`);
-    }
-
-    // P0: Dispatch to Azure Rendering Plane for all production workloads (BASIC, ADMIN, OWNER, SUPERADMIN)
+    const isControlPlane = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || Boolean(process.env.BASIC_RENDER_API_URL);
     const basicRenderApiUrl = process.env.BASIC_RENDER_API_URL;
     const basicRenderSecret = process.env.BASIC_RENDER_API_SECRET || process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
 
-    if (productionWorkerMode && basicRenderApiUrl) {
+    if (isControlPlane) {
+      if (!basicRenderApiUrl) {
+        const configError = "BASIC_RENDER_API_URL is required for production Render Control Plane.";
+        console.error(`[generate-video Fatal] ${configError}`);
+        await saveJobManifest(jobId, { ...finalPayload, status: "failed", error: configError });
+        return NextResponse.json(
+          { error: configError, jobId },
+          { status: 500 }
+        );
+      }
+
+      console.log(`[generate-video] Production Control Plane mode: Delegating job ${jobId} (tier: ${tier}) to Azure worker.`);
+
       // Priority 1: Persistent FastAPI Service on Azure VM (All tiers)
       fetch(`${basicRenderApiUrl.replace(/\/$/, "")}/api/render/jobs`, {
         method: "POST",
@@ -438,32 +409,42 @@ export async function POST(req: Request) {
           }
         })
         .catch((e) => console.warn(`[generate-video] Azure FastAPI dispatch error: ${e?.message}`));
-    } else if (!productionWorkerMode && !isAdminOrOwner) {
-      // Fallback: GitHub Actions repository_dispatch if GITHUB_PAT configured (dev/fallback)
-      const ghToken = process.env.GITHUB_PAT || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-      const ghRepo = process.env.GITHUB_REPO || "Gokul7904231/AI-Operating-Content-generator";
-      if (ghToken) {
-        fetch(`https://api.github.com/repos/${ghRepo}/dispatches`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${ghToken}`,
-            Accept: "application/vnd.github.v3+json",
-            "Content-Type": "application/json",
+    } else {
+      // Local development execution path
+      if (process.env.STORAGE_DRIVER !== "cloudflare-worker") {
+        const { ServiceRegistry } = await import("../../../lib/core/ServiceRegistry");
+        
+        if (!ServiceRegistry.has("renderQueue")) {
+          const { SQLiteRenderQueue } = await import("../../../lib/core/SQLiteRenderQueue");
+          ServiceRegistry.register("renderQueue", new SQLiteRenderQueue());
+        }
+
+        const { QueueProcessor } = await import("../../../lib/core/RenderQueueProcessor");
+        QueueProcessor.start();
+
+        const renderQueue = ServiceRegistry.get("renderQueue");
+        await renderQueue.enqueue({
+          jobId,
+          payload: {
+            jobId,
+            userId,
+            engine: engineId,
+            engineId,
+            engineSnapshot,
+            topic: parsed.data.topic,
+            profile: parsed.data.renderProfile || engineSnapshot.effectiveConfig.renderProfile || "FAST_QUIZ",
+            platforms: ["youtube"],
+            options: {
+              humanApproval: false
+            },
+            contentType: finalPayload.contentType,
+            quizData: finalPayload.quizData,
+            script: finalPayload.script,
+            scenes: finalPayload.scenes,
           },
-          body: JSON.stringify({
-            event_type: "factoryos_render_job",
-            client_payload: { jobId, workerPool: "github-actions", executionToken },
-          }),
-        })
-          .then(async (r) => {
-            if (!r.ok) {
-              const t = await r.text().catch(() => "");
-              console.warn(`[generate-video] GitHub dispatch failed ${r.status}: ${t.slice(0, 300)}`);
-            } else {
-              console.log(`[generate-video] Dispatched fallback render for ${jobId}`);
-            }
-          })
-          .catch((e) => console.warn(`[generate-video] GitHub dispatch error: ${e?.message}`));
+          priority: isAdminOrOwner ? 1 : 0,
+          maxAttempts: 3
+        });
       }
     }
 

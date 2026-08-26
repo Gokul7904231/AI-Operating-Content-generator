@@ -355,7 +355,7 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
         </section>
       </div>
 
-      {/* 3. BOTTOM OF VIEWER SEEING PAGE: CHATBOX / COMPOSER + MINIMAL SUMMARY */}
+      {/* 3. BOTTOM OF VIEWER SEEING PAGE: CHATBOX / COMPOSER */}
       <div className="w-full max-w-2xl mx-auto space-y-3 pt-3 flex flex-col items-center">
         <OverseerCommandComposer
           onSendCommand={handleSendCommand}
@@ -366,41 +366,6 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
           accentColor={accentColor}
           className="w-full"
         />
-
-        {/* Minimal Operational Summary */}
-        <div className="flex items-center justify-center gap-5 text-[11px] font-mono text-[#667085] dark:text-[#A7B0BC] pt-1 text-center w-full">
-          <button
-            type="button"
-            onClick={() => setActivePanel("floors")}
-            className="hover:text-[#111827] dark:hover:text-[#F5F7FA] transition-colors cursor-pointer"
-          >
-            HEALTH <strong className="text-[#179E69] dark:text-[#21C58B]">{metrics.factoryHealthPercent}%</strong>
-          </button>
-          <span className="opacity-40">•</span>
-          <button
-            type="button"
-            onClick={() => setActivePanel("floors")}
-            className="hover:text-[#111827] dark:hover:text-[#F5F7FA] transition-colors cursor-pointer"
-          >
-            FLOORS <strong className="text-[#111827] dark:text-[#F5F7FA]">{metrics.onlineFloorsCount}/{metrics.totalFloorsCount}</strong>
-          </button>
-          <span className="opacity-40">•</span>
-          <button
-            type="button"
-            onClick={() => setActivePanel("cases")}
-            className="hover:text-[#111827] dark:hover:text-[#F5F7FA] transition-colors cursor-pointer"
-          >
-            CASES <strong className="text-[#111827] dark:text-[#F5F7FA]">{metrics.activeCasesCount}</strong>
-          </button>
-          <span className="opacity-40">•</span>
-          <button
-            type="button"
-            onClick={() => setActivePanel("missions")}
-            className="hover:text-[#111827] dark:hover:text-[#F5F7FA] transition-colors cursor-pointer"
-          >
-            MISSIONS <strong className="text-[#1769E8]">{metrics.activeMissionsCount}</strong>
-          </button>
-        </div>
       </div>
 
       {/* Progressive Disclosure Slide-out HUD Drawer */}

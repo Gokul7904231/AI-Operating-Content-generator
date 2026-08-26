@@ -4,7 +4,12 @@ import subprocess
 import os
 import time
 import shutil
+import math
+import socket
+import ipaddress
+import urllib.parse
 from pathlib import Path
+from typing import Optional, Dict, Any, List
 
 # Load .env from render engine root (for standalone execution)
 try:
@@ -40,6 +45,135 @@ except Exception as e:
     print(f"[ffmpeg] imageio_ffmpeg fallback not available: {e}")
 
 cache = {"hits": 0, "misses": 0}
+
+# ---------------------------------------------------------------------------
+# SSRF / path-traversal hardening for user-supplied background indirection.
+# Used by prepare_scene_bg and flag processing.  Internal-only is NOT a
+# safe boundary — a compromised job record can pivot via SSRF/path read.
+# ---------------------------------------------------------------------------
+_MAX_FETCH_BYTES = 10 * 1024 * 1024
+_ALLOWED_FETCH_SCHEMES = {"http", "https"}
+
+
+def _ip_is_blocked(ip_str: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(ip_str.strip().strip("[]"))
+        # is_private covers RFC1918 + CGNAT; is_reserved covers 0/8, 240/4 etc.
+        # Explicit 169.254.x.x is link-local but check anyway for older Py.
+        return (
+            ip.is_loopback
+            or ip.is_private
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+            or str(ip) == "169.254.169.254"
+        )
+    except ValueError:
+        return True  # fail closed on unparseable
+
+
+def _hostname_resolves_to_blocked(hostname: str) -> bool:
+    h = hostname.lower().rstrip(".")
+    # Fast-path: literal IP
+    try:
+        return _ip_is_blocked(h)
+    except Exception:
+        pass
+    if h in {"localhost", "metadata.google.internal"} or h.endswith(".internal"):
+        return True
+    try:
+        # Resolve ALL A/AAAA and block if ANY is private
+        for _fam, _type, _proto, _canon, sockaddr in socket.getaddrinfo(h, None, proto=socket.IPPROTO_TCP):
+            ip_str = sockaddr[0]
+            if _ip_is_blocked(ip_str):
+                return True
+        return False
+    except Exception:
+        return True  # fail closed on DNS failure
+
+
+def _is_safe_http_url(url: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(url.strip())
+        if parsed.scheme not in _ALLOWED_FETCH_SCHEMES:
+            return False
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if not host:
+            return False
+        if host in {"localhost", "0.0.0.0", "::", "metadata.google.internal"}:
+            return False
+        return not _hostname_resolves_to_blocked(host)
+    except Exception:
+        return False
+
+
+def _safe_fetch_image_bytes(url: str, *, timeout: int = 15, max_bytes: int = _MAX_FETCH_BYTES) -> bytes:
+    """Fetch url with SSRF guard, no auto-redirect, size limit. Returns bytes or raises."""
+    if not _is_safe_http_url(url):
+        raise ValueError(f"Blocked unsafe image URL: {url[:120]}")
+    import requests
+
+    current = url
+    for _hop in range(3):  # follow at most 2 redirects manually so each hop is re-validated
+        r = requests.get(current, timeout=timeout, allow_redirects=False, stream=True)
+        # Handle redirect manually
+        if 300 <= r.status_code < 400:
+            loc = r.headers.get("Location")
+            if not loc:
+                raise ValueError(f"Redirect without Location from {current[:80]}")
+            # Resolve relative Location against current
+            nxt = urllib.parse.urljoin(current, loc)
+            if not _is_safe_http_url(nxt):
+                raise ValueError(f"Blocked redirect to unsafe URL: {nxt[:120]}")
+            current = nxt
+            continue
+        if r.status_code >= 300:
+            raise ValueError(f"Fetch failed HTTP {r.status_code} for {current[:80]}")
+        clen = r.headers.get("Content-Length")
+        if clen is not None:
+            try:
+                if int(clen) > max_bytes:
+                    raise ValueError(f"Content-Length {clen} exceeds {max_bytes}")
+            except ValueError as ve:
+                if "exceeds" in str(ve):
+                    raise
+        ctype = (r.headers.get("Content-Type") or "").lower()
+        # Allow image/*, octet-stream, or missing (Pillow will reject non-images)
+        if ctype and not (ctype.startswith("image/") or "octet-stream" in ctype):
+            # Still fetch but Pillow open will fail if not an image — warn only
+            pass
+        # Stream with cap
+        buf = bytearray()
+        for chunk in r.iter_content(chunk_size=64 * 1024):
+            if chunk:
+                buf.extend(chunk)
+                if len(buf) > max_bytes:
+                    raise ValueError(f"Response exceeds {max_bytes} bytes")
+        return bytes(buf)
+    raise ValueError("Too many redirects")
+
+
+def _resolve_allowed_local_path(raw: str, allowed_bases: list[Path]) -> Optional[Path]:
+    """If raw resolves inside one of allowed_bases and is a file, return resolved Path else None."""
+    try:
+        candidate = Path(raw).resolve()
+        if not candidate.is_file():
+            return None
+        for base in allowed_bases:
+            try:
+                # Python 3.9+: is_relative_to ; fallback to startswith for 3.8 compat
+                try:
+                    if candidate.is_relative_to(base):  # type: ignore[attr-defined]
+                        return candidate
+                except AttributeError:
+                    if str(candidate).startswith(str(base) + os.sep) or candidate == base:
+                        return candidate
+            except Exception:
+                continue
+        return None
+    except Exception:
+        return None
 
 def _init_firebase() -> None:
     if firebase_admin._apps:
@@ -788,17 +922,16 @@ def get_font(font_name: str, size: int):
 
 
 def _process_flag_background(flag_url: str, out_path: Path) -> bool:
-    import requests
     from PIL import Image, ImageFilter, ImageEnhance
     temp_flag = out_path.parent / "temp_flag_raw.png"
     try:
-        print(f"[Pillow] Downloading flag image: {flag_url}")
-        resp = requests.get(flag_url, timeout=30)
-        if resp.status_code >= 300:
-            print(f"[Pillow] Failed to download flag: HTTP {resp.status_code}")
+        print(f"[Pillow] Downloading flag image: {flag_url[:120]}")
+        try:
+            img_bytes = _safe_fetch_image_bytes(flag_url, timeout=30)
+        except Exception as fetch_err:
+            print(f"[Pillow] Blocked/failed flag fetch: {fetch_err}")
             return False
-        
-        temp_flag.write_bytes(resp.content)
+        temp_flag.write_bytes(img_bytes)
         
         with Image.open(temp_flag) as img:
             target_w, target_h = 1080, 1920
@@ -839,11 +972,10 @@ async def _async_generate_tts_mp3(text: str, voice: str, rate: str, out_mp3: Pat
     import asyncio
     
     r = rate if rate else "+0%"
-    communicate = edge_tts.Communicate(text, voice, rate=r)
-    
     max_retries = 3
     for attempt in range(max_retries):
         try:
+            communicate = edge_tts.Communicate(text, voice, rate=r)
             await communicate.save(str(out_mp3))
             
             # Verify file exists and is readable
@@ -884,7 +1016,7 @@ def _ensure_audio_assets(engine_root: Path) -> dict:
 def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, out_final: Path, out_thumbnail: Path, timings: dict) -> dict:
     import wave
     import numpy as np
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
     import os
     import time
     import shutil
@@ -912,6 +1044,19 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
 
     job_id = str(job.get("jobId") or out_dir.name)
 
+    # 1. Strict 4-Option Validation (Renderer does not invent missing options)
+    questions = quiz_data.get("questions", [])
+    if not questions:
+        raise ValueError("QuizRenderValidationError: quizData.questions cannot be empty.")
+    
+    for q_i, q in enumerate(questions):
+        opts = q.get("options") or []
+        if len(opts) != 4:
+            raise ValueError(
+                f"QuizRenderValidationError: Question {q_i + 1} has {len(opts)} options (expected exactly 4). "
+                "The canonical quiz renderer requires exactly 4 options [A, B, C, D] and does not invent missing content."
+            )
+
     topic_lower = topic.lower()
     if "india" in topic_lower or "cricket" in topic_lower:
         theme = "india_theme"
@@ -936,7 +1081,6 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
     created_files = set()
 
     def get_audio_duration(path: Path) -> float:
-        # Fast path: try mutagen header read (no subprocess, ~1ms)
         try:
             from mutagen.mp3 import MP3
             audio = MP3(str(path))
@@ -946,7 +1090,6 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         except Exception:
             pass
 
-        # Medium path: ffprobe
         ffprobe = shutil.which("ffprobe")
         if ffprobe:
             try:
@@ -962,9 +1105,7 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
             except Exception as e:
                 print(f"[get_audio_duration] ffprobe check failed: {e}")
 
-        # Fallback: convert MP3 to WAV using ffmpeg and read WAV duration
         ffmpeg_exe = os.environ.get("IMAGEIO_FFMPEG_EXE", "ffmpeg")
-        import wave
         temp_wav = path.parent / f"temp_{path.stem}_dur.wav"
         try:
             cmd = [ffmpeg_exe, "-y", "-i", str(path), "-ac", "1", "-ar", "24000", str(temp_wav)]
@@ -981,16 +1122,11 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
                 except Exception:
                     pass
 
-    def escape_ffmpeg_text(text: str) -> str:
-        t = text.replace('\\', '\\\\').replace("'", "'\\''").replace(':', '\\:').replace('%', '\\%')
-        t = t.replace('\n', '\r')
-        return t
-
     def get_ffmpeg_font() -> str:
         candidates = [
-            "C:/Windows/Fonts/ariblk.ttf",
-            "C:/Windows/Fonts/impact.ttf",
+            "C:/Windows/Fonts/segoeui.ttf",
             "C:/Windows/Fonts/arial.ttf",
+            "C:/Windows/Fonts/ariblk.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "arial.ttf",
@@ -1002,7 +1138,18 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         return "Arial"
 
     try:
-        ramdisk_start = time.perf_counter()
+        script_parent = Path(__file__).resolve().parent
+        engine_root = script_parent.parent if "rendering-engine" in str(script_parent.resolve()) else script_parent.parent / "services" / "rendering-engine"
+        repo_root = script_parent.parent if "rendering-engine" not in str(script_parent.resolve()) else script_parent.parent.parent
+        audio_assets = _ensure_audio_assets(engine_root)
+
+        # 2. Prepare Default Fallback Background
+        fallback_bg_path = engine_root / "assets" / "backgrounds" / f"{theme}.png"
+        if not fallback_bg_path.exists():
+            fallback_bg_path = engine_root / "assets" / "backgrounds" / "world_theme.png"
+        if not fallback_bg_path.exists():
+            fallback_bg_path = repo_root / "assets" / "backgrounds" / f"{theme}.png"
+
         flag_url = quiz_data.get("flagUrl")
         flag_bg_path = shm_dir / f"quiz_{job_id}_temp_bg.png"
         processed_flag = False
@@ -1010,31 +1157,85 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
             processed_flag = _process_flag_background(flag_url, flag_bg_path)
             if processed_flag:
                 created_files.add(flag_bg_path)
+                fallback_bg_path = flag_bg_path
 
-        if not processed_flag:
-            script_parent = Path(__file__).resolve().parent
-            engine_root = script_parent.parent
-            if "rendering-engine" in str(script_parent.resolve()):
-                fallback_bg = engine_root / "assets" / "backgrounds" / f"{theme}.png"
-                if not fallback_bg.exists():
-                    fallback_bg = engine_root / "assets" / "backgrounds" / "world_theme.png"
-            else:
-                repo_root = script_parent.parent
-                fallback_bg = repo_root / "hybrid-video" / "assets" / "backgrounds" / f"{theme}.png"
-                if not fallback_bg.exists():
-                    fallback_bg = repo_root / "hybrid-video" / "assets" / "backgrounds" / "world_theme.png"
-            shutil.copyfile(str(fallback_bg), str(flag_bg_path))
-            created_files.add(flag_bg_path)
+        # Background processing helper: 1080x1920, GaussianBlur(8), Brightness(0.60)
+        # Hardened: file paths confined to engine_root/repo_root; http fetches SSRF-checked.
+        _allowed_bg_bases = [p.resolve() for p in (engine_root, repo_root) if p.exists()]
 
-        script_parent = Path(__file__).resolve().parent
-        engine_root = script_parent.parent
-        if "rendering-engine" not in str(script_parent.resolve()):
-            engine_root = script_parent.parent / "hybrid-video"
-        audio_assets = _ensure_audio_assets(engine_root)
+        def prepare_scene_bg(raw_path_or_url: Optional[str], default_path: Path) -> Image.Image:
+            base_img = None
+            if raw_path_or_url:
+                raw = str(raw_path_or_url).strip()
+                try:
+                    if raw.startswith("http://") or raw.startswith("https://"):
+                        from io import BytesIO
 
-        print(f"[QUIZ] Selected background path: {flag_bg_path.as_posix()}")
-        print(f"[PERF METRIC - RAMDISK]: Flag background Pillow processing completed in {time.perf_counter() - ramdisk_start:.2f} seconds.")
+                        img_bytes = _safe_fetch_image_bytes(raw, timeout=15)
+                        base_img = Image.open(BytesIO(img_bytes)).convert("RGBA")
+                    elif raw:
+                        # Treat as local path only if it resolves inside an allowlisted base
+                        candidate = _resolve_allowed_local_path(raw, _allowed_bg_bases)
+                        if candidate is not None:
+                            base_img = Image.open(candidate).convert("RGBA")
+                        else:
+                            print(f"[Pillow] Blocked background path outside allowlist: {raw[:120]}")
+                except Exception as b_err:
+                    print(f"[Pillow] Background custom load skipped ({raw[:120]}): {b_err}")
 
+            if base_img is None:
+                if default_path.exists():
+                    try:
+                        base_img = Image.open(default_path).convert("RGBA")
+                    except Exception:
+                        base_img = None
+            if base_img is None:
+                base_img = Image.new("RGBA", (1080, 1920), (15, 23, 42, 255))
+
+            target_w, target_h = 1080, 1920
+            img_w, img_h = base_img.size
+            scale = max(target_w / img_w, target_h / img_h)
+            new_w = int(img_w * scale)
+            new_h = int(img_h * scale)
+            img_resized = base_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            x_offset = (new_w - target_w) // 2
+            y_offset = (new_h - target_h) // 2
+            img_cropped = img_resized.crop((x_offset, y_offset, x_offset + target_w, y_offset + target_h))
+
+            img_blurred = img_cropped.filter(ImageFilter.GaussianBlur(radius=8))
+            enhancer = ImageEnhance.Brightness(img_blurred)
+            return enhancer.enhance(0.60).convert("RGBA")
+
+        # Prepare per-question & hook/outro backgrounds
+        hook_bg_img = prepare_scene_bg(quiz_data.get("hookImagePath"), fallback_bg_path)
+        outro_bg_img = prepare_scene_bg(quiz_data.get("outroImagePath"), fallback_bg_path)
+        question_bg_imgs = [
+            prepare_scene_bg(q.get("imagePath") or q.get("imageUrl") or q.get("imagePrompt"), fallback_bg_path)
+            for q in questions
+        ]
+
+        # 3. Global ShortForge Branding Watermark Layer
+        watermark_candidates = [
+            engine_root / "assets" / "branding" / "shortforge-watermark.png",
+            repo_root / "assets" / "branding" / "shortforge-watermark.png",
+            repo_root / "apps" / "web" / "public" / "favicon-white.png",
+        ]
+        global_watermark_img = None
+        for wmc in watermark_candidates:
+            if wmc.exists():
+                try:
+                    raw_wm = Image.open(wmc).convert("RGBA")
+                    wm_w = 80
+                    wm_h = int(raw_wm.height * (80 / raw_wm.width))
+                    wm_resized = raw_wm.resize((wm_w, wm_h), Image.Resampling.LANCZOS)
+                    r, g, b, a = wm_resized.split()
+                    a = a.point(lambda p: int(p * 0.75))
+                    global_watermark_img = Image.merge("RGBA", (r, g, b, a))
+                    break
+                except Exception as wm_e:
+                    print(f"[Watermark] Failed to load {wmc}: {wm_e}")
+
+        # 4. Audio Synthesis
         tts_start = time.perf_counter()
         ffmpeg_exe = os.environ.get("IMAGEIO_FFMPEG_EXE", "ffmpeg")
 
@@ -1056,10 +1257,8 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
             "rate": "+20%"
         })
 
-        questions = quiz_data.get("questions", [])
-        # Rapid mode: ≤8 questions → 2s think time, faster speech, no explanations
         is_rapid = len(questions) <= 8
-        rapid_rate = "+35%" if is_rapid else "+25%"
+        rapid_rate = "+30%" if is_rapid else "+20%"
         for idx, q in enumerate(questions):
             num = idx + 1
             q_mp3 = shm_dir / f"quiz_{job_id}_q{num}.mp3"
@@ -1104,6 +1303,7 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         asyncio.run(run_concurrent_tts())
         print(f"[PERF METRIC - TTS]: Concurrency completed in {time.perf_counter() - tts_start:.2f} seconds.")
 
+        # Calculate exact timeline schedule
         t = 0.0
         hook_req = tts_requests[0]
         hook_req["start_time"] = t
@@ -1113,7 +1313,7 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         req_idx = 1
         pop_delays = []
         ding_delays = []
-        
+
         for idx, q in enumerate(questions):
             q_req = tts_requests[req_idx]
             q_req["start_time"] = t
@@ -1150,7 +1350,7 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         t += outro_req["duration"]
         total_duration = t
 
-        # Write subtitles.srt (to upload later)
+        # Write subtitles.srt
         step3_start = time.time()
         def fmt_srt_time(seconds):
             hh = int(seconds // 3600)
@@ -1200,34 +1400,21 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
             f.write(f"{fmt_srt_time(outro_req['start_time'])} --> {fmt_srt_time(outro_end)}\n")
             f.write("For more quizzes, subscribe and comment your score below!\n\n")
 
-        print("[STEP 3] Subtitles complete")
         timings["step3_subtitles_sec"] = time.time() - step3_start
 
-        # 4. Generate thumbnail using Pillow on the background image
-        try:
-            shutil.copyfile(str(flag_bg_path), str(out_thumbnail))
-            print(f"[Thumbnail] Generated thumbnail at {out_thumbnail}")
-        except Exception as thumb_err:
-            print(f"[Thumbnail] Warning: Failed to copy background as thumbnail: {thumb_err}")
-
-        # 5. FFmpeg Filtergraph construction
-        ffmpeg_start = time.perf_counter()
-
+        # 5. Build Audio Mix in FFmpeg
         filter_parts = []
-        
-        # Delay and label audio inputs
-        # Add SFX and BGM to mix (Audio indices shifted by 1 because of flag_bg_path)
         for idx, req in enumerate(tts_requests):
-            inp_idx = idx + 2
+            inp_idx = idx + 1
             delay_ms = int(req["start_time"] * 1000)
             filter_parts.append(f"[{inp_idx}:a]volume=3.0,adelay={delay_ms}|{delay_ms}:all=1[a_delayed_{inp_idx}]")
 
-        delayed_labels = "".join(f"[a_delayed_{i+2}]" for i in range(len(tts_requests)))
-        
-        pop_idx = len(tts_requests) + 2
-        ding_idx = len(tts_requests) + 3
-        bgm_idx = len(tts_requests) + 4
-        
+        delayed_labels = "".join(f"[a_delayed_{i+1}]" for i in range(len(tts_requests)))
+
+        pop_idx = len(tts_requests) + 1
+        ding_idx = len(tts_requests) + 2
+        bgm_idx = len(tts_requests) + 3
+
         num_q = len(questions)
         sfx_mix_labels = ""
         if num_q > 0:
@@ -1241,326 +1428,279 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         filter_parts.append(f"[{bgm_idx}:a]volume=0.08[bgm_vol]")
         total_audio_inputs = len(tts_requests) + (num_q * 2) + 1
         filter_parts.append(f"{delayed_labels}{sfx_mix_labels}[bgm_vol]amix=inputs={total_audio_inputs}:duration=longest:dropout_transition=0[a_amix_out];[a_amix_out]volume=4.0[a_mixed]")
-        
-        # 5. Render frames to PNGs in memory via Pillow (extremely fast, avoids Windows Font file I/O bottleneck in FFmpeg)
-        ffmpeg_start = time.perf_counter()
+
+        filter_complex_file = shm_dir / f"quiz_{job_id}_filter.txt"
+        filter_complex_file.write_text(";".join(filter_parts), encoding="utf-8")
+        created_files.add(filter_complex_file)
+
+        # 6. Render Frames via Canonical Glassmorphism Specification
         fps = 18
         total_frames = int(total_duration * fps)
-        
         frames_dir = temp_dir / "frames"
         frames_dir.mkdir(parents=True, exist_ok=True)
-        
-        from PIL import Image, ImageDraw, ImageFont
-        import math
-        
-        # We no longer load the background into Pillow for Ken Burns.
-        # It will be rendered dynamically inside FFmpeg.
-            
+
         font_path = get_ffmpeg_font()
-        font_hook = get_font(font_path, 54)
-        font_header = get_font(font_path, 42)
+        font_pill = get_font(font_path, 34)
+        font_header = get_font(font_path, 34)
         font_question = get_font(font_path, 48)
-        font_cnt = get_font(font_path, 72)
-        font_option = get_font(font_path, 36)
-        font_exp = get_font(font_path, 32)
-        
-        outro_scale = job.get("gradingScale", quiz_data.get("gradingScale", "0/8: Tourist. 8/8: True Citizen."))
-        font_outro_rank = get_font(font_path, 36)
-        font_outro_l1 = get_font(font_path, 48)
-        font_outro_l2 = get_font(font_path, 64)
-        font_outro_l3 = get_font(font_path, 42)
+        font_badge = get_font(font_path, 26)
+        font_option = get_font(font_path, 34)
+        font_hook = get_font(font_path, 46)
+        font_outro_header = get_font(font_path, 34)
+        font_outro_headline = get_font(font_path, 44)
+        font_outro_cta = get_font(font_path, 34)
 
-        # Feature 6: Branding Presets — read dynamic config from job payload
-        _brand_cfg = job.get("brandConfig") or {}
-        _brand_text = str(_brand_cfg.get("watermarkText") or "").strip()
-        _brand_pos = str(_brand_cfg.get("watermarkPosition") or "top_right").strip()
-        _brand_primary = str(_brand_cfg.get("primaryColor") or "#6366f1").strip()
-        # Convert primary hex to RGBA tuple for Pillow
-        def _hex_to_rgba(hex_str: str, alpha: int = 180) -> tuple:
-            hex_str = hex_str.lstrip("#")
-            if len(hex_str) == 6:
-                r, g, b = int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16)
-                return (r, g, b, alpha)
-            return (99, 102, 241, alpha)  # fallback indigo
-        _brand_color_rgba = _hex_to_rgba(_brand_primary) if _brand_text else None
-        _font_watermark = get_font(font_path, 28) if _brand_text else None
-        print(f"[Brand] Watermark: '{_brand_text}' @ {_brand_pos} in color {_brand_primary}")
-        
-        # Draw high-retention text with thick borders and drop shadows
-        def draw_shadowed_text(draw, position, text, font, fill, stroke_width=4, stroke_color="black"):
-            x, y = position
-            # Heavy drop shadow: black at 60% opacity (offset by +5, +5)
-            draw.text((x + 5, y + 5), text, font=font, fill=(0, 0, 0, 153))
-            # Bold main text with outline
-            draw.text((x, y), text, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_color)
+        topic_clean = topic.strip()
+        if "india" in topic_lower:
+            topic_header = "🧠 INDIA GEOGRAPHY QUIZ"
+        elif "japan" in topic_lower:
+            topic_header = "🧠 JAPAN GEOGRAPHY QUIZ"
+        elif "geography" in topic_lower or "country" in topic_lower:
+            topic_header = f"🧠 {topic_clean.upper()} QUIZ" if "quiz" not in topic_lower else f"🧠 {topic_clean.upper()}"
+        else:
+            topic_header = f"🧠 {topic_clean.upper()} QUIZ" if "quiz" not in topic_lower else topic_clean.upper()
 
-        def draw_wrapped_text(draw, text, font, fill, center_x, center_y, max_width=30, line_spacing=10, stroke_width=4, stroke_color="black"):
-            lines = textwrap.wrap(text, width=max_width)
-            total_height = 0
-            line_heights = []
-            for line in lines:
-                bbox = draw.textbbox((0, 0), line, font=font)
-                w = bbox[2] - bbox[0]
-                h = bbox[3] - bbox[1]
-                line_heights.append((w, h))
-                total_height += h
-            total_height += line_spacing * (len(lines) - 1)
-            
-            curr_y = center_y - total_height / 2
-            for i, line in enumerate(lines):
-                w, h = line_heights[i]
-                lx = center_x - w / 2
-                # Heavy drop shadow
-                draw.text((lx + 5, curr_y + 5), line, font=font, fill=(0, 0, 0, 153))
-                # Bold main text
-                draw.text((lx, curr_y), line, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_color)
-                curr_y += h + line_spacing
+        opt_labels = ["A", "B", "C", "D"]
 
-        print(f"[Pillow] Rendering {total_frames} frames asynchronously in memory...")
+        def render_canonical_question_frame(bg_img: Image.Image, q: dict, phase: str, timer_text: str, timer_color: tuple) -> Image.Image:
+            frame = bg_img.copy()
+            overlay = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+
+            # Main Glassmorphism Card [90, 450, 990, 1510] rx=26
+            draw.rounded_rectangle([90, 450, 990, 1510], radius=26, fill=(8, 18, 40, 115), outline=(0, 170, 255, 153), width=2)
+
+            # Timer Pill [490, 340, 590, 400] rx=30
+            draw.rounded_rectangle([490, 340, 590, 400], radius=30, fill=(8, 18, 40, 153), outline=timer_color, width=2)
+            ptw = draw.textlength(timer_text, font=font_pill)
+            draw.text((540 - ptw / 2, 355), timer_text, font=font_pill, fill=timer_color)
+
+            # Topic Header & Divider 1
+            hw = draw.textlength(topic_header, font=font_header)
+            draw.text((540 - hw / 2, 490), topic_header, font=font_header, fill=(0, 170, 255, 255))
+            draw.line([(160, 545), (920, 545)], fill=(255, 255, 255, 31), width=1)
+
+            # Question Text
+            q_lines = textwrap.wrap(q.get("question", ""), width=26)
+            curr_qy = 580
+            for ql in q_lines[:4]:
+                ql_w = draw.textlength(ql, font=font_question)
+                draw.text((540 - ql_w / 2 + 2, curr_qy + 2), ql, font=font_question, fill=(0, 0, 0, 153))
+                draw.text((540 - ql_w / 2, curr_qy), ql, font=font_question, fill=(255, 255, 255, 255))
+                curr_qy += 60
+
+            # Divider 2
+            draw.line([(160, 840), (920, 840)], fill=(255, 255, 255, 31), width=1)
+
+            # Options
+            options = q.get("options", [])
+            correct_idx = q.get("answerIndex", 0)
+            if correct_idx is None or correct_idx < 0:
+                ans_str = str(q.get("answer", "")).strip().lower()
+                for o_i, o_val in enumerate(options):
+                    if str(o_val).strip().lower() == ans_str:
+                        correct_idx = o_i
+                        break
+            if correct_idx is None or correct_idx < 0:
+                correct_idx = 0
+
+            is_reveal = (phase == "reveal")
+
+            for oidx in range(4):
+                opt_y = 880 + oidx * 140
+                box = [120, opt_y, 960, opt_y + 110]
+                is_correct = (oidx == correct_idx)
+
+                if is_reveal:
+                    if is_correct:
+                        c_fill = (34, 197, 94, 56)
+                        c_outline = (34, 197, 94, 255)
+                        c_width = 3
+                        b_fill = (34, 197, 94, 255)
+                        b_outline = (34, 197, 94, 255)
+                        b_text = "✓"
+                        b_color = (15, 23, 42, 255)
+                        t_color = (34, 197, 94, 255)
+                    else:
+                        c_fill = (255, 255, 255, 5)
+                        c_outline = (255, 255, 255, 13)
+                        c_width = 1
+                        b_fill = (255, 255, 255, 10)
+                        b_outline = (255, 255, 255, 25)
+                        b_text = opt_labels[oidx]
+                        b_color = (100, 116, 139, 255)
+                        t_color = (100, 116, 139, 255)
+                else:
+                    c_fill = (255, 255, 255, 15)
+                    c_outline = (255, 255, 255, 31)
+                    c_width = 1
+                    b_fill = (0, 170, 255, 51)
+                    b_outline = (0, 170, 255, 153)
+                    b_text = opt_labels[oidx]
+                    b_color = (255, 255, 255, 255)
+                    t_color = (226, 232, 240, 255)
+
+                draw.rounded_rectangle(box, radius=22, fill=c_fill, outline=c_outline, width=c_width)
+                draw.ellipse([180 - 28, opt_y + 55 - 28, 180 + 28, opt_y + 55 + 28], fill=b_fill, outline=b_outline, width=1)
+                btw = draw.textlength(b_text, font=font_badge)
+                draw.text((180 - btw / 2, opt_y + 55 - 16), b_text, font=font_badge, fill=b_color)
+
+                opt_val = options[oidx] if oidx < len(options) else ""
+                opt_val_clean = textwrap.shorten(opt_val, width=35, placeholder="...")
+                draw.text((230, opt_y + 36), opt_val_clean, font=font_option, fill=t_color)
+
+            frame_comp = Image.alpha_composite(frame, overlay)
+            if global_watermark_img:
+                frame_comp.paste(global_watermark_img, (940, 1800), global_watermark_img)
+            return frame_comp
+
+        def render_canonical_hook_frame(bg_img: Image.Image, hook_text: str) -> Image.Image:
+            frame = bg_img.copy()
+            overlay = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+
+            draw.rounded_rectangle([90, 500, 990, 1400], radius=26, fill=(8, 18, 40, 115), outline=(0, 170, 255, 153), width=2)
+            hw = draw.textlength(topic_header, font=font_header)
+            draw.text((540 - hw / 2, 600), topic_header, font=font_header, fill=(0, 170, 255, 255))
+            draw.line([(160, 650), (920, 650)], fill=(255, 255, 255, 31), width=1)
+
+            h_lines = textwrap.wrap(hook_text, width=26)
+            total_h = len(h_lines) * 65
+            start_y = 900 - total_h / 2
+            for hl in h_lines:
+                hl_w = draw.textlength(hl, font=font_hook)
+                draw.text((540 - hl_w / 2 + 2, start_y + 2), hl, font=font_hook, fill=(0, 0, 0, 153))
+                draw.text((540 - hl_w / 2, start_y), hl, font=font_hook, fill=(255, 255, 255, 255))
+                start_y += 65
+
+            frame_comp = Image.alpha_composite(frame, overlay)
+            if global_watermark_img:
+                frame_comp.paste(global_watermark_img, (940, 1800), global_watermark_img)
+            return frame_comp
+
+        def render_canonical_outro_frame(bg_img: Image.Image) -> Image.Image:
+            frame = bg_img.copy()
+            overlay = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+
+            draw.rounded_rectangle([90, 500, 990, 1400], radius=26, fill=(8, 18, 40, 115), outline=(0, 170, 255, 153), width=2)
+            outro_hdr = "QUIZ COMPLETED"
+            ohw = draw.textlength(outro_hdr, font=font_outro_header)
+            draw.text((540 - ohw / 2, 600), outro_hdr, font=font_outro_header, fill=(0, 170, 255, 255))
+            draw.line([(160, 650), (920, 650)], fill=(255, 255, 255, 31), width=1)
+
+            hl = "HOW MANY DID YOU GET RIGHT?"
+            hlw = draw.textlength(hl, font=font_outro_headline)
+            draw.text((540 - hlw / 2, 750), hl, font=font_outro_headline, fill=(255, 255, 255, 255))
+
+            draw.rounded_rectangle([150, 880, 930, 990], radius=22, fill=(255, 255, 255, 15), outline=(255, 255, 255, 31), width=1)
+            c1 = "💬 Comment your score below!"
+            c1w = draw.textlength(c1, font=font_outro_cta)
+            draw.text((540 - c1w / 2, 915), c1, font=font_outro_cta, fill=(0, 170, 255, 255))
+
+            draw.rounded_rectangle([150, 1020, 930, 1130], radius=22, fill=(255, 255, 255, 15), outline=(255, 255, 255, 31), width=1)
+            c2 = "➕ Follow for more daily quizzes!"
+            c2w = draw.textlength(c2, font=font_outro_cta)
+            draw.text((540 - c2w / 2, 1055), c2, font=font_outro_cta, fill=(255, 255, 255, 255))
+
+            frame_comp = Image.alpha_composite(frame, overlay)
+            if global_watermark_img:
+                frame_comp.paste(global_watermark_img, (940, 1800), global_watermark_img)
+            return frame_comp
+
+        print(f"[Pillow] Rendering {total_frames} canonical frames in memory...")
         render_frames_start = time.perf_counter()
-        
+
         for f_idx in range(total_frames):
             t = f_idx / fps
-            
-            # Background handled by FFmpeg. Start with a purely transparent frame.
-            frame_img = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
-            
-            overlay = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
-            draw_overlay = ImageDraw.Draw(overlay)
-            
+
             if t <= hook_req["duration"]:
-                # Hook Phase
-                x0_box, y0_box = 90, 785
-                x1_box, y1_box = 990, 1135
-                # Bounding box for text anchors with black@0.5 and thick outline border
-                draw_overlay.rectangle([x0_box, y0_box, x1_box, y1_box], fill=(0, 0, 0, 128))
-                draw_overlay.rectangle([x0_box, y0_box, x1_box, y1_box], outline=(0, 0, 0, 255), width=10)
-                
-                temp_composite = Image.alpha_composite(frame_img, overlay)
-                draw_comp = ImageDraw.Draw(temp_composite)
-                draw_wrapped_text(draw_comp, quiz_data.get("hook", ""), font_hook, "white", 540, 960, max_width=30)
-                frame_img = temp_composite
-                
+                frame_img = render_canonical_hook_frame(hook_bg_img, quiz_data.get("hook", ""))
             elif t >= outro_req["start_time"]:
-                # Outro Phase
-                x0_box, y0_box = 90, 422
-                x1_box, y1_box = 990, 1202
-                # Bounding box for text anchors with black@0.5 and thick outline border
-                draw_overlay.rectangle([x0_box, y0_box, x1_box, y1_box], fill=(0, 0, 0, 128))
-                draw_overlay.rectangle([x0_box, y0_box, x1_box, y1_box], outline=(0, 0, 0, 255), width=10)
-                
-                temp_composite = Image.alpha_composite(frame_img, overlay)
-                draw_comp = ImageDraw.Draw(temp_composite)
-                
-                l1_text = "For more quizzes,"
-                draw_shadowed_text(draw_comp, (540 - draw_comp.textlength(l1_text, font=font_outro_l1)/2, 600), l1_text, font=font_outro_l1, fill="white", stroke_width=4)
-                
-                l2_text = "SUBSCRIBE!"
-                draw_shadowed_text(draw_comp, (540 - draw_comp.textlength(l2_text, font=font_outro_l2)/2, 850), l2_text, font=font_outro_l2, fill=(255, 223, 0), stroke_width=5)
-                
-                l3_text = "And comment your score below! 👇"
-                draw_shadowed_text(draw_comp, (540 - draw_comp.textlength(l3_text, font=font_outro_l3)/2, 1100), l3_text, font=font_outro_l3, fill="white", stroke_width=4)
-                
-                frame_img = temp_composite
-                
+                frame_img = render_canonical_outro_frame(outro_bg_img)
             else:
-                # Questions Phase
-                active_q_idx = None
+                active_q_idx = 0
                 q_req_idx = 1
                 for idx, q in enumerate(questions):
                     q_req = tts_requests[q_req_idx]
                     q_req_idx += 1
                     a_req = tts_requests[q_req_idx]
                     q_req_idx += 1
-                    
+
                     exp_req = None
                     exp_narr = q.get("explanation", "").strip() if not is_rapid else ""
                     if exp_narr:
                         exp_req = tts_requests[q_req_idx]
                         q_req_idx += 1
-                        
+
                     q_start = q_req["start_time"]
                     q_block_end = exp_req["start_time"] + exp_req["duration"] if exp_req else a_req["start_time"] + a_req["duration"]
-                    
+
                     if q_start <= t <= q_block_end:
                         active_q_idx = idx
-                        active_q = q
-                        active_q_req = q_req
-                        active_a_req = a_req
-                        active_exp_req = exp_req
-                        active_q_start = q_start
-                        active_q_block_end = q_block_end
                         break
-                        
-                if active_q_idx is not None:
-                    num = active_q_idx + 1
-                    
-                    # 1. Question card with black@0.5 anchor base and border
-                    draw_overlay.rectangle([40, 218, 1040, 528], fill=(0, 0, 0, 128))
-                    draw_overlay.rectangle([40, 218, 1040, 528], outline=(0, 0, 0, 255), width=10)
-                    
-                    # 2. Options layout
-                    options = active_q["options"]
-                    correct_idx = active_q.get("answerIndex", -1)
-                    correct_answer = active_q.get("answer", "")
-                    if correct_idx == -1:
-                        for oidx, opt in enumerate(options):
-                            if opt.strip() == correct_answer.strip():
-                                correct_idx = oidx
-                                break
-                    if correct_idx == -1:
-                        correct_idx = 0
-                        
-                    opt_labels = ["A", "B", "C", "D"]
-                    
-                    is_think_phase = active_q["think_start"] <= t <= active_q["think_end"]
-                    is_answer_phase = t > active_q["think_end"]
-                    
-                    for oidx in range(len(options)):
-                        opt_y = 680 + oidx * 160
-                        x0_box, y0_box, x1_box, y1_box = 90, opt_y, 990, opt_y + 120
-                        
-                        if is_answer_phase:
-                            # Stage 2: Correct/incorrect highlighting (high retention, 80% opacity fill)
-                            if oidx == correct_idx:
-                                box_color = (46, 204, 113, 204) # green@0.8
-                                border_color = (0, 255, 0, 255)
-                                text_color = "white"
-                                border_w = 6
-                            else:
-                                box_color = (231, 76, 60, 51) # red@0.2
-                                border_color = (192, 57, 43, 102)
-                                text_color = "gray"
-                                border_w = 2
-                        else:
-                            # Stage 1: Active options base (black@0.5 fill and outline)
-                            box_color = (0, 0, 0, 128)
-                            border_color = (255, 255, 255, 77)
-                            text_color = "white"
-                            border_w = 4
-                            
-                        draw_overlay.rectangle([x0_box, y0_box, x1_box, y1_box], fill=box_color)
-                        draw_overlay.rectangle([x0_box, y0_box, x1_box, y1_box], outline=border_color, width=border_w)
-                        
-                    # 3. Think phase progress bar
-                    if is_think_phase:
-                        think_start = active_q["think_start"]
-                        think_duration = active_q["think_duration"]
-                        
-                        # Bar background
-                        draw_overlay.rectangle([90, 538, 990, 562], fill=(34, 34, 34, 204))
-                        
-                        # Bar fill
-                        ratio = 1.0 - (t - think_start) / think_duration
-                        active_w = int(900 * max(0.0, min(1.0, ratio)))
-                        if active_w > 0:
-                            draw_overlay.rectangle([90, 538, 90 + active_w, 562], fill=(168, 85, 247, 255))
-                            
-                    # 4. Explanation box with black@0.5 anchor base and border
-                    if is_answer_phase and active_exp_req:
-                        exp_start = active_exp_req["start_time"]
-                        exp_end = exp_start + active_exp_req["duration"]
-                        if exp_start <= t <= exp_end:
-                            draw_overlay.rectangle([90, 1632, 990, 1812], fill=(0, 0, 0, 128))
-                            draw_overlay.rectangle([90, 1632, 990, 1812], outline=(0, 0, 0, 255), width=10)
-                            
-                    temp_composite = Image.alpha_composite(frame_img, overlay)
-                    draw_comp = ImageDraw.Draw(temp_composite)
-                    
-                    # 5. Draw text elements on the composite frame with shadows and borders
-                    header_text = f"Question {num}/{len(questions)} ({active_q.get('difficulty', 'medium').upper()})"
-                    draw_shadowed_text(draw_comp, (540 - draw_comp.textlength(header_text, font=font_header)/2, 228), header_text, font=font_header, fill=(255, 223, 0), stroke_width=4)
-                    
-                    draw_wrapped_text(draw_comp, active_q["question"], font_question, "white", 540, 388, max_width=28, stroke_width=4)
-                    
-                    # Option text
-                    for oidx in range(len(options)):
-                        opt_y = 680 + oidx * 160
-                        opt_text = f"{opt_labels[oidx]}. {options[oidx]}"
-                        text_color = "white" if not is_answer_phase or oidx == correct_idx else "gray"
-                        draw_wrapped_text(draw_comp, opt_text, font_option, text_color, 540, opt_y + 60, max_width=38, stroke_width=4)
-                        
-                    # Think phase countdown number
-                    if is_think_phase:
-                        think_end = active_q["think_end"]
-                        cnt_num = int(math.ceil(think_end - t))
-                        if cnt_num < 1: cnt_num = 1
-                        cnt_str = str(cnt_num)
-                        draw_shadowed_text(draw_comp, (540 - draw_comp.textlength(cnt_str, font=font_cnt)/2, 574), cnt_str, font=font_cnt, fill="white", stroke_width=4)
-                        
-                    # Explanation text
-                    if is_answer_phase and active_exp_req:
-                        exp_start = active_exp_req["start_time"]
-                        exp_end = exp_start + active_exp_req["duration"]
-                        if exp_start <= t <= exp_end:
-                            draw_wrapped_text(draw_comp, active_q.get("explanation", ""), font_exp, "white", 540, 1722, max_width=30, stroke_width=4)
-                            
-                    frame_img = temp_composite
-                    
-            # Feature 6: Stamp brand watermark on frame if configured
-            if _brand_text and _font_watermark:
-                final_draw = frame_img
-                if final_draw.mode != "RGBA":
-                    final_draw = final_draw.convert("RGBA")
-                wm_layer = Image.new("RGBA", final_draw.size, (0, 0, 0, 0))
-                wm_draw = ImageDraw.Draw(wm_layer)
-                wm_bbox = wm_draw.textbbox((0, 0), _brand_text, font=_font_watermark)
-                wm_w = wm_bbox[2] - wm_bbox[0]
-                wm_h = wm_bbox[3] - wm_bbox[1]
-                margin = 28
-                if _brand_pos == "top_left":
-                    wm_x, wm_y = margin, margin
-                elif _brand_pos == "top_right":
-                    wm_x, wm_y = 1080 - wm_w - margin, margin
-                elif _brand_pos == "bottom_left":
-                    wm_x, wm_y = margin, 1920 - wm_h - margin
-                else:  # bottom_right
-                    wm_x, wm_y = 1080 - wm_w - margin, 1920 - wm_h - margin
-                # Draw shadow + colored text
-                wm_draw.text((wm_x + 2, wm_y + 2), _brand_text, font=_font_watermark, fill=(0, 0, 0, 120))
-                wm_draw.text((wm_x, wm_y), _brand_text, font=_font_watermark, fill=_brand_color_rgba)
-                frame_img = Image.alpha_composite(final_draw, wm_layer)
+
+                active_q = questions[active_q_idx]
+                bg_for_q = question_bg_imgs[active_q_idx] if active_q_idx < len(question_bg_imgs) else hook_bg_img
+
+                is_think = active_q["think_start"] <= t <= active_q["think_end"]
+                is_answer = t > active_q["think_end"]
+
+                if is_answer:
+                    frame_img = render_canonical_question_frame(
+                        bg_for_q, active_q, phase="reveal", timer_text="✓", timer_color=(34, 197, 94, 255)
+                    )
+                elif is_think:
+                    cnt_num = int(math.ceil(active_q["think_end"] - t))
+                    if cnt_num < 1: cnt_num = 1
+                    frame_img = render_canonical_question_frame(
+                        bg_for_q, active_q, phase="think", timer_text=f"{cnt_num}s", timer_color=(0, 170, 255, 255)
+                    )
+                else:
+                    countdown_total = int(math.ceil(active_q.get("think_duration", 2.0)))
+                    frame_img = render_canonical_question_frame(
+                        bg_for_q, active_q, phase="read", timer_text=f"{countdown_total}s", timer_color=(0, 170, 255, 255)
+                    )
 
             out_frame_path = frames_dir / f"frame_{f_idx:05d}.png"
-            frame_img.save(out_frame_path, "PNG")
+            frame_img.convert("RGB").save(out_frame_path, "PNG")
             created_files.add(out_frame_path)
-            
-        print(f"[PERF METRIC - PILLOW]: Rendered {total_frames} frames in {time.perf_counter() - render_frames_start:.2f} seconds.")
-        
-        # Build clean audio-only filter graph
-        # Video filters: Background flag (0:v) scaled to fit without aspect ratio distortion, then transparent text frames (1:v) overlaid
-        filter_parts.append("[0:v]scale=-1:1920,crop=1080:1920:exact=1,setsar=1[bg_scaled]")
-        filter_parts.append("[bg_scaled][1:v]overlay=0:0:shortest=1[v_out]")
 
-        # Build clean audio-only filter graph
-        filter_complex_file = shm_dir / f"quiz_{job_id}_filter.txt"
-        filter_complex_file.write_text(";".join(filter_parts), encoding="utf-8")
-        created_files.add(filter_complex_file)
-        
-        # Build clean FFmpeg sequence concatenation command
+        print(f"[PERF METRIC - PILLOW]: Rendered {total_frames} canonical frames in {time.perf_counter() - render_frames_start:.2f} seconds.")
+
+        # 7. Generate thumbnail from first question / hook frame
+        try:
+            first_frame = frames_dir / "frame_00000.png"
+            if first_frame.exists():
+                shutil.copyfile(str(first_frame), str(out_thumbnail))
+            else:
+                hook_bg_img.convert("RGB").save(str(out_thumbnail))
+            print(f"[Thumbnail] Generated canonical thumbnail at {out_thumbnail}")
+        except Exception as thumb_err:
+            print(f"[Thumbnail] Warning: Failed to save thumbnail: {thumb_err}")
+
+        # 8. Assemble MP4 via FFmpeg
+        ffmpeg_start = time.perf_counter()
         ffmpeg_cmd = [
             ffmpeg_exe,
             "-y",
-            "-loop", "1",
-            "-framerate", str(fps),
-            "-i", str(flag_bg_path),
-            "-f", "image2",
             "-framerate", str(fps),
             "-i", str(frames_dir / "frame_%05d.png"),
         ]
         for req in tts_requests:
             ffmpeg_cmd.extend(["-i", str(req["mp3"])])
-            
+
         ffmpeg_cmd.extend(["-i", str(audio_assets["pop"])])
         ffmpeg_cmd.extend(["-i", str(audio_assets["ding"])])
         ffmpeg_cmd.extend(["-stream_loop", "-1", "-i", str(audio_assets["bgm"])])
-        
+
         ffmpeg_cmd.extend([
             "-filter_complex_script", str(filter_complex_file),
-            "-map", "[v_out]",
+            "-map", "0:v",
             "-map", "[a_mixed]",
             "-c:v", "libx264",
             "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p",
             "-threads", "0",
             "-c:a", "aac",
             "-b:a", "192k",
@@ -1568,8 +1708,8 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
             "-shortest",
             str(out_final)
         ])
-        
-        print(f"[FFmpeg] Rendering to local file: {out_final}")
+
+        print(f"[FFmpeg] Rendering canonical quiz video to: {out_final}")
         result_proc = subprocess.run(
             ffmpeg_cmd,
             capture_output=True,
@@ -1578,17 +1718,17 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         if result_proc.returncode != 0:
             print(f"[FFmpeg] Error:\n{result_proc.stderr[-3000:]}")
             raise RuntimeError(f"FFmpeg exited with code {result_proc.returncode}")
-            
+
         print(f"[FFmpeg] Render complete. File size: {out_final.stat().st_size / (1024*1024):.2f} MB")
         timings["step4_render_sec"] = time.perf_counter() - ffmpeg_start
 
-        # Upload to Cloudinary
+        # 9. Cloudinary Upload
         from datetime import datetime
         import re
         now = datetime.now()
         date_folder = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H-%M-%S")
-        
+
         quiz_data_dict = job.get("quizData") if isinstance(job.get("quizData"), dict) else {}
         country_clean = str(
             job.get("country")
@@ -1598,13 +1738,13 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         country_clean = re.sub(r'[^a-zA-Z0-9_]', '', country_clean)
         if not country_clean:
             country_clean = "Default"
-        
+
         difficulty_clean = str(job.get("difficulty") or (questions[0].get("difficulty") if questions and len(questions) > 0 else None) or "Medium").strip().capitalize()
         difficulty_clean = re.sub(r'[^a-zA-Z0-9_]', '', difficulty_clean)
-        
+
         version_clean = str(job.get("version") or "1").strip()
         version_clean = re.sub(r'[^a-zA-Z0-9_]', '', version_clean)
-        
+
         folder_path = f"geo_quiz_factory/{date_folder}"
         public_id_str = f"{country_clean}_{difficulty_clean}_Batch_{version_clean}_{time_str}"
 
@@ -1612,16 +1752,9 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         thumbnail_url = None
 
         try:
-            # 1. Extract the hashtags sent from your Next.js /route.ts API
             raw_hashtags = job.get("hashtags", [])
-            
-            # 2. Clean the tags (Cloudinary internal tags don't use the '#' symbol)
             clean_tags = [tag.replace("#", "").strip() for tag in raw_hashtags]
-            
-            # 3. Add permanent architectural tags so you can easily filter later
-            system_tags = ["mindrush_hq", "automated_batch", job.get("contentType", "quiz")]
-            
-            # Combine them into one master list
+            system_tags = ["shortforge", "automated_batch", "quiz_shorts"]
             final_tags = clean_tags + system_tags
 
             print(f"🚀 Uploading to Cloudinary with tags: {final_tags}")
@@ -1640,7 +1773,6 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         except Exception as cu_err:
             print(f"[Cloudinary] Video upload failed: {cu_err}. Falling back to static serve.")
 
-        # Upload thumbnail to Cloudinary
         try:
             if out_thumbnail.exists():
                 thumb_res = cloudinary.uploader.upload(
@@ -1668,16 +1800,13 @@ def run_quiz_shorts(job: dict, out_dir: Path, out_audio: Path, out_srt: Path, ou
         }
 
     finally:
-        # Strict memory hygiene: remove all files created in the RAM disk /dev/shm
         print("[Cleanup] Running absolute memory hygiene cleanup...")
         for p in created_files:
             if p.exists():
                 try:
                     p.unlink()
-                    print(f"[Cleanup] Cleaned up shm file: {p}")
-                except Exception as clean_err:
-                    print(f"[Cleanup] Error unlinking shm file {p}: {clean_err}")
-        # Clean up temp directory if it exists and is empty
+                except Exception:
+                    pass
         if temp_dir.exists():
             try:
                 shutil.rmtree(str(temp_dir), ignore_errors=True)
