@@ -1,0 +1,74 @@
+name: FactoryOS Render Keepalive
+
+on:
+  schedule:
+    # Periodically ping every 10 minutes (offset at :07, :17, :27, :37, :47, :57) to prevent Render free-tier idle spin-down
+    - cron: "7,17,27,37,47,57 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: render-keepalive
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    name: Keep FactoryOS Render Service Warm
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping FactoryOS Render Health Endpoint
+        env:
+          FACTORYOS_URL: ${{ secrets.FACTORYOS_URL }}
+        run: |
+          set -euo pipefail
+
+          # 1. Validate Secret Presence
+          if [ -z "${FACTORYOS_URL:-}" ]; then
+            echo "::error::GitHub repository secret 'FACTORYOS_URL' is not configured."
+            echo "To configure: Go to Repository Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "Name: FACTORYOS_URL | Value: https://<your-render-service>.onrender.com"
+            exit 1
+          fi
+
+          # 2. Normalize Base URL & Resolve Health Endpoint
+          BASE_URL="${FACTORYOS_URL%/}"
+          if [[ "$BASE_URL" =~ /health$ ]] || [[ "$BASE_URL" =~ /api/health$ ]]; then
+            TARGET_URL="$BASE_URL"
+          else
+            TARGET_URL="${BASE_URL}/health"
+          fi
+
+          echo "Initiating keepalive request to FactoryOS health endpoint..."
+
+          # 3. Execute HTTP Check with Retries for Cold Start
+          # Using --max-time 45 and retries to accommodate sleeping free-tier Render instances
+          HTTP_RESPONSE=$(curl -sSL \
+            --max-time 45 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            --retry-all-errors \
+            --write-out "\nHTTP_STATUS_CODE:%{http_code}\nTIME_TOTAL:%{time_total}" \
+            "$TARGET_URL" 2>&1) || {
+              echo "::error::Network request to FactoryOS service failed or timed out."
+              exit 1
+            }
+
+          # 4. Extract Metrics
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | sed -n 's/^HTTP_STATUS_CODE://p' | tail -n1)
+          TIME_TOTAL=$(echo "$HTTP_RESPONSE" | sed -n 's/^TIME_TOTAL://p' | tail -n1)
+          BODY=$(echo "$HTTP_RESPONSE" | sed '/^HTTP_STATUS_CODE:/,$d')
+
+          echo "Response Time: ${TIME_TOTAL}s"
+          echo "HTTP Status Code: ${HTTP_STATUS}"
+
+          # 5. Validate Success
+          if [ -n "$HTTP_STATUS" ] && [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "✅ FactoryOS Render service is warm and healthy (HTTP ${HTTP_STATUS})."
+            echo "Response payload: $(echo "$BODY" | head -n 5)"
+          else
+            echo "::error::FactoryOS Render keepalive probe failed with HTTP status: ${HTTP_STATUS:-unknown}"
+            echo "Response payload: $BODY"
+            exit 1
+          fi
