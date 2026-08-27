@@ -78,12 +78,13 @@ export const OverseerFace: React.FC<OverseerFaceProps> = memo(({
 
   const activeGaze = isHovered || (gaze.x !== 0 && gaze.y !== 0) ? gaze : defaultGaze;
 
+  const isInteractive = typeof onFaceClick === "function";
   return (
     <div
       ref={containerRef}
-      className={`relative inline-flex items-center justify-center cursor-pointer select-none transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] ${className}`}
+      className={`relative inline-flex items-center justify-center select-none transition-transform duration-200 ${isInteractive ? "cursor-pointer hover:scale-[1.02] active:scale-[0.98]" : "cursor-default"} ${className}`}
       style={{ width: "100%", maxWidth: width, height: "auto", aspectRatio: "280 / 170" }}
-      onClick={onFaceClick}
+      onClick={isInteractive ? onFaceClick : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);

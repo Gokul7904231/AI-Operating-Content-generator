@@ -9,6 +9,7 @@ import { StorageQueue } from "@/storage/upload-queue";
 import { PublisherQueue } from "@/publishing/publisher-queue";
 import { verifySession } from "@/lib/auth/auth";
 import { isAdminUser } from "@/lib/auth/roles";
+import { ProviderDiscovery } from "@/lib/core/ProviderDiscovery";
 import os from "os";
 
 export const dynamic = "force-dynamic";
@@ -80,7 +81,6 @@ export async function GET(request: Request) {
 
     // Hardware Report & Async Provider Discovery Bootstrap
     await CapabilityManager.init();
-    const { ProviderDiscovery } = require("@/lib/core/ProviderDiscovery");
     if (!ProviderDiscovery.isInitialized()) {
       ProviderDiscovery.init().catch((err: any) => {
         console.warn("[factory-state] Background ProviderDiscovery init error:", err?.message || String(err));
@@ -111,6 +111,14 @@ export async function GET(request: Request) {
     const diskUsagePct = 0; // honest: disk telemetry unavailable — 0 until measured (was 45 fake)
     const healthPct = totalJobsCount === 0 ? 100 : Math.round((completedCount / totalJobsCount) * 100);
 
+    let factoryOSProjection: any = null;
+    try {
+      const controller = (global as any).__factoryOSController;
+      if (controller?.projectionService) {
+        factoryOSProjection = await controller.projectionService.getRealtimeProjection();
+      }
+    } catch {}
+
     return NextResponse.json({
       success: true,
       timestamp: Date.now(),
@@ -138,6 +146,7 @@ export async function GET(request: Request) {
       activeProviders,
       activeEngines,
       events,
+      factoryOS: factoryOSProjection,
     });
   } catch (err: any) {
     console.error("[API /factory-state] Error gathering state:", err.message);

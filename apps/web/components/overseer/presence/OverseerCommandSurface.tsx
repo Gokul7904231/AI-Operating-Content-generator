@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import type {
   OverseerPresenceEnvelope,
   VoiceState,
@@ -81,6 +81,23 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
 
   const activeUser = user || sessionUser;
   const activeUserName = activeUser?.name || (activeUser?.email ? activeUser.email.split("@")[0] : "");
+
+  // New vs returning — sole, server-grounded distinction (no localStorage).
+  // New = account created very recently and this is effectively the first login.
+  const isNewUser = useMemo(() => {
+    if (!activeUser?.createdAt) return false;
+    const created = new Date(activeUser.createdAt).getTime();
+    if (Number.isNaN(created)) return false;
+    const rawLast: string | undefined = (activeUser as any).lastLogin || (activeUser as any).lastLoginAt;
+    const last = rawLast ? new Date(rawLast).getTime() : 0;
+    const ageMs = Date.now() - created;
+    const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
+    const FIRST_LOGIN_SLOP_MS = 5 * 60 * 1000; // 5 min
+    const isFirstLogin = !rawLast || Number.isNaN(last) || Math.abs(last - created) < FIRST_LOGIN_SLOP_MS;
+    if (ageMs < 10 * 60 * 1000) return true; // just signed up — always new
+    if (ageMs < NEW_WINDOW_MS && isFirstLogin) return true;
+    return false;
+  }, [activeUser]);
 
   const [metrics, setMetrics] = useState<FactoryMetrics>({
     factoryHealthPercent: 100,
@@ -320,6 +337,7 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
           intent={presence.intent}
           thoughtSummary={presence.thoughtSummary}
           userName={activeUserName}
+          isNewUser={isNewUser}
           voiceState={presence.voiceState}
           activeJobsCount={stateData?.missions?.length || 0}
           hasErrors={(metrics?.criticalCasesCount || 0) > 0}
@@ -334,7 +352,6 @@ export const OverseerCommandSurface: React.FC<OverseerCommandSurfaceProps> = mem
               : null
           }
           metrics={metrics}
-          onFaceClick={() => handleSendCommand("How is the factory?", false)}
           onQuickCommand={(cmd) => handleSendCommand(cmd, false)}
           accentColor={accentColor}
           className="w-full"

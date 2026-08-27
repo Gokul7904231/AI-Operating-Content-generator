@@ -3,12 +3,13 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import crypto from "crypto";
 
-import { saveJobManifest } from "../../../lib/jobs-history";
-import { validateContent } from "../../../lib/content-pipeline";
+import { saveJobManifest } from "@/lib/jobs-history";
+import { validateContent } from "@/lib/content-pipeline";
 import { EngineRegistry } from "@/lib/core/EngineRegistry";
 import { EngineJobSnapshot } from "@/lib/core/EngineContracts";
 import { advancePointer, hasHardcodedCountry } from "@/lib/quiz/GeoRotationService";
 import { resolveTier } from "@/lib/quota/quota-service";
+import type { AutonomousFactoryController } from "@/factoryos/core/controller/AutonomousFactoryController";
 
 const SceneInputSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
@@ -202,6 +203,7 @@ export async function POST(req: Request) {
         questions: quizQuestions,
       });
       if (!validate.approved) {
+        await releaseGenerationSlot(userId, userRole, jobId).catch(() => {});
         return NextResponse.json(
           { error: "Content rejected", details: validate, code: (validate as any).code ?? "VALIDATION_FAILED" },
           { status: 422 }
@@ -361,9 +363,56 @@ export async function POST(req: Request) {
     finalPayload.status = "processing";
     finalPayload.dispatchedAt = new Date().toISOString();
 
+    const executionAuthority = (process.env.EXECUTION_AUTHORITY || "factoryos").toLowerCase();
+    const missionId = `mis_${jobId.replace(/^job_/, "")}`;
+    finalPayload.missionId = missionId;
+    finalPayload.executionAuthority = executionAuthority;
+
     // Initialize document in Firestore as single source of truth
     await saveJobManifest(jobId, finalPayload);
 
+    if (executionAuthority === "factoryos") {
+      // 🔒 Primary Authoritative FactoryOS Control Plane Execution Path
+      const { AutonomousFactoryController } = await import("../../../factoryos/core/controller/AutonomousFactoryController");
+      let controller = (global as any).__factoryOSController as AutonomousFactoryController | undefined;
+      if (!controller) {
+        controller = new AutonomousFactoryController({ storageType: "memory" });
+        await controller.boot();
+        (global as any).__factoryOSController = controller;
+      }
+
+      await controller.startMission({
+        missionId,
+        goal: `Generate Video: ${parsed.data.topic}`,
+        objective: `Execute 6-Floor DAG for Job ${jobId}`,
+        owner: userId,
+        scope: {
+          jobId,
+          missionId,
+          executionToken,
+          tier,
+          userId,
+          topic: parsed.data.topic,
+          style: parsed.data.style,
+          renderProfile: finalPayload.renderProfile,
+          contentType: finalPayload.contentType,
+          quizData: finalPayload.quizData,
+          script: finalPayload.script,
+          scenes: finalPayload.scenes,
+          engineSnapshot,
+        },
+      });
+
+      return NextResponse.json({
+        jobId,
+        videoId: jobId,
+        missionId,
+        status: "queued",
+        authority: "factoryos",
+      });
+    }
+
+    // ── LEGACY PATH (Compatibility Mode Only) ──────────────────────────────────
     const isControlPlane = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || Boolean(process.env.BASIC_RENDER_API_URL);
     const basicRenderApiUrl = process.env.BASIC_RENDER_API_URL;
     const basicRenderSecret = process.env.BASIC_RENDER_API_SECRET || process.env.RENDER_WORKER_SECRET || process.env.INTERNAL_API_SECRET_KEY;
@@ -372,6 +421,7 @@ export async function POST(req: Request) {
       if (!basicRenderApiUrl) {
         const configError = "BASIC_RENDER_API_URL is required for production Render Control Plane.";
         console.error(`[generate-video Fatal] ${configError}`);
+        await releaseGenerationSlot(userId, userRole, jobId).catch(() => {});
         await saveJobManifest(jobId, { ...finalPayload, status: "failed", error: configError });
         return NextResponse.json(
           { error: configError, jobId },
@@ -448,7 +498,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ jobId, videoId: jobId, status: "queued" });
+    return NextResponse.json({ jobId, videoId: jobId, status: "queued", authority: "legacy" });
   } catch (err: any) {
     if (userId && jobId) {
       try {

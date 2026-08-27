@@ -58,8 +58,11 @@ export class MissionManager {
     this.eventPublisher = new MissionEventPublisher(eventBus);
   }
 
-  async createMission(params: CreateMissionParams): Promise<Mission> {
-    const missionId = `mission_${randomUUID().replace(/-/g, "").substring(0, 10)}`;
+  async createMission(params: CreateMissionParams & { missionId?: string }): Promise<Mission> {
+    const missionId =
+      params.missionId ||
+      (params.scope as any)?.missionId ||
+      `mission_${randomUUID().replace(/-/g, "").substring(0, 10)}`;
     const now = new Date().toISOString();
 
     const defaultSuccessConditions = this.generateContextAwareSuccessConditions(params.scope);
@@ -309,7 +312,7 @@ export class MissionManager {
 
     // Transition to COMPLETING
     await this.concurrencyController.executeAtomicUpdate(missionId, async (m) => {
-      if (m.status === "CREATED" || m.status === "PLANNING") {
+      if (m.status === "CREATED" || m.status === "PLANNING" || m.status === "REPLANNING" || m.status === "AUTHORIZED") {
         m.status = "RUNNING";
       }
       MissionStateMachine.assertTransition(m.missionId, m.status, "COMPLETING");
@@ -496,6 +499,16 @@ export class MissionManager {
       m.updatedAt = new Date().toISOString();
     });
 
+    if (updated.progress.percentComplete === 100 && this.taskDAGRepository && updated.taskIds.length > 0) {
+      for (const dagId of updated.taskIds) {
+        const dag = await this.taskDAGRepository.getDAG(dagId);
+        if (dag && dag.status !== "COMPLETED") {
+          dag.status = "COMPLETED";
+          await this.taskDAGRepository.saveDAG(dag);
+        }
+      }
+    }
+
     this.activeMissions.set(missionId, updated);
     return structuredClone(updated);
   }
@@ -520,7 +533,11 @@ export class MissionManager {
       const check = MissionBudgetManager.evaluateBudget(m);
       if (check.exceeded && check.reason) {
         breaches.push({ missionId: m.missionId, breachReason: check.reason });
-        await this.recordBudgetConsumption(m.missionId, {});
+        if (m.failurePolicy === "FAIL_FAST") {
+          await this.failMission(m.missionId, check.reason).catch(() => {});
+        } else {
+          await this.recordBudgetConsumption(m.missionId, {}).catch(() => {});
+        }
       }
     }
     return breaches;

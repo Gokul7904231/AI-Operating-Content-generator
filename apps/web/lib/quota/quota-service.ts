@@ -9,6 +9,31 @@ export const getBasicGenerationLimit = (): number => {
 export const MAX_BASIC_USER_VIDEOS = getBasicGenerationLimit();
 export const MAX_PRO_USER_VIDEOS = 8;
 
+export const RESERVATION_TTL_MS = 15 * 60 * 1000; // 15 minutes bounded TTL
+
+/**
+ * Filters out stale/expired reservations based on TTL.
+ */
+export function filterActiveReservations(
+  reservedSlots: Record<string, { jobId: string; reservedAt: string }>,
+  maxAgeMs: number = RESERVATION_TTL_MS
+): { activeSlots: Record<string, { jobId: string; reservedAt: string }>; reclaimedCount: number } {
+  const now = Date.now();
+  const activeSlots: Record<string, { jobId: string; reservedAt: string }> = {};
+  let reclaimedCount = 0;
+
+  for (const [jobId, slot] of Object.entries(reservedSlots || {})) {
+    const slotTime = slot?.reservedAt ? new Date(slot.reservedAt).getTime() : 0;
+    if (slotTime > 0 && now - slotTime < maxAgeMs) {
+      activeSlots[jobId] = slot;
+    } else {
+      reclaimedCount++;
+    }
+  }
+
+  return { activeSlots, reclaimedCount };
+}
+
 export type QuotaPeriodType = "LIFETIME" | "CALENDAR_MONTH" | "SUBSCRIPTION_PERIOD";
 
 export interface UserQuotaInfo {
@@ -100,8 +125,9 @@ export async function getUserQuota(userId: string, role: string = "USER"): Promi
     if (quotaDoc.exists) {
       const data = quotaDoc.data() || {};
       completed = typeof data.completed === "number" ? data.completed : 0;
-      const reservedSlots = data.reservedSlots || {};
-      reserved = Object.keys(reservedSlots).length;
+      const rawSlots = data.reservedSlots || {};
+      const { activeSlots } = filterActiveReservations(rawSlots);
+      reserved = Object.keys(activeSlots).length;
     } else {
       // Fallback: check videos in this month
       try {
@@ -148,8 +174,9 @@ export async function getUserQuota(userId: string, role: string = "USER"): Promi
   if (quotaDoc.exists) {
     const data = quotaDoc.data() || {};
     completed = typeof data.completed === "number" ? data.completed : 0;
-    const reservedSlots = data.reservedSlots || {};
-    reserved = Object.keys(reservedSlots).length;
+    const rawSlots = data.reservedSlots || {};
+    const { activeSlots } = filterActiveReservations(rawSlots);
+    reserved = Object.keys(activeSlots).length;
   } else {
     try {
       const videosSnapshot = await db
@@ -232,7 +259,9 @@ export async function reserveGenerationSlot(
     if (doc.exists) {
       const data = doc.data() || {};
       completed = typeof data.completed === "number" ? data.completed : 0;
-      reservedSlots = { ...(data.reservedSlots || {}) };
+      const rawSlots = data.reservedSlots || {};
+      const { activeSlots } = filterActiveReservations(rawSlots);
+      reservedSlots = activeSlots;
     }
 
     // Idempotency: if this exact jobId was already reserved, allow through
@@ -445,3 +474,51 @@ export async function consumeGenerationSlot(userId: string, roleOrJobId: string,
 }
 
 export const finalizeGenerationSlot = consumeGenerationSlot;
+
+/**
+ * Reclaims stale reserved slots older than maxAgeMs (default: 15 mins).
+ * Returns the number of reclaimed slots.
+ */
+export async function reclaimStaleReservations(userId?: string, maxAgeMs: number = RESERVATION_TTL_MS): Promise<number> {
+  let totalReclaimed = 0;
+
+  if (userId) {
+    // Reclaim for single user
+    for (const isPro of [false, true]) {
+      const { periodKey: pk } = getCalendarMonthBounds();
+      const docId = isPro ? `${userId}_${pk}` : userId;
+      const ref = db.collection("quotas").doc(docId);
+
+      await db.runTransaction(async (tx: any) => {
+        const doc = await tx.get(ref);
+        if (!doc.exists) return;
+        const data = doc.data() || {};
+        const rawSlots = data.reservedSlots || {};
+        const { activeSlots, reclaimedCount } = filterActiveReservations(rawSlots, maxAgeMs);
+        if (reclaimedCount > 0) {
+          totalReclaimed += reclaimedCount;
+          tx.update(ref, { reservedSlots: activeSlots, updatedAt: new Date().toISOString() });
+        }
+      });
+    }
+  } else {
+    // Reclaim across all quotas
+    try {
+      const snapshot = await db.collection("quotas").get();
+      for (const doc of snapshot.docs) {
+        const data = doc.data() || {};
+        const rawSlots = data.reservedSlots || {};
+        const { activeSlots, reclaimedCount } = filterActiveReservations(rawSlots, maxAgeMs);
+        if (reclaimedCount > 0) {
+          totalReclaimed += reclaimedCount;
+          await doc.ref.update({ reservedSlots: activeSlots, updatedAt: new Date().toISOString() });
+        }
+      }
+    } catch (e: any) {
+      console.warn("[quota-service] Error during bulk stale reservation sweep:", e?.message);
+    }
+  }
+
+  return totalReclaimed;
+}
+

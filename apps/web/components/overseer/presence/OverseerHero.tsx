@@ -29,6 +29,7 @@ interface OverseerHeroProps {
   intent: OverseerIntent;
   thoughtSummary?: string;
   userName?: string;
+  isNewUser?: boolean;
   voiceState: VoiceState;
   activeJobsCount?: number;
   hasErrors?: boolean;
@@ -38,7 +39,7 @@ interface OverseerHeroProps {
     activeMissionsCount?: number;
     healthyWorkersCount?: number;
   };
-  onFaceClick: () => void;
+  onFaceClick?: () => void;
   onQuickCommand?: (command: string) => void;
   accentColor?: string;
   className?: string;
@@ -49,6 +50,7 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
   intent,
   thoughtSummary = "All factory systems are operating at peak efficiency.",
   userName,
+  isNewUser = false,
   voiceState,
   activeJobsCount = 0,
   hasErrors = false,
@@ -103,8 +105,7 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
     >
       {/* 2. Floating Living SVG Face with Gaze Tracking & Autonomous Expressions */}
       <div
-        className="relative flex items-center justify-center p-2 my-2 transition-all duration-300 group cursor-pointer w-full max-w-[340px] sm:max-w-[400px] md:max-w-[460px]"
-        onClick={onFaceClick}
+        className="relative flex items-center justify-center p-2 my-2 transition-all duration-300 group w-full max-w-[340px] sm:max-w-[400px] md:max-w-[460px] cursor-default"
       >
         <OverseerFace
           targetFaceParameters={faceParameters}
@@ -114,7 +115,6 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
           hasErrors={hasErrors}
           width={460}
           height={280}
-          onFaceClick={onFaceClick}
           enableMouseLook={true}
         />
       </div>
@@ -127,11 +127,20 @@ export const OverseerHero: React.FC<OverseerHeroProps> = memo(({
         </span>
       </div>
 
-      {/* 4. Soft Operational Thought Narrative */}
+      {/* 4. Soft Operational Thought Narrative — new vs returning user */}
       {(() => {
-        const displayThought = userName && (!thoughtSummary || thoughtSummary.includes("All systems are operational") || thoughtSummary.includes("All factory systems are operating"))
-          ? `Welcome back, ${userName}! All systems are operational across 4 production floors.`
-          : thoughtSummary;
+        const isDefaultThought =
+          !thoughtSummary ||
+          thoughtSummary.includes("All systems are operational") ||
+          thoughtSummary.includes("All factory systems are operating");
+        let displayThought = thoughtSummary;
+        if (userName && isDefaultThought) {
+          if (isNewUser) {
+            displayThought = `Welcome to ShortForge, ${userName}! Your factory is ready — tell the Overseer what to build.`;
+          } else {
+            displayThought = `Welcome back, ${userName}! All systems are operational across 4 production floors.`;
+          }
+        }
         return (
           <p className="mt-2.5 text-xs sm:text-sm font-sans italic text-[#667085] dark:text-[#A7B0BC] max-w-lg px-4 line-clamp-2">
             &ldquo;{displayThought}&rdquo;
