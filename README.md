@@ -770,9 +770,9 @@ Models and AI providers can evolve independently from orchestration.
 
 ---
 
-# 🌟 Why ShortForge Is Technically Interesting
+## Engineering Scope
 
-ShortForge combines several engineering problems that normally live in separate systems:
+ShortForge brings several normally separate engineering concerns into one production pipeline:
 
 ```text
 AI generation
@@ -794,15 +794,6 @@ artifact management
 security
       +
 multi-provider compute
-```
-
-The result is intended to behave less like:
-
-> **"an AI that generates a video"**
-
-and more like:
-
-> **"a small autonomous production company implemented as software."**
 
 ---
 
