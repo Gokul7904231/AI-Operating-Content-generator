@@ -2,7 +2,7 @@
   <img
     src="https://i.ibb.co/1GbWrvhX/Gemini-Generated-Image-pt8vmdpt8vmdpt8v.png"
     alt="ShortForge Logo"
-    height="36"
+    height="32"
   />
   ShortForge
 </h1>
