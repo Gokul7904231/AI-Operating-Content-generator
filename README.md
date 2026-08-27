@@ -1,4 +1,7 @@
-https://ibb.co/tp3rqmk2 # ShortForge
+<h1>
+  <img src="https://ibb.co/tp3rqmk2" alt="ShortForge Logo" width="52" />
+  ShortForge
+</h1>
 
 ## Autonomous AI Video Factory
 
