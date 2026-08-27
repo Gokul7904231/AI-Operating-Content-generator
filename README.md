@@ -1,5 +1,5 @@
 <h1>
-  <img src="https://ibb.co/tp3rqmk2" alt="ShortForge Logo" width="52" />
+  <img src="https://i.ibb.co/1GbWrvhX/Gemini-Generated-Image-pt8vmdpt8vmdpt8v.png" alt="ShortForge Logo" width="52" />
   ShortForge
 </h1>
 
