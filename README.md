@@ -1,79 +1,873 @@
-# ShortForge — Forge viral Shorts
+https://ibb.co/tp3rqmk2 # ShortForge
 
-> **One topic in. One viral Short out.** Topic → 45s 1080×1920 Short (script, voice, images, subtitles, FFmpeg) — fully automated.
+## Autonomous AI Video Factory
 
-<p align="center">
-  <a href="https://github.com/Gokul7904231/ShortForge/actions/workflows/ci.yml"><img src="https://github.com/Gokul7904231/ShortForge/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/TypeScript-Strict_Only_in_tsconfig.factoryos.json-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeCheck" />
-  <img src="https://img.shields.io/badge/Vitest-FactoryOS_Scoped-brightgreen?style=flat-square&logo=vitest&logoColor=white" alt="Tests" />
-  <img src="https://img.shields.io/badge/Next.js-16_Control_Plane-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/FastAPI-Python_3.11+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License" /></a>
-</p>
+**One idea in. One production-ready Short out.**
 
-> 🎬 **Live Demo:** <!-- TODO: add vercel.app + Loom + sample mp4 -->
-> - **Control Plane:** `apps/web` (Next.js 16 · Turbopack · React 19)
-> - **Sample Short:** `apps/web/public/demo-short.mp4` (1080×1920, 30fps, subs + thumb)
-> - **Throughput:** idea → muxed Short in **< 60s** · Full docs → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+[![Live](https://img.shields.io/badge/Live-shortforge.gokul.software-black?style=flat-square)](https://shortforge.gokul.software/)
+[![GitHub](https://img.shields.io/badge/GitHub-ShortForge-181717?style=flat-square&logo=github)](https://github.com/Gokul7904231/ShortForge)
+[![CI](https://img.shields.io/github/actions/workflow/status/Gokul7904231/ShortForge/ci.yml?style=flat-square&label=CI)](https://github.com/Gokul7904231/ShortForge/actions)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+
+### 🌐 Live Product
+**https://shortforge.gokul.software/**
 
 ---
 
-## ✨ What It Does
+## What is ShortForge?
 
-| Type | Pipeline | Output |
-|---|---|---|
-| Motivational | LLM script → FLUX images → edge-tts → faster-whisper → FFmpeg | 45s · 1080×1920 · voice + 3 images + SRT |
-| Quiz Shorts | Q&A engine → countdown bar, SFX, BGM, flag bg, watermark | Same spec — game-show style |
+ShortForge is an **autonomous AI video-production system** designed around a software-factory architecture.
 
-Every video is **9:16, subtitled, thumbnailed** before Cloudinary + Firestore.
+A user provides a topic.
 
-## 🧰 Stack
+ShortForge coordinates the rest:
 
-| Layer | Choices |
+```text
+TOPIC
+  │
+  ▼
+UNDERSTAND
+  │
+  ▼
+PLAN
+  │
+  ▼
+CREATE
+  │
+  ├── Script
+  ├── Voice
+  ├── Visuals
+  ├── Subtitles
+  └── Thumbnail
+  │
+  ▼
+RENDER
+  │
+  ▼
+VALIDATE
+  │
+  ▼
+DELIVER
+  │
+  ├── Cloudinary
+  ├── Google Drive
+  └── ShortForge Library
+```
+
+The system is built to move beyond a conventional:
+
+```text
+Frontend → API → AI call → response
+```
+
+model toward:
+
+```text
+Intent
+  ↓
+Autonomous orchestration
+  ↓
+Specialized workers
+  ↓
+Supervision
+  ↓
+Recovery
+  ↓
+Validation
+  ↓
+Artifact delivery
+```
+
+---
+
+# 🏛️ The Seven-Floor Factory
+
+ShortForge is organized as a **seven-floor autonomous production factory**.
+
+Each floor represents a progressively deeper layer of responsibility in the production system.
+
+At the top is the **Overseer**.
+
+Below it are **Floor Guardians**.
+
+Inside the floors are specialized **Slayers**.
+
+When execution breaks, **Healers** recover the work.
+
+The important architectural principle is:
+
+> **No single agent needs to own the entire factory. Responsibility is hierarchical, bounded, observable, and recoverable.**
+
+```text
+                                👁️ OVERSEER
+                           Global Factory Control
+                                     │
+          ┌──────────────────────────┼──────────────────────────┐
+          │                          │                          │
+          ▼                          ▼                          ▼
+  🛡️ FLOOR GUARDIANS          🛡️ FLOOR GUARDIANS         🛡️ FLOOR GUARDIANS
+          │                          │                          │
+          ▼                          ▼                          ▼
+      ⚔️ SLAYERS                 ⚔️ SLAYERS                 ⚔️ SLAYERS
+          │                          │                          │
+          ▼                          ▼                          ▼
+      ❤️ HEALERS                  ❤️ HEALERS                  ❤️ HEALERS
+          │                          │                          │
+          └──────────────────────────┼──────────────────────────┘
+                                     │
+                              Factory State
+                                     │
+                                     ▼
+                                Next Floor
+```
+
+---
+
+# 👁️ The Overseer
+
+The **Overseer** is the highest-level orchestration layer.
+
+It is responsible for understanding the state of the factory rather than performing every operation itself.
+
+Conceptually:
+
+```text
+OBSERVE
+   ↓
+UNDERSTAND
+   ↓
+DECIDE
+   ↓
+DELEGATE
+   ↓
+MONITOR
+   ↓
+RECOVER / ESCALATE
+```
+
+The Overseer is the control layer for:
+
+- production state
+- worker state
+- queues
+- failures
+- resource availability
+- orchestration decisions
+- escalation
+- factory health
+
+This is the architectural boundary between an **AI application** and an **AI-operated production system**.
+
+---
+
+# 🛡️ Floor Guardians
+
+A **Floor Guardian** owns the health and coordination of a particular floor.
+
+Guardians are not intended to perform every task themselves.
+
+They supervise the specialists below them.
+
+```text
+Guardian
+  │
+  ├── knows the floor's objective
+  ├── coordinates Slayers
+  ├── evaluates completion
+  ├── invokes Healers
+  └── escalates unresolved failures
+```
+
+This creates **bounded autonomy**:
+
+```text
+Overseer
+   ↓
+Guardian
+   ↓
+Slayer
+```
+
+rather than sending every problem to one giant agent.
+
+---
+
+# ⚔️ Slayers
+
+A **Slayer** is an execution specialist.
+
+Slayers perform concrete production operations such as:
+
+```text
+Script generation
+Voice generation
+Visual generation
+Subtitle generation
+Thumbnail generation
+Media analysis
+Rendering
+Artifact preparation
+```
+
+A Slayer should have a narrowly defined responsibility and a clear success/failure contract.
+
+This allows workers to be:
+
+- independently tested
+- replaced
+- retried
+- scaled
+- routed
+- monitored
+
+---
+
+# ❤️ Healers
+
+A **Healer** is the recovery mechanism.
+
+A failed task should not automatically mean a failed production.
+
+```text
+Slayer
+  ↓
+Failure
+  ↓
+Healer
+  ↓
+Repair / retry / fallback
+  ↓
+Resume
+```
+
+Healers can conceptually handle:
+
+- transient provider failures
+- worker failures
+- interrupted jobs
+- retries
+- re-queueing
+- fallback routing
+- partial-state recovery
+- escalation when automatic recovery is unsafe
+
+This makes fault recovery part of the architecture instead of an afterthought.
+
+---
+
+# 🏢 Floor 01 — Foundation
+
+**Purpose:** establish the foundational runtime layer on which the production factory operates.
+
+This floor is concerned with the basic runtime, core interfaces, and system foundations required by higher floors.
+
+```text
+Floor 01
+   ↓
+Core runtime
+   ↓
+Shared contracts
+   ↓
+Factory infrastructure
+```
+
+**Guardian:** Foundation Guardian
+
+**Primary role:** keep the underlying factory contracts stable and usable by higher layers.
+
+---
+
+# 🧭 Floor 02 — Orchestration
+
+**Purpose:** coordinate production work across the system.
+
+This is where the factory begins to behave as an orchestration system rather than a collection of isolated tools.
+
+```text
+Intent
+  ↓
+Planning
+  ↓
+Task creation
+  ↓
+Delegation
+  ↓
+Execution tracking
+```
+
+**Guardian:** Orchestration Guardian
+
+**Primary role:** translate production intent into executable work.
+
+---
+
+# 🧠 Floor 03 — Intelligence
+
+**Purpose:** provide the AI reasoning and generation capabilities used by the production pipeline.
+
+This includes the AI/provider layer used to create content and make production decisions.
+
+```text
+Prompt / Topic
+     ↓
+AI routing
+     ↓
+Model/provider
+     ↓
+Structured result
+```
+
+The system already contains multiple AI/provider pathways and routing layers.
+
+**Guardian:** Intelligence Guardian
+
+**Primary role:** provide reliable AI capabilities while isolating provider-specific behavior from the rest of FactoryOS.
+
+---
+
+# 🎬 Floor 04 — Production
+
+**Purpose:** transform generated plans and content into the individual media components of a Short.
+
+Typical production outputs include:
+
+```text
+Script
+Voice
+Visual assets
+Subtitles
+Thumbnail
+Media metadata
+```
+
+**Guardian:** Production Guardian
+
+**Slayers:** specialized content/media workers
+
+**Primary role:** turn intelligence into concrete production assets.
+
+---
+
+# 🎞️ Floor 05 — Rendering & Delivery
+
+**Purpose:** convert production assets into the final validated video artifact.
+
+The documented architecture includes a **warm Basic rendering path** and a **GitHub Actions fallback path**.
+
+```text
+Production Assets
+      ↓
+Render Queue
+      ↓
+Warm Renderer
+      │
+      ├── available → render
+      │
+      └── unavailable
+             ↓
+        GitHub Actions
+             ↓
+        Existing Renderer
+             ↓
+            MP4
+```
+
+The rendering layer uses the existing FastAPI/FFmpeg pipeline.
+
+**Guardian:** Rendering Guardian
+
+**Slayers:** render workers
+
+**Healers:** retry / fallback / recovery workers
+
+**Primary role:** produce a valid final artifact reliably.
+
+---
+
+# 🛡️ Floor 06 — Security, Identity & Governance
+
+**Purpose:** protect the factory and enforce who is allowed to perform which operations.
+
+The existing architecture contains authentication, session handling, authorization boundaries, execution-token validation, and server-side protection. The broader Floor 6 work was explicitly defined around authentication, user persistence, RBAC, password recovery, security hardening, tests, and security verification.
+
+Conceptually:
+
+```text
+Identity
+   ↓
+Session
+   ↓
+Role
+   ↓
+Authorization
+   ↓
+Operation
+```
+
+The security boundary is deliberately server-side rather than relying purely on frontend visibility.
+
+**Guardian:** Security / Governance Guardian
+
+**Primary role:** protect the factory from unauthorized operations and unsafe state transitions.
+
+---
+
+# 🧪 Floor 07 — Verification & Compliance
+
+The repository/history explicitly contains:
+
+```text
+archive/floor07_compliance_2026-08-23/
+```
+
+which is identified as **archived rather than live**. Therefore this README does not present that archived implementation as the current runtime.
+
+Architecturally, the seventh floor represents the **verification/compliance boundary**:
+
+```text
+Factory Output
+      ↓
+Verification
+      ↓
+Security / Quality / Policy checks
+      ↓
+Ship / Reject / Escalate
+```
+
+**Guardian:** Compliance Guardian
+
+**Primary role:** verify that system outputs and production state satisfy the required acceptance gates before release.
+
+---
+
+# 🔗 How the Floors Work Together
+
+The seven floors are not seven isolated applications.
+
+They form a dependency chain:
+
+```text
+                 👁️ OVERSEER
+                     │
+                     ▼
+              🛡️ FLOOR 01
+                  Foundation
+                     │
+                     ▼
+              🛡️ FLOOR 02
+                Orchestration
+                     │
+                     ▼
+              🛡️ FLOOR 03
+                Intelligence
+                     │
+                     ▼
+              🛡️ FLOOR 04
+                 Production
+                     │
+                     ▼
+              🛡️ FLOOR 05
+             Rendering / Delivery
+                     │
+                     ▼
+              🛡️ FLOOR 06
+            Security / Governance
+                     │
+                     ▼
+              🛡️ FLOOR 07
+          Verification / Compliance
+                     │
+                     ▼
+                 RELEASE
+```
+
+The exact implementation boundaries may evolve, but the principle is stable:
+
+> **Each floor narrows responsibility while the Overseer maintains the global picture.**
+
+---
+
+# ⚙️ Rendering Fleet
+
+Rendering is intentionally provider-independent.
+
+The system can use a warm renderer first and fall back to external workers when required. The documented design includes a queue, GitHub Actions render worker, existing FFmpeg/MoviePy renderer, object storage, and FactoryOS state.
+
+The target architecture extends this toward:
+
+```text
+                         Render Queue
+                              │
+                       Smart Router
+                              │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+          ▼                   ▼                   ▼
+      Lightning             Kaggle              GitHub
+         GPU                 GPU                 CPU
+          │                   │                   │
+          └───────────────────┼───────────────────┘
+                              │
+                           Render
+                              │
+                              ▼
+                            MP4
+                              │
+                        Artifact Manager
+                              │
+                  ┌───────────┴───────────┐
+                  ▼                       ▼
+             Cloudinary             Google Drive
+                  │                       │
+                  └───────────┬───────────┘
+                              ▼
+                       ShortForge UI
+```
+
+**Providers are execution resources.**
+
+**FactoryOS owns orchestration.**
+
+That separation lets the rendering fleet evolve without redesigning the production pipeline.
+
+---
+
+# 📦 Artifact Lifecycle
+
+Every generated video is treated as an artifact with a lifecycle:
+
+```text
+CREATE
+  ↓
+RENDER
+  ↓
+VALIDATE
+  ↓
+STORE
+  ↓
+DELIVER
+  ↓
+TRACK
+```
+
+The project currently uses Cloudinary for media handling and Firestore/MongoDB/SQLite for different categories of state.
+
+The key design principle is:
+
+> **A worker should produce an artifact; it should not become the artifact's permanent owner.**
+
+---
+
+# 🔐 Reliability Engineering
+
+ShortForge incorporates several mechanisms intended for distributed, failure-prone execution.
+
+## Atomic quotas
+
+Generation slots are reserved transactionally and finalized only after artifact verification.
+
+```text
+Reserve
+  ↓
+Generate
+  ↓
+Verify
+  ↓
+Finalize
+```
+
+## Execution authorization
+
+Render jobs use scoped execution credentials and worker-side validation.
+
+## Idempotent callbacks
+
+Repeated callbacks should not blindly create repeated state transitions.
+
+## Worker fallback
+
+If the warm rendering path is unavailable, the control plane can fall back to an external render worker.
+
+## State over assumptions
+
+The system tracks state rather than assuming:
+
+```text
+"the job probably finished"
+```
+
+Instead:
+
+```text
+QUEUED
+→ CLAIMED
+→ RUNNING
+→ RENDERED
+→ VALIDATED
+→ STORED
+→ COMPLETED
+```
+
+---
+
+# 🧰 Technology Stack
+
+| Layer | Technology |
 |---|---|
-| Frontend | Next.js 16 (Turbopack, reactCompiler), React 19, Tailwind v4, Framer Motion 12, Zustand 5, Clerk 6 |
-| Data | Firestore (quotas/videos) · MongoDB 7 (`factoryos` db, InMemory fallback) · SQLite (`better-sqlite3`, `data/shortfactory.db` WAL) · Cloudinary 2.5 |
-| Rendering | FastAPI + Pillow 10 + FFmpeg 6.1.1 + edge-tts + faster-whisper (warm pool :8100 + :8080 fallback) |
-| AI | Vercel AI SDK 7 + Groq llama-3.1-8b + Gemini + FLUX.1-schnell + @xenova/transformers · Dual routers: `ai/` (IntelligentRouter/AIRuntime) + legacy `lib/ai-provider` |
-| Infra | Docker · GH Actions (SHA-pinned) · Firebase Hosting · Cloudflare Workers (OpenNext) · Vercel |
+| Web / Control Plane | Next.js 16, React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| State | Zustand |
+| API | Next.js Route Handlers |
+| Worker APIs | FastAPI |
+| Rendering | FFmpeg, Pillow |
+| Voice | edge-tts |
+| Speech / Subtitles | faster-whisper |
+| AI | Vercel AI SDK, Groq, Gemini, FLUX, Transformers |
+| Databases | Firestore, MongoDB, SQLite |
+| Media | Cloudinary |
+| CI / Worker fallback | GitHub Actions |
+| Infrastructure | Docker, Firebase, Cloudflare, Render / Vercel |
 
-`strict: true` only in `apps/web/tsconfig.factoryos.json` (app-wide `tsconfig.json` is relaxed). Vitest scoped to `factoryos/tests/**` + `shortforge/tests/**`.
+---
 
-## 🏗️ Architecture
+# 🏗️ Repository Architecture
 
+```text
+ShortForge/
+│
+├── apps/
+│   └── web/
+│       ├── app/
+│       │   ├── api/
+│       │   ├── dashboard/
+│       │   └── ...
+│       └── ...
+│
+├── services/
+│   ├── pipeline/
+│   │   ├── floor01/
+│   │   ├── floor02/
+│   │   ├── floor03/
+│   │   ├── floor04/
+│   │   ├── floor05/
+│   │   ├── floor06/
+│   │   └── guardian/
+│   │
+│   └── rendering-engine/
+│
+├── factoryos/
+│   ├── core/
+│   ├── database/
+│   └── ...
+│
+├── tests/
+├── docs/
+├── .github/
+│   └── workflows/
+│
+└── CLAUDE.md
 ```
-Browser → apps/web (Next.js 16, 109 API routes, Clerk+Firebase __session HMAC)
-  │  POST /api/generate-video (Zod + Firestore atomic 5-lifetime / 8-pro/mo + SQLiteRenderQueue)
-  ├─→ warm pool  POST {BASIC_RENDER_API_URL}/api/render/jobs  (sub-60s, executionToken timingSafeEqual)
-  └─→ fallback   repository_dispatch → factoryos-basic-render.yml → create_short.py
-         ↕  HTTPBearer + jobId ^[a-zA-Z0-9_-]{8,64}$ + realpath guard + drawtext sanitize
-  services/rendering-engine (FastAPI :8100/:8080, Pillow 1080×1920, ffprobe → Cloudinary)
-         ↕  POST /api/rendering/callback (idempotent) · GET /api/job-status/[id] poll + SSE
-  Firestore / MongoDB / SQLite / Cloudinary · GH Actions cron "* * * * *" dispatcher (tier-isolated)
+
+The current project documentation explicitly describes pipeline directories covering `floor01..06+guardian`.
+
+---
+
+# 🚀 Example Production Flow
+
+A motivational Short might move through the factory like this:
+
+```text
+User
+ │
+ │ "Make a Short about discipline"
+ ▼
+👁️ Overseer
+ │
+ ▼
+🛡️ Floor Guardian
+ │
+ ▼
+⚔️ Script Slayer
+ │
+ ▼
+⚔️ Voice Slayer
+ │
+ ▼
+⚔️ Visual Slayer
+ │
+ ▼
+⚔️ Subtitle Slayer
+ │
+ ▼
+🛡️ Rendering Guardian
+ │
+ ├── Warm worker
+ │       ↓
+ │     FFmpeg
+ │
+ └── fallback worker
+         ↓
+      GitHub / GPU provider
+ │
+ ▼
+❤️ Healer if required
+ │
+ ▼
+🛡️ Verification Guardian
+ │
+ ▼
+MP4 validated
+ │
+ ├── Cloudinary
+ ├── Google Drive
+ └── ShortForge Library
 ```
 
-> `archive/floor07_compliance_2026-08-23/` (FastAPI validation gate) is **archived, not live**. Pipeline floors `services/pipeline/floor01..06+guardian` + 9 FactoryOS skills + 5 docs-only `lib/shortforge-skills` (viral-hooks, storyboard, video-analysis, youtube-content, shorts-production) — see `docs/ARCHITECTURE.md`.
+---
 
-## 🔩 Hard Parts
+# 📈 Engineering Goals
 
-- **Atomic quota** — `reserveGenerationSlot` Firestore transaction enforces 5-lifetime (Basic) / 8-per-month (Pro) hard limit; `finalizeGenerationSlot` only after artifact verification (size>1000, valid MP4 header); idempotent on `jobId`.
-- **Execution token** — `crypto.randomBytes(32).hex()` per job, `timingSafeEqual` on `claim`/`callback`; worker re-validates `jobId` regex + `realpath` traversal guard + `drawtext` sanitization.
-- **Warm vs GH fallback** — `BASIC_RENDER_API_URL` → direct warm pool (sub-60s); else `GITHUB_PAT` → `repository_dispatch`; else 1-min cron claim loop (tier-isolated: `azure↔ADMIN`, `github-actions/basic-fastapi↔BASIC`, `Basic→Azure` forbidden).
+ShortForge is optimized around several principles:
 
-## 🚀 Run Locally
+### Warm execution
 
-```bash
-cd apps/web && npm install && npm run dev          # http://localhost:3000 (Turbopack)
-# Rendering worker (needs FFmpeg on PATH)
-cd services/rendering-engine && pip install -r requirements.txt && python -m uvicorn main:app --port 8080
-# Warm Basic pool (sub-60s path)
-python -m uvicorn basic_render_api:app --port 8100  # or: python start_worker.py
-# Tests & build
-cd apps/web && npm run factoryos:test && npm run factoryos:typecheck && npm run build
+Keep frequently used workers ready rather than bootstrapping the environment for every request.
+
+### Provider independence
+
+Compute providers can be replaced without changing the production model.
+
+### Fault tolerance
+
+Failures are routed through recovery mechanisms rather than automatically terminating the factory.
+
+### Persistent state
+
+Production state is recorded so workers can be replaced without losing the job's history.
+
+### Security boundaries
+
+Authorization is enforced at the server/worker layer.
+
+### Observable execution
+
+Each stage of production should be traceable.
+
+### Modular intelligence
+
+Models and AI providers can evolve independently from orchestration.
+
+---
+
+# 🌟 Why ShortForge Is Technically Interesting
+
+ShortForge combines several engineering problems that normally live in separate systems:
+
+```text
+AI generation
+      +
+agent orchestration
+      +
+hierarchical control
+      +
+distributed workers
+      +
+job queues
+      +
+fault recovery
+      +
+media processing
+      +
+artifact management
+      +
+security
+      +
+multi-provider compute
 ```
 
-Full pipeline, env vars, 109 routes, skill system, and deployment → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Knowledge base → [`docs/akb/`](docs/akb/) · Pipeline stages → [`services/pipeline/`](services/pipeline/) · Contributor guide → [`CLAUDE.md`](CLAUDE.md)
+The result is intended to behave less like:
 
-## 📄 License
+> **"an AI that generates a video"**
 
-MIT — see [LICENSE](LICENSE).
+and more like:
+
+> **"a small autonomous production company implemented as software."**
+
+---
+
+# 🗺️ Roadmap
+
+```text
+                    SHORTFORGE
+                        │
+                        ▼
+                Seven-Floor Factory
+                        │
+          ┌─────────────┼─────────────┐
+          │             │             │
+          ▼             ▼             ▼
+      Autonomy      Reliability    Scalability
+          │             │             │
+          ▼             ▼             ▼
+      Overseer       Healers      Worker Fleet
+          │             │             │
+          └─────────────┼─────────────┘
+                        ▼
+                Multi-provider compute
+                        │
+                        ▼
+               Autonomous production
+```
+
+Future work centers on deeper orchestration, smarter provider routing, worker telemetry, recovery automation, and increasingly autonomous factory operation.
+
+---
+
+# 🌐 Try It
+
+### Live Product
+
+**https://shortforge.gokul.software/**
+
+### Source
+
+**https://github.com/Gokul7904231/ShortForge**
+
+Start with:
+
+```text
+docs/ARCHITECTURE.md
+services/pipeline/
+services/rendering-engine/
+apps/web/
+.github/workflows/
+```
+
+---
+
+# 👤 Author
+
+## Gokul
+
+Computer Science student focused on:
+
+- AI / ML
+- LLM systems
+- Agentic AI
+- Autonomous software systems
+- AI infrastructure
+- Distributed execution
+
+### Building toward one idea:
+
+> **Software that doesn't merely perform tasks — it operates the factory that performs them.**
+
+---
+
+# 📜 License
+
+MIT — see [`LICENSE`](LICENSE).
