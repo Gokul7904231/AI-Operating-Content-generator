@@ -43,7 +43,7 @@
 
 ## What is ShortForge?
 
-**ShortForge is an AI video-production application built on top of a software-factory architecture called FactoryOS.**
+**ShortForge is an AI video-production application built on top of a software-factory architecture called ShortForge.**
 
 A user provides an idea. The system coordinates the rest of the production lifecycle:
 
@@ -112,14 +112,14 @@ The live application provides the user-facing control plane for creating and man
 
 ---
 
-# 🧠 FactoryOS
+# 🧠 ShortForge
 
 ShortForge is the production application.
 
-**FactoryOS is the operating architecture underneath it.**
+**ShortForge is the operating architecture underneath it.**
 
 ```text
-                         FACTORYOS
+                         ShortForge
                              │
                              ▼
                         👁 OVERSEER
@@ -181,7 +181,7 @@ Result
 
 # 👁️ Overseer
 
-The **Overseer** is the central command intelligence of FactoryOS.
+The **Overseer** is the central command intelligence of ShortForge.
 
 It is not intended to be another chatbot sitting above the UI.
 
@@ -267,13 +267,13 @@ The voice visualization is tied to the conversational state rather than being a 
 
 For speech output, the waveform can react to the generated audio itself.
 
-This interaction model was deliberately designed so users do not need to manually traverse the underlying FactoryOS hierarchy.
+This interaction model was deliberately designed so users do not need to manually traverse the underlying ShortForge hierarchy.
 
 ---
 
 # 🏛️ Factory Hierarchy
 
-FactoryOS uses hierarchical responsibility rather than one monolithic agent.
+ShortForge uses hierarchical responsibility rather than one monolithic agent.
 
 ```text
 SUPREME AUTHORITY / ADMIN
@@ -506,7 +506,7 @@ faster-whisper
 
 The renderer is a worker.
 
-FactoryOS remains responsible for orchestration and state.
+ShortForge remains responsible for orchestration and state.
 
 ---
 
@@ -539,7 +539,7 @@ The planned governance layer covers:
 - security hardening
 - auditability
 
-**Implementation status:** this layer is part of the FactoryOS architectural roadmap; the project history records Floors 1–5 as the completed baseline and Floor 6 onward as subsequent work.
+**Implementation status:** this layer is part of the ShortForge architectural roadmap; the project history records Floors 1–5 as the completed baseline and Floor 6 onward as subsequent work.
 
 ---
 
@@ -829,7 +829,7 @@ Quiz Engine
 Rendering is treated as a compute-fleet problem.
 
 ```text
-                       FACTORYOS
+                       ShortForge
                            │
                      Render Queue
                            │
@@ -875,7 +875,7 @@ Lightning is intended as the warm primary renderer, Kaggle as burst capacity, an
 
 The key abstraction is:
 
-> **Compute providers execute jobs. FactoryOS owns orchestration and state.**
+> **Compute providers execute jobs. ShortForge owns orchestration and state.**
 
 ---
 
@@ -907,7 +907,7 @@ completedJobs: 0
 failedJobs: 0
 ```
 
-The remaining production boundary at that checkpoint was the externally reachable Lightning endpoint and full FactoryOS → Lightning → artifact completion flow.
+The remaining production boundary at that checkpoint was the externally reachable Lightning endpoint and full ShortForge → Lightning → artifact completion flow.
 
 ---
 
@@ -983,10 +983,10 @@ This separation allows the rendering infrastructure to fail or be replaced witho
 
 # 🗃️ Operational Memory
 
-FactoryOS separates application state from operational intelligence.
+ShortForge separates application state from operational intelligence.
 
 ```text
-                     FACTORYOS
+                     ShortForge
                          │
               ┌──────────┴──────────┐
               │                     │
@@ -1010,7 +1010,7 @@ MongoDB was introduced as the operational intelligence layer rather than replaci
 
 # 🔎 External Intelligence
 
-The broader FactoryOS architecture also leaves room for external research tooling.
+The broader ShortForge architecture also leaves room for external research tooling.
 
 Agent-Reach was considered as a unified interface for agent access to platforms such as:
 
@@ -1065,7 +1065,7 @@ For infrastructure, simulated evidence is not enough.
 The intended acceptance path crosses the real boundary:
 
 ```text
-FactoryOS
+ShortForge
    ↓
 Real backend
    ↓
@@ -1119,7 +1119,7 @@ ShortForge/
 │       │   ├── dashboard/
 │       │   └── ...
 │       ├── content-engines/
-│       ├── factoryos/
+│       ├── ShortForge/
 │       └── ...
 │
 ├── services/
@@ -1134,7 +1134,7 @@ ShortForge/
 │   │
 │   └── rendering-engine/
 │
-├── factoryos/
+├── ShortForge/
 │   ├── core/
 │   ├── database/
 │   └── ...
@@ -1157,7 +1157,7 @@ User:
 "Create a Short explaining how black holes work."
 ```
 
-FactoryOS:
+ShortForge:
 
 ```text
                          USER
@@ -1259,7 +1259,7 @@ artifact lifecycle
 multi-provider compute
 ```
 
-Rather than treating AI generation as a single model call, FactoryOS treats it as a **long-running, stateful production workflow**.
+Rather than treating AI generation as a single model call, ShortForge treats it as a **long-running, stateful production workflow**.
 
 That distinction drives the architecture.
 
@@ -1370,8 +1370,8 @@ python -m uvicorn basic_render_api:app --port 8100
 ```bash
 cd apps/web
 
-npm run factoryos:test
-npm run factoryos:typecheck
+npm run ShortForge:test
+npm run ShortForge:typecheck
 npm run build
 ```
 
@@ -1379,7 +1379,7 @@ FFmpeg must be available in the rendering environment.
 
 ---
 
-# 🗺️ Where FactoryOS Is Going
+# 🗺️ Where ShortForge Is Going
 
 ```text
 Single AI Application
