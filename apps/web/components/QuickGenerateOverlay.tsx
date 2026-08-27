@@ -678,19 +678,51 @@ export default function QuickGenerateOverlay() {
     }
   }
 
-  // Polling Job Status
+  // Polling Job Status (Bounded with 5-minute timeout and error handling)
   const pollingRef = useRef<boolean>(false);
+  const MAX_POLL_DURATION_MS = 5 * 60 * 1000; // 5 minutes max
+
   function startPolling(id: string) {
     if (pollingRef.current) return;
     pollingRef.current = true;
     setPolling(true);
 
+    const startTime = Date.now();
+    let consecutiveErrors = 0;
+
     const check = async () => {
       if (!pollingRef.current) return;
+
+      // 1. Enforce max polling duration timeout
+      if (Date.now() - startTime > MAX_POLL_DURATION_MS) {
+        pollingRef.current = false;
+        setPolling(false);
+        setError("Render polling timed out after 5 minutes. You can check the Media Library or retry.");
+        setJobStatus((prev: any) => ({ ...(prev || {}), status: "failed", error: "Polling timed out" }));
+        return;
+      }
+
       try {
         const res = await fetch(`/api/job-status/${id}`);
-        const data = await res.json();
-        if (res.ok) {
+        if (!res.ok) {
+          consecutiveErrors++;
+          if (res.status === 404) {
+            pollingRef.current = false;
+            setPolling(false);
+            setError("Render job not found (404). Please try generating again.");
+            setJobStatus({ status: "failed", error: "Job not found" });
+            return;
+          }
+          if (res.status >= 500 && consecutiveErrors >= 5) {
+            pollingRef.current = false;
+            setPolling(false);
+            setError("Server error during render status checking. Please check your Media Library.");
+            setJobStatus({ status: "failed", error: "Server error" });
+            return;
+          }
+        } else {
+          consecutiveErrors = 0;
+          const data = await res.json();
           setJobStatus(data);
           if (data.status === "completed") {
             pollingRef.current = false;
@@ -706,8 +738,21 @@ export default function QuickGenerateOverlay() {
             return;
           }
         }
-      } catch {}
-      if (pollingRef.current) setTimeout(check, 2500);
+      } catch (e: any) {
+        consecutiveErrors++;
+        if (consecutiveErrors >= 6) {
+          pollingRef.current = false;
+          setPolling(false);
+          setError("Network connection issue while checking render status. Please retry.");
+          setJobStatus((prev: any) => ({ ...(prev || {}), status: "failed", error: "Network error" }));
+          return;
+        }
+      }
+
+      if (pollingRef.current) {
+        const backoffDelay = Math.min(6000, 2500 + consecutiveErrors * 500);
+        setTimeout(check, backoffDelay);
+      }
     };
     check();
   }
@@ -750,8 +795,8 @@ export default function QuickGenerateOverlay() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-[#070D18] border border-black/[0.08] dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#070D18] border border-black/[0.08] dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Top Header & Quota Bar */}
         <div className="px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between bg-black/[0.02] dark:bg-[#0E1728]">
           <div className="flex items-center gap-3">
@@ -767,7 +812,7 @@ export default function QuickGenerateOverlay() {
           <div className="flex items-center gap-3">
             {quota && isBasicUser && (
               <span className="text-[11px] px-2.5 py-1 rounded-full bg-black/[0.04] dark:bg-[#121E32] text-[#667085] font-mono">
-                {quota.remaining} / {quota.limit} videos left today
+                {quota.remaining} / {quota.limit} videos left (Lifetime Basic)
               </span>
             )}
             <button
@@ -1540,6 +1585,37 @@ export default function QuickGenerateOverlay() {
                 </div>
               </div>
 
+              {/* Quota Exhaustion Warning Card */}
+              {isQuotaExceeded && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 my-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold">Lifetime Generation Quota Exhausted</h4>
+                      <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                        You have used all {quota?.limit ?? 5} complimentary videos included in your Basic lifetime plan (Used: {quota ? quota.limit - quota.remaining : 5}/{quota?.limit ?? 5}).
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      href="/media/library"
+                      onClick={handleClose}
+                      className="px-3 py-1.5 rounded-xl bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.1] text-xs font-semibold transition-colors"
+                    >
+                      Media Library
+                    </Link>
+                    <Link
+                      href="/pricing"
+                      onClick={handleClose}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
+                    >
+                      Upgrade to Pro &rarr;
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               {/* Navigation Actions */}
               <div className="flex items-center justify-between pt-4 border-t border-black/[0.06] dark:border-white/[0.08]">
                 <button
@@ -1561,9 +1637,17 @@ export default function QuickGenerateOverlay() {
                     type="button"
                     onClick={handleStartRender}
                     disabled={rendering || isQuotaExceeded}
-                    className="px-6 py-2.5 rounded-xl bg-[#1677FF] hover:bg-[#0F63D8] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                    className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs ${
+                      isQuotaExceeded
+                        ? "bg-black/[0.1] dark:bg-white/[0.1] text-[#667085] cursor-not-allowed"
+                        : "bg-[#1677FF] hover:bg-[#0F63D8] text-white cursor-pointer"
+                    }`}
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" /> Render Video &rarr;
+                    {isQuotaExceeded ? (
+                      <>Quota Exceeded ({quota ? quota.limit - quota.remaining : 5}/{quota?.limit ?? 5})</>
+                    ) : (
+                      <><Play className="w-3.5 h-3.5 fill-current" /> Render Video &rarr;</>
+                    )}
                   </button>
                 </div>
               </div>

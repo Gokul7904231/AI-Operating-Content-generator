@@ -12,17 +12,39 @@ export default function VideoProofSection() {
     const video = videoRef.current;
     if (!video) return;
     video.muted = true;
-    (video as HTMLVideoElement).defaultMuted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.loop = true;
     setIsMuted(true);
+
     const attemptPlay = () => {
       if (!video) return;
       video.muted = true;
       const p = video.play();
-      if (p !== undefined) p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      if (p !== undefined) {
+        p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      }
     };
-    if (video.readyState >= 2) attemptPlay();
-    else video.addEventListener("canplay", attemptPlay, { once: true });
-    return () => video.removeEventListener("canplay", attemptPlay);
+
+    if (video.readyState >= 2) {
+      attemptPlay();
+    } else {
+      video.addEventListener("loadeddata", attemptPlay, { once: true });
+      video.addEventListener("canplay", attemptPlay, { once: true });
+    }
+
+    const handleInteraction = () => {
+      if (video && video.paused) attemptPlay();
+    };
+    window.addEventListener("pointerdown", handleInteraction, { once: true, passive: true });
+    window.addEventListener("scroll", handleInteraction, { once: true, passive: true });
+
+    return () => {
+      video.removeEventListener("loadeddata", attemptPlay);
+      video.removeEventListener("canplay", attemptPlay);
+      window.removeEventListener("pointerdown", handleInteraction);
+      window.removeEventListener("scroll", handleInteraction);
+    };
   }, []);
 
   const togglePlay = (e?: React.MouseEvent) => {

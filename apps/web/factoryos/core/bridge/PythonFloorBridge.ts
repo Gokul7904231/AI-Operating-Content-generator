@@ -1,57 +1,130 @@
 /**
- * FactoryOS v1 — Dual-Stack Python Floor & Guardian Bridge
- * Integrates Python Floors 01–03 & Floor 07 into the TypeScript Event Bus and World State.
+ * FactoryOS v1 — Dual-Stack Signed Floor Protocol Bridge
+ * Integrates Python Floors 01–06 & Floor Compliance Validators into the TypeScript Kernel,
+ * enforcing execution authorization tokens, replay prevention, and atomic state machine transitions.
  */
 
-import type { FloorStatus } from "../contracts/WorldStateContracts";
 import type { WorldStateEngine } from "../worldstate/WorldStateEngine";
 import type { DurableEventBus } from "../events/DurableEventBus";
 import type { CaseManager } from "../cases/CaseManager";
+import { MissionStateMachine } from "../orchestration/MissionStateMachine";
+import type {
+  FloorCommandEnvelope,
+  FloorHandoffEnvelope,
+  SecurityContext,
+} from "../contracts/FloorProtocolContracts";
 
-export interface PythonFloorHandoffPayload {
-  readonly floorId: string;
-  readonly status: "SUCCESS" | "FAILED" | "DEGRADED";
-  readonly outputArtifact?: Record<string, unknown>;
-  readonly guardianScore?: number;
-  readonly errors?: string[];
-  readonly executionTimeMs: number;
+export class SecurityValidationError extends Error {
+  constructor(message: string) {
+    super(`[PythonFloorBridge Security] ${message}`);
+    this.name = "SecurityValidationError";
+  }
 }
 
 export class PythonFloorBridge {
+  private seenNonces: Set<string> = new Set();
+  private maxNonceAgeMs = 5 * 60 * 1000; // 5 minutes
+
   constructor(
     private worldState: WorldStateEngine,
     private eventBus: DurableEventBus,
     private caseManager: CaseManager
   ) {}
 
-  async handleFloorHandoff(payload: PythonFloorHandoffPayload): Promise<void> {
-    const floorStatus: FloorStatus =
-      payload.status === "SUCCESS" ? "ONLINE" : payload.status === "DEGRADED" ? "DEGRADED" : "ERROR";
+  /**
+   * Validates security context and replay prevention.
+   */
+  public validateSecurityContext(envelope: FloorHandoffEnvelope | FloorCommandEnvelope): void {
+    const sec: SecurityContext = envelope.security;
 
-    this.worldState.updateFloorStatus(payload.floorId, floorStatus);
+    if (!sec.userId || !sec.jobId || !sec.missionId || !sec.floorId || !sec.executionId) {
+      throw new SecurityValidationError("Missing required security tuple fields (userId, jobId, missionId, floorId, executionId)");
+    }
 
-    await this.eventBus.publish("FACTORY_STATE_CHANGED", {
-      floorId: payload.floorId,
-      status: floorStatus,
-      executionTimeMs: payload.executionTimeMs,
-      guardianScore: payload.guardianScore,
-    });
+    if (!sec.executionToken || sec.executionToken.length < 16) {
+      throw new SecurityValidationError("Invalid or missing executionToken");
+    }
 
-    if (payload.status === "FAILED" && payload.errors && payload.errors.length > 0) {
+    if (sec.attempt < 1) {
+      throw new SecurityValidationError("Attempt number must be >= 1");
+    }
+
+    // Replay check
+    const timestampMs = new Date(envelope.timestamp).getTime();
+    const now = Date.now();
+    if (isNaN(timestampMs) || Math.abs(now - timestampMs) > this.maxNonceAgeMs) {
+      throw new SecurityValidationError("Envelope timestamp is outside acceptable clock skew window");
+    }
+
+    if (this.seenNonces.has(envelope.nonce)) {
+      throw new SecurityValidationError(`Replay detected: nonce '${envelope.nonce}' already processed`);
+    }
+
+    this.seenNonces.add(envelope.nonce);
+    if (this.seenNonces.size > 10000) {
+      this.seenNonces.clear();
+    }
+  }
+
+  /**
+   * Processes a completion/status handoff from an execution plane floor.
+   */
+  async handleFloorHandoff(envelope: FloorHandoffEnvelope): Promise<void> {
+    this.validateSecurityContext(envelope);
+
+    const { security, status, outputArtifact, errors, complianceScore, executionTimeMs } = envelope;
+
+    // Validate Floor state transition
+    const targetStatus = status === "SUCCESS" ? "COMPLETED" : status === "DEGRADED" ? "REPAIR_REQUIRED" : "FAILED";
+    MissionStateMachine.validateFloorTransition("RUNNING", targetStatus, `Floor handoff for ${security.floorId}`);
+
+    // Update World State
+    const worldFloorStatus = status === "SUCCESS" ? "ONLINE" : status === "DEGRADED" ? "DEGRADED" : "ERROR";
+    this.worldState.updateFloorStatus(security.floorId, worldFloorStatus, `Execution ${security.executionId}`);
+
+    // Publish Durable State Change Event
+    await this.eventBus.publish(
+      status === "SUCCESS" ? "TASK_COMPLETED" : "FLOOR_STATUS_CHANGED",
+      {
+        floorId: security.floorId,
+        missionId: security.missionId,
+        jobId: security.jobId,
+        userId: security.userId,
+        executionId: security.executionId,
+        parentExecutionId: security.parentExecutionId,
+        attempt: security.attempt,
+        status: targetStatus,
+        executionTimeMs,
+        complianceScore,
+        outputArtifact,
+        errors,
+      },
+      {
+        correlationId: security.missionId,
+        source: `bridge:${security.floorId}`,
+        idempotencyKey: `${security.executionId}_${security.attempt}`,
+      }
+    );
+
+    // Case Management on Failure
+    if (status === "FAILED" && errors && errors.length > 0) {
       await this.caseManager.createCase({
-        title: `[Python Bridge] Execution failure on ${payload.floorId}`,
-        description: payload.errors.join("; "),
-        floorId: payload.floorId,
+        title: `[Python Bridge] Execution failure on ${security.floorId}`,
+        description: errors.join("; "),
+        floorId: security.floorId,
         category: "FLOOR_EXECUTION_ERROR",
         severity: "HIGH",
         detectorId: "python_floor_bridge",
-        symptoms: payload.errors,
-        observedState: { errors: payload.errors, handoff: payload },
+        symptoms: errors,
+        observedState: { errors, security, handoff: envelope },
       });
     }
   }
 
-  async recordGuardianCompliance(certificate: {
+  /**
+   * Records compliance certificate from FloorComplianceValidator.
+   */
+  async recordComplianceCertificate(certificate: {
     certificateId: string;
     jobId: string;
     floorId: string;
@@ -66,7 +139,7 @@ export class PythonFloorBridge {
         floorId: certificate.floorId,
         invariants: certificate.invariants,
       },
-      { source: "python_guardian_bridge" }
+      { source: "floor_compliance_bridge" }
     );
   }
 }

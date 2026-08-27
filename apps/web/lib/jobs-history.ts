@@ -21,6 +21,8 @@ export interface VideoJob {
   cache?: any;
   quizData?: any;
   scenes?: any;
+  error?: string;
+  errorMessage?: string;
 }
 
 const inMemoryJobs = new Map<string, VideoJob>();

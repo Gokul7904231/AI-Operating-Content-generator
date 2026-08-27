@@ -16,9 +16,11 @@ export default function HeroSection() {
     const video = videoRef.current;
     if (!video) return;
 
-    // Guarantee muted before any play attempt — required for autoplay policy
+    // Guarantee muted before any play attempt — required for browser autoplay policies
     video.muted = true;
     video.defaultMuted = true;
+    video.playsInline = true;
+    video.loop = true;
     setIsMuted(true);
 
     const attemptPlay = () => {
@@ -26,26 +28,44 @@ export default function HeroSection() {
       video.muted = true;
       const p = video.play();
       if (p !== undefined) {
-        p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        p.then(() => setIsPlaying(true)).catch(() => {
+          // If browser policy initially blocks before interaction, keep muted and retry on user interaction
+          setIsPlaying(false);
+        });
       }
     };
 
-    // If metadata already loaded, play immediately; otherwise wait for canplay
     if (video.readyState >= 2) {
       attemptPlay();
     } else {
+      video.addEventListener("loadeddata", attemptPlay, { once: true });
       video.addEventListener("canplay", attemptPlay, { once: true });
     }
 
-    // Retry when tab becomes visible again (browser may pause hidden videos)
+    // Fallback: trigger playback on first user interaction if still paused
+    const handleFirstInteraction = () => {
+      if (video && video.paused) {
+        attemptPlay();
+      }
+    };
+
+    window.addEventListener("pointerdown", handleFirstInteraction, { once: true, passive: true });
+    window.addEventListener("scroll", handleFirstInteraction, { once: true, passive: true });
+    window.addEventListener("keydown", handleFirstInteraction, { once: true, passive: true });
+
+    // Resume when tab becomes visible again
     const onVisibility = () => {
-      if (!document.hidden && video.paused && video.muted) attemptPlay();
+      if (!document.hidden && video.paused) attemptPlay();
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
+      video.removeEventListener("loadeddata", attemptPlay);
       video.removeEventListener("canplay", attemptPlay);
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("scroll", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
     };
   }, []);
 

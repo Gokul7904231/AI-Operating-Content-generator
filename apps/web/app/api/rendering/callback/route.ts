@@ -133,9 +133,32 @@ export async function POST(request: NextRequest) {
       // 🔒 Finalize Quota Slot Consumption (Idempotent)
       await finalizeGenerationSlot(userId, jobId);
 
+      // 🔒 FactoryOS Mission & EventBus State Convergence
+      const missionId = (jobData as any).missionId;
+      if (missionId) {
+        try {
+          const controller = (global as any).__factoryOSController;
+          if (controller) {
+            await controller.eventBus.publish("TASK_COMPLETED", {
+              floorId: "floor06_rendering",
+              jobId,
+              missionId,
+              status: "COMPLETED",
+              videoUrl: finalVideoUrl,
+            });
+            if (controller.missionManager) {
+              await controller.missionManager.completeMission(missionId).catch(() => {});
+            }
+          }
+        } catch (e: any) {
+          console.warn("[Rendering Callback] FactoryOS mission update notice:", e?.message);
+        }
+      }
+
       return NextResponse.json({
         success: true,
         jobId,
+        missionId: missionId || null,
         status: "completed",
         deliveryState: "DELIVERED",
         videoUrl: finalVideoUrl,
@@ -160,9 +183,31 @@ export async function POST(request: NextRequest) {
       // 🔒 Reconcile and Release Quota Slot
       await releaseGenerationSlot(userId, jobId);
 
+      // 🔒 FactoryOS Mission Failure Convergence
+      const missionId = (jobData as any).missionId;
+      if (missionId) {
+        try {
+          const controller = (global as any).__factoryOSController;
+          if (controller) {
+            await controller.eventBus.publish("WORKER_FAILED", {
+              floorId: "floor06_rendering",
+              jobId,
+              missionId,
+              error: error || "Render failed",
+            });
+            if (controller.missionManager) {
+              await controller.missionManager.failMission(missionId, error || "Render failed").catch(() => {});
+            }
+          }
+        } catch (e: any) {
+          console.warn("[Rendering Callback] FactoryOS mission failure notice:", e?.message);
+        }
+      }
+
       return NextResponse.json({
         success: true,
         jobId,
+        missionId: missionId || null,
         status: "failed",
         deliveryState: deliveryState || "DELIVERY_FAILED",
         error: error || "Render/delivery failed",

@@ -97,5 +97,18 @@ export * from "./routing/ProviderTester";
 export * from "./evaluation/SkillEvaluatorRunner";
 export * from "./evaluation/SkillPromotionEngine";
 
+// Canonical Contracts & Subsystems
+export * from "./contracts/FloorProtocolContracts";
+export * from "./contracts/CapabilityContracts";
+export * from "./contracts/InstructorContracts";
+export {
+  MissionStateMachine as AuthoritativeMissionStateMachine,
+  InvalidStateTransitionError,
+  type MissionStatus as AuthoritativeMissionStatus,
+} from "./orchestration/MissionStateMachine";
+export * from "./cognitive/CapabilityRegistry";
+export * from "./instructor/InstructorSubsystem";
+export * from "./projection/FactoryProjectionService";
+
 // Presence Subsystem
 export * from "./overseer/presence";

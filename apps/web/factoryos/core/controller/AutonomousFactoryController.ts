@@ -29,6 +29,10 @@ import { CognitivePlaneEngine } from "../cognitive/CognitivePlaneEngine";
 import { MissionManager } from "../missions/MissionManager";
 import { GuardianManager } from "../guardian/GuardianManager";
 
+import { CapabilityRegistry } from "../cognitive/CapabilityRegistry";
+import { InstructorSubsystem } from "../instructor/InstructorSubsystem";
+import { FactoryProjectionService } from "../projection/FactoryProjectionService";
+
 export interface FactoryOSConfig {
   readonly storageType?: "memory" | "disk" | "mongo";
   readonly storagePath?: string;
@@ -64,6 +68,9 @@ export class AutonomousFactoryController {
   public watchdog!: FactoryWatchdog;
   public pythonBridge!: PythonFloorBridge;
   public apiHandler!: OverseerAPIHandler;
+  public capabilityRegistry!: CapabilityRegistry;
+  public instructorSubsystem!: InstructorSubsystem;
+  public projectionService!: FactoryProjectionService;
 
   constructor(config: FactoryOSConfig = {}) {
     this.config = {
@@ -172,6 +179,14 @@ export class AutonomousFactoryController {
     );
 
     this.pythonBridge = new PythonFloorBridge(this.worldState, this.eventBus, this.caseManager);
+    this.capabilityRegistry = new CapabilityRegistry();
+    this.instructorSubsystem = new InstructorSubsystem();
+    this.projectionService = new FactoryProjectionService(
+      this.worldState,
+      this.eventBus,
+      this.missionManager,
+      this.caseManager
+    );
 
     this.apiHandler = new OverseerAPIHandler(
       this.overseer,

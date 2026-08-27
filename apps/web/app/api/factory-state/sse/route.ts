@@ -101,6 +101,14 @@ async function getAggregateState(req?: NextRequest) {
   const runningCount = jobs.filter(j => j.status === "processing").length;
   const queuedCount = jobs.filter(j => j.status === "queued").length;
 
+  let factoryOSProjection: any = null;
+  try {
+    const controller = (global as any).__factoryOSController;
+    if (controller?.projectionService) {
+      factoryOSProjection = await controller.projectionService.getRealtimeProjection();
+    }
+  } catch {}
+
   return {
     success: true,
     timestamp: Date.now(),
@@ -128,6 +136,7 @@ async function getAggregateState(req?: NextRequest) {
     activeProviders,
     activeEngines,
     events,
+    factoryOS: factoryOSProjection,
   };
 }
 
