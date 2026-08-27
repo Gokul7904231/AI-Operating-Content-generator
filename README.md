@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  From a single idea to a finished, validated Short through AI orchestration, distributed workers, rendering, and artifact delivery.
+  Idea → AI production → distributed rendering → validation → delivery
 </p>
 
 <p align="center">
@@ -22,6 +22,8 @@
   <a href="https://github.com/Gokul7904231/ShortForge">💻 Source</a>
   ·
   <a href="https://github.com/Gokul7904231/ShortForge/actions">⚙️ CI</a>
+  ·
+  <a href="docs/ARCHITECTURE.md">📐 Architecture</a>
 </p>
 
 <p align="center">
@@ -31,123 +33,305 @@
   <img src="https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi" />
   <img src="https://img.shields.io/badge/FFmpeg-Video%20Pipeline-007808?style=flat-square&logo=ffmpeg" />
   <img src="https://img.shields.io/badge/Firestore-Data-FFCA28?style=flat-square&logo=firebase" />
-  <img src="https://img.shields.io/badge/Docker-Infra-2496ED?style=flat-square&logo=docker" />
+  <img src="https://img.shields.io/badge/MongoDB-Operations-47A248?style=flat-square&logo=mongodb" />
   <img src="https://img.shields.io/badge/GitHub%20Actions-Workers-2088FF?style=flat-square&logo=githubactions" />
+  <img src="https://img.shields.io/badge/Docker-Infrastructure-2496ED?style=flat-square&logo=docker" />
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" />
 </p>
 
----
+What is ShortForge?
 
-## What is ShortForge?
+ShortForge is an AI video-production application built on top of a software-factory architecture called FactoryOS.
 
-ShortForge is an **AI video-production system designed as a software factory**.
+A user provides an idea. The system coordinates the rest of the production lifecycle:
 
-The user provides an idea. The system coordinates the production lifecycle:
-
-```text
 Idea
   ↓
-Plan
+Planning
   ↓
-Generate
+AI Generation
   ├── Script
   ├── Voice
   ├── Visuals
   ├── Subtitles
   └── Thumbnail
   ↓
-Queue
+Production State
   ↓
-Render
+Render Queue
   ↓
-Validate
+Distributed Renderer
   ↓
-Store
+Validation
   ↓
-Deliver
-```
+Artifact Storage
+  ↓
+Delivery
 
-The engineering problem is not simply "calling an LLM."
+The important engineering problem is not simply generating content with an LLM.
 
-ShortForge combines:
+ShortForge has to coordinate:
 
-* AI generation
-* hierarchical agent orchestration
-* persistent job state
-* distributed workers
-* rendering infrastructure
-* failure recovery
-* security boundaries
-* artifact management
-* multi-provider compute
+AI generation
+      +
+agent orchestration
+      +
+persistent state
+      +
+distributed workers
+      +
+queues
+      +
+fault recovery
+      +
+media processing
+      +
+security
+      +
+artifact management
+      +
+multi-provider compute
 
-The system is designed around the idea that **production work should be orchestrated, observable, recoverable, and independently executable**.
+The architecture is designed around a simple principle:
 
----
+Production work should be observable, recoverable, bounded, and independently executable.
 
-# 🌐 Live Product
+🌐 Live Product
 
-### **https://shortforge.gokul.software/**
+https://shortforge.gokul.software/
 
-The live application exposes the user-facing control plane for creating and managing video-production jobs.
+The live application provides the user-facing control plane for creating and managing video-production jobs.
 
----
+🧠 FactoryOS
 
-# 🧠 The Architecture
+ShortForge is the production application.
 
-ShortForge separates **decision-making**, **execution**, and **recovery**.
+FactoryOS is the operating architecture underneath it.
 
-```text
-                              ┌──────────────────────┐
-                              │       OVERSEER       │
-                              │ Global orchestration │
-                              └──────────┬───────────┘
-                                         │
-                              Factory state / decisions
-                                         │
-              ┌──────────────────────────┼──────────────────────────┐
-              │                          │                          │
-              ▼                          ▼                          ▼
-      ┌───────────────┐          ┌───────────────┐          ┌───────────────┐
-      │    GUARDIAN   │          │    GUARDIAN   │          │    GUARDIAN   │
-      │     Floor A   │          │     Floor B   │          │     Floor C   │
-      └───────┬───────┘          └───────┬───────┘          └───────┬───────┘
-              │                          │                          │
-              ▼                          ▼                          ▼
-           SLAYERS                    SLAYERS                    SLAYERS
-              │                          │                          │
-              └──────────────────┬───────┴───────┬──────────────────┘
-                                 │               │
-                              HEALERS         HEALERS
-                                 │               │
-                                 └───────┬───────┘
-                                         │
-                                   Persistent state
-                                         │
-                                         ▼
-                                  Production output
-```
+                         FACTORYOS
+                             │
+                             ▼
+                        👁 OVERSEER
+                             │
+                      Command / Intent
+                             │
+                    Policy / Event Bus
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+          ▼                  ▼                  ▼
+       FLOORS            SERVICES           REPORTS
+          │                  │
+     GUARDIANS          SLAYER / HEALER
+          │              / REMAKER / COMMS
+          │
+    ┌─────┼─────┐
+    ▼     ▼     ▼
+ Instructor Advisor Auditor
+          │
+       Guardian
+          │
+        Workers
+          │
+       Artifacts
 
-## Internal terminology
+The goal is to move from:
 
-These names describe architectural responsibilities:
+User → dashboard → feature → API → model
 
-| Role               | Responsibility                                                            |
-| ------------------ | ------------------------------------------------------------------------- |
-| **Overseer**       | Global orchestration, factory state, decisions, delegation and escalation |
-| **Floor Guardian** | Owns a specific production domain and supervises its workers              |
-| **Slayer**         | Performs a focused production operation                                   |
-| **Healer**         | Handles recovery, retries, fallback and failed-state repair               |
+toward:
 
-This keeps autonomy **hierarchical and bounded** instead of relying on one monolithic agent.
+User
+  ↓
+Overseer
+  ↓
+Intent
+  ↓
+Decision
+  ↓
+Delegation
+  ↓
+Execution
+  ↓
+Observation
+  ↓
+Recovery
+  ↓
+Validation
+  ↓
+Result
 
----
+👁️ Overseer
 
-# 🏢 Seven-Floor Factory
+The Overseer is the central command intelligence of FactoryOS.
+
+It is not intended to be another chatbot sitting above the UI.
+
+Its job is to understand the state of the factory, determine what needs to happen, delegate work, inspect results, and escalate when the system cannot safely recover.
+
+The intended control loop is:
+
+OBSERVE
+   ↓
+UNDERSTAND
+   ↓
+DECIDE
+   ↓
+DELEGATE
+   ↓
+MONITOR
+   ↓
+RECOVER / ESCALATE
+
+The Overseer is designed to operate against factory state rather than inventing answers.
+
+For example:
+
+User:
+"Why did Floor 04 fail?"
+
+                ↓
+
+Overseer
+   ↓
+Floor 04 Guardian
+   ↓
+Auditor
+   ↓
+Worker report
+   ↓
+Slayer investigation
+   ↓
+ReMaker diagnosis
+   ↓
+Healer state
+   ↓
+Overseer
+   ↓
+Evidence-backed answer
+
+The intended UX is therefore:
+
+You talk to the Overseer; the Overseer operates the factory.
+
+🎙️ Overseer Interaction
+
+The Overseer is designed around both text and voice interaction.
+
+Text → Text
+Voice → Voice
+
+The UI is intended to expose the Overseer's operational state:
+
+IDLE
+  ↓
+LISTENING
+  ↓
+THINKING
+  ↓
+EXECUTING
+  ↓
+SPEAKING
+  ↓
+IDLE
+
+The voice visualization is tied to the conversational state rather than being a decorative animation.
+
+For speech output, the waveform can react to the generated audio itself.
+
+This interaction model was deliberately designed so users do not need to manually traverse the underlying FactoryOS hierarchy.
+
+🏛️ Factory Hierarchy
+
+FactoryOS uses hierarchical responsibility rather than one monolithic agent.
+
+SUPREME AUTHORITY / ADMIN
+            │
+            ▼
+       👁 OVERSEER
+            │
+            ▼
+        TREASURER
+            │
+            ▼
+   FACTORY-LEVEL SERVICES
+   ┌────────┼────────┬────────┐
+   │        │        │        │
+ Comms    Slayer   Healer  ReMaker
+            │
+            ▼
+          FLOORS
+            │
+    ┌───────┼────────┐
+    │       │        │
+Instructor Advisor  Auditor
+    │       │        │
+    └───────┼────────┘
+            │
+         Guardian
+            │
+         Workers
+
+Role model
+
+Role
+
+Responsibility
+
+Supreme Authority / Admin
+
+Highest system authority
+
+Overseer
+
+Global command, orchestration and factory awareness
+
+Treasurer
+
+Governance around XP / penalties / validation
+
+Instructor
+
+Defines or teaches the operating approach for a domain
+
+Advisor
+
+Provides recommendations and guidance
+
+Auditor
+
+Inspects execution and evidence
+
+Guardian
+
+Supervises a floor/domain
+
+Worker
+
+Executes a bounded operation
+
+Slayer
+
+Specialized execution worker
+
+Healer
+
+Recovery, retries and fallback
+
+ReMaker
+
+Diagnosis and reconstruction of failed work
+
+Comms
+
+Communication / event flow between factory components
+
+This hierarchy is an architectural model: individual roles can evolve independently without requiring one giant agent to own the entire system.
+
+🏢 Seven-Floor Factory
 
 The production architecture is organized into seven responsibility layers.
 
-```text
                          👁️ OVERSEER
                               │
                               ▼
@@ -190,13 +374,11 @@ The production architecture is organized into seven responsibility layers.
                     └────────┬────────┘
                              ▼
                            RELEASE
-```
 
-## Floor 01 — Foundation
+Floor 01 — Foundation
 
-**Responsibility:** establish the shared runtime and core contracts used by the rest of the factory.
+Responsibility: shared runtime, core interfaces and common factory infrastructure.
 
-```text
 Runtime
   ↓
 Core interfaces
@@ -204,23 +386,13 @@ Core interfaces
 Shared infrastructure
   ↓
 Reusable capabilities
-```
 
-**Guardian:** Foundation Guardian
+The purpose is to prevent higher-level systems from becoming tightly coupled to low-level implementation details.
 
-**Workers:** core infrastructure Slayers
+Floor 02 — Orchestration
 
-**Healers:** infrastructure recovery
+Responsibility: turn production intent into executable work.
 
-The goal is to keep higher floors independent of low-level implementation details.
-
----
-
-## Floor 02 — Orchestration
-
-**Responsibility:** convert production intent into executable work.
-
-```text
 Intent
   ↓
 Plan
@@ -232,45 +404,29 @@ Queue
 Worker assignment
   ↓
 Execution tracking
-```
 
-**Guardian:** Orchestration Guardian
+This is the coordination boundary between user intent and actual worker execution.
 
-This layer manages job coordination rather than performing the underlying media work itself.
+Floor 03 — Intelligence
 
----
+Responsibility: reasoning, content generation, model routing and AI capabilities.
 
-## Floor 03 — Intelligence
-
-**Responsibility:** provide reasoning, generation, model routing, and AI capabilities.
-
-```text
 Topic / Prompt
       ↓
-AI routing
+Capability / Provider Routing
       ↓
-Model / provider
+Model / Engine
       ↓
-Structured output
+Structured Result
       ↓
-Production state
-```
+Production State
 
-The system supports multiple AI paths and provider abstractions so that intelligence can evolve independently from the control plane.
+The architecture allows different providers and models to evolve independently from the core control plane.
 
-**Guardian:** Intelligence Guardian
+Floor 04 — Production
 
-**Slayers:** AI/content specialists
+Responsibility: convert plans and intelligence into media assets.
 
-**Healers:** provider retries, fallback models, recovery
-
----
-
-## Floor 04 — Production
-
-**Responsibility:** turn plans into production assets.
-
-```text
 Script
   +
 Voice
@@ -281,39 +437,37 @@ Subtitles
   +
 Thumbnail
   ↓
-Production package
-```
+Production Package
 
-Typical production stages include:
+Production can include:
 
-* script generation
-* voice synthesis
-* image generation
-* subtitle generation
-* thumbnail generation
-* media analysis
-* content-specific engines
+script generation
 
-**Guardian:** Production Guardian
+voice synthesis
 
-**Slayers:** specialized production workers
+image generation
 
-**Healers:** regeneration, retries and partial-stage recovery
+subtitle generation
 
----
+thumbnail generation
 
-## Floor 05 — Rendering & Delivery
+media analysis
 
-**Responsibility:** transform production assets into a validated, deliverable video artifact.
+content-specific engines
 
-```text
+The production layer is intentionally modular so different content types can reuse the same factory infrastructure.
+
+Floor 05 — Rendering & Delivery
+
+Responsibility: produce a valid final video artifact and deliver it.
+
 Production Assets
       ↓
 Render Queue
       ↓
-Warm Worker
+Warm Renderer
       │
-      ├── available ──→ render
+      ├── available → render
       │
       └── unavailable
               ↓
@@ -323,71 +477,66 @@ Warm Worker
               ↓
           Validation
               ↓
-          Artifact Store
-```
+        Artifact Storage
+              ↓
+            Delivery
 
-The existing architecture separates the warm rendering path from GitHub Actions fallback execution.
+The architecture deliberately separates render execution from application state.
 
 Current rendering technology includes:
 
-* FastAPI
-* FFmpeg
-* Pillow
-* edge-tts
-* faster-whisper
+FastAPI
+FFmpeg
+Pillow
+edge-tts
+faster-whisper
 
-The renderer is designed to be a **worker**, not the owner of application state.
+The renderer is a worker.
 
-**Guardian:** Rendering Guardian
+FactoryOS remains responsible for orchestration and state.
 
-**Slayers:** render workers
+Floor 06 — Security, Identity & Governance
 
-**Healers:** retry, fallback and failed-render recovery
+Responsibility: control access to the factory and protect production state.
 
----
-
-## Floor 06 — Security, Identity & Governance
-
-**Responsibility:** protect the factory and control who can perform which operations.
-
-```text
 Identity
-  ↓
+   ↓
 Session
-  ↓
+   ↓
 Role
-  ↓
+   ↓
 Authorization
-  ↓
+   ↓
 Operation
-```
 
-This layer covers:
+The planned governance layer covers:
 
-* authentication
-* session security
-* role-based access control
-* worker authorization
-* user isolation
-* privileged/admin boundaries
-* security hardening
-* auditability
+authentication
 
-The broader Floor 6 specification explicitly centers on authentication, persistent users, USER/ADMIN roles, RBAC, password recovery, security testing and ship gates.
+persistent users
 
-**Guardian:** Security Guardian
+USER / ADMIN roles
 
-**Slayers:** policy/auth/security workers
+RBAC
 
-**Healers:** security recovery and safe failure handling
+password recovery
 
----
+worker authorization
 
-## Floor 07 — Verification & Compliance
+user isolation
 
-**Responsibility:** determine whether a production result is actually safe and complete enough to release.
+privileged operations
 
-```text
+security hardening
+
+auditability
+
+Implementation status: this layer is part of the FactoryOS architectural roadmap; the project history records Floors 1–5 as the completed baseline and Floor 6 onward as subsequent work.
+
+Floor 07 — Verification & Compliance
+
+Responsibility: decide whether an output has satisfied the required acceptance gates.
+
 Output
   ↓
 Validation
@@ -398,52 +547,16 @@ Security checks
   ↓
 Compliance checks
   ↓
-Release decision
-```
+Release / Reject / Escalate
 
-The repository contains an archived `floor07_compliance_2026-08-23` implementation; the architectural role of Floor 07 remains the verification/compliance boundary rather than presenting that archived implementation as active runtime code.
+The repository history contains an archived Floor 07 compliance implementation; it is therefore documented here as the intended verification boundary rather than being represented as fully active runtime code.
 
-**Guardian:** Verification / Compliance Guardian
+⚔️ Slayers
 
-**Slayers:** validation and inspection workers
-
-**Healers:** repair, rejection and escalation
-
----
-
-# 👁️ Overseer
-
-The Overseer is the control layer that sits above the production floors.
-
-It is designed to:
-
-```text
-OBSERVE
-   ↓
-UNDERSTAND
-   ↓
-DECIDE
-   ↓
-DELEGATE
-   ↓
-MONITOR
-   ↓
-RECOVER / ESCALATE
-```
-
-Instead of making one agent responsible for every capability, the Overseer coordinates specialists and maintains the factory-level view.
-
-That design is intended to make the system easier to extend, test, recover and operate.
-
----
-
-# ⚔️ Slayers
-
-A Slayer performs one bounded operation.
+A Slayer is a bounded execution specialist.
 
 Examples:
 
-```text
 Script Slayer
 Voice Slayer
 Visual Slayer
@@ -452,114 +565,297 @@ Thumbnail Slayer
 Render Slayer
 Validation Slayer
 Delivery Slayer
-```
 
-Each worker has a clear execution boundary.
+The important property is bounded responsibility.
 
-This allows the factory to replace or reroute workers without rewriting the complete pipeline.
+Input
+  ↓
+Slayer
+  ↓
+Output
+  ↓
+Report
 
----
+This makes workers easier to:
 
-# ❤️ Healers
+test
 
-Healers are the recovery layer.
+replace
 
-A failed worker does not automatically mean a failed production.
+retry
 
-```text
+route
+
+scale
+
+observe
+
+❤️ Healers
+
+Healers are part of the production architecture rather than an afterthought.
+
 Worker
   ↓
 Failure
   ↓
 Healer
   ↓
-Retry / Replace / Fallback / Repair
+Retry
+ / Replace
+ / Fallback
+ / Repair
   ↓
 Resume
-```
 
-This becomes especially important when external AI providers and remote rendering infrastructure are involved.
+The principle is:
 
----
+A worker failure should not automatically become a production failure.
 
-# ⚙️ Rendering Infrastructure
+This becomes especially important when the factory depends on external AI providers, remote compute or ephemeral infrastructure.
 
-ShortForge treats compute as a fleet rather than a single machine.
+🔧 ReMaker
 
-```text
-                         FACTORYOS
-                             │
-                       Render Queue
-                             │
-                       Smart Router
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
-    Lightning             Kaggle              GitHub
-       GPU                  GPU                 CPU
-        │                    │                    │
-        └────────────────────┼────────────────────┘
-                             │
-                          Render
-                             │
-                             ▼
-                           MP4
-                             │
-                       Artifact Manager
-                             │
-                  ┌──────────┴──────────┐
-                  ▼                     ▼
-             Cloudinary           Google Drive
-                  │                     │
-                  └──────────┬──────────┘
-                             ▼
-                       ShortForge UI
-```
+The ReMaker sits on the recovery side of the factory.
 
-The architectural rule is:
+Where a Healer can recover an execution path, ReMaker is concerned with determining whether failed work should be reconstructed.
 
-> **Compute providers execute jobs. FactoryOS owns orchestration and state.**
+Conceptually:
 
-That allows the rendering fleet to evolve independently.
+Invalid / Failed Artifact
+          ↓
+       Diagnosis
+          ↓
+        ReMaker
+          ↓
+      Reconstruct
+          ↓
+        Validate
 
----
+This provides another layer between:
 
-# 🔐 Reliability Engineering
+failure
 
-ShortForge is designed around failure-aware execution.
+and:
 
-## Atomic generation quotas
+production termination
 
-Generation capacity is reserved transactionally and finalized only after successful artifact verification.
+🧠 Adaptive Overseer
 
-```text
-Reserve
+The intended future Overseer architecture is not simply:
+
+Prompt
   ↓
-Generate
+LLM
+
+Instead:
+
+User
   ↓
-Validate
+Overseer
   ↓
-Finalize
-```
+Task Complexity / Uncertainty
+  ↓
+Adaptive Strategy
+  ├── direct answer
+  ├── retrieve
+  ├── decompose
+  ├── investigate
+  └── recurse
+  ↓
+Evidence
+  ↓
+Validator
+  ↓
+Mission
 
-## Execution authorization
+The important constraint is that deeper reasoning should be budgeted.
 
-Render operations use scoped execution credentials and server-side verification.
+Recursive investigation should depend on factors such as:
 
-## Idempotent callbacks
+uncertainty
++
+task complexity
++
+evidence coverage
++
+remaining budget
++
+validator state
 
-Repeated callbacks should not produce repeated state transitions.
+rather than recursively calling the model a fixed number of times.
 
-## Worker fallback
+This is a future evolution of the Overseer architecture, not a claim that the entire RLM design is already production-complete.
 
-The warm worker can be replaced by an external worker when capacity is unavailable.
+🎙️ Resilient Voice Architecture
 
-## Explicit job state
+Voice generation is treated as a subsystem rather than a single TTS dependency.
 
-Rather than treating generation as a single request, jobs move through observable states:
+Workflow
+    ↓
+Voice Capability Registry
+    ↓
+Recommendation Engine
+    ↓
+Voice Benchmark
+    ↓
+Router
+    ↓
+Candidate Ranking
+    ↓
+Worker Pool
+    ↓
+Voice Engine / Provider
+    ↓
+Audio Post Processor
+    ↓
+Cache
+    ↓
+Asset Registry
+    ↓
+Profiler / Diagnostics
 
-```text
+The architecture was designed to support:
+
+Local Engines
+    └── Supertonic
+
+Cloud Providers
+    └── ElevenLabs
+
+Network Providers
+    └── Edge
+
+Future Engines
+    ├── Kokoro
+    ├── Piper
+    ├── Fish Speech
+    ├── F5-TTS
+    ├── Orpheus
+    └── StyleTTS2
+
+The router should rank candidates using capability and health rather than relying forever on hard-coded provider order.
+
+The planned reliability strategy includes:
+
+Provider Cache
+      ↓
+Provider Fallback
+      ↓
+Generic Cross-Provider Cache
+      ↓
+Degraded Audio
+      ↓
+Silent Fallback
+
+The audio subsystem also includes health telemetry, circuit-breaker behavior, retries, timeouts and post-processing concepts.
+
+🎬 Content Engines
+
+ShortForge is designed to support multiple production missions on a shared factory.
+
+Examples:
+
+Coding
+Facts
+History
+Motivation
+News
+Psychology
+Quiz
+
+A content engine can define its own production characteristics without rebuilding the orchestration, rendering and delivery infrastructure.
+
+For example:
+
+Quiz Engine
+  ├── Topic
+  ├── Difficulty
+  ├── Audience
+  ├── Voice
+  ├── Visual Style
+  └── Publishing Target
+
+⚙️ Distributed Rendering
+
+Rendering is treated as a compute-fleet problem.
+
+                       FACTORYOS
+                           │
+                     Render Queue
+                           │
+                     Smart Router
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+          ▼                ▼                ▼
+      Lightning          Kaggle           GitHub
+        GPU               GPU              CPU
+          │                │                │
+          └────────────────┼────────────────┘
+                           │
+                         Render
+                           │
+                           ▼
+                       RenderArtifact
+                           │
+                    Artifact Manager
+                           │
+                 ┌─────────┴─────────┐
+                 ▼                   ▼
+             Cloudinary         Google Drive
+                 │                   │
+                 └─────────┬─────────┘
+                           ▼
+                     ShortForge UI
+
+The intended routing strategy is:
+
+1. Lightning
+       ↓ unavailable / busy / quota
+2. Kaggle
+       ↓ unavailable
+3. GitHub Actions
+       ↓
+4. Retry / Queue
+
+Lightning is intended as the warm primary renderer, Kaggle as burst capacity, and GitHub Actions as a CPU-oriented fallback.
+
+The key abstraction is:
+
+Compute providers execute jobs. FactoryOS owns orchestration and state.
+
+⚡ Warm Rendering
+
+A warm worker avoids repeatedly rebuilding the rendering environment.
+
+The current Basic renderer architecture has already been brought up inside Lightning with:
+
+Lightning Studio
+      ↓
+FastAPI :8100
+      ├── /health
+      └── /ready
+             ↓
+      BasicRenderWorker
+             ↓
+           FFmpeg
+
+The recorded verification showed the worker reporting:
+
+workerCount: 1
+queueDepth: 0
+activeJobs: 0
+completedJobs: 0
+failedJobs: 0
+
+The remaining production boundary at that checkpoint was the externally reachable Lightning endpoint and full FactoryOS → Lightning → artifact completion flow.
+
+🔐 Failure-Aware Execution
+
+ShortForge treats failures as expected distributed-system events.
+
+Explicit job lifecycle
+
 QUEUED
   ↓
 CLAIMED
@@ -573,15 +869,33 @@ VALIDATED
 STORED
   ↓
 COMPLETED
-```
 
----
+Atomic capacity reservation
 
-# 📦 Artifact Lifecycle
+Reserve
+  ↓
+Generate
+  ↓
+Validate
+  ↓
+Finalize
 
-The video is an artifact with a lifecycle—not simply an HTTP response.
+Execution authorization
 
-```text
+Render jobs use scoped execution tokens and server-side verification.
+
+Idempotent callbacks
+
+Repeated callbacks should not create repeated state transitions.
+
+Worker fallback
+
+A warm renderer can be replaced by another execution provider when capacity is unavailable.
+
+📦 Artifact Lifecycle
+
+A completed video is an artifact, not merely an HTTP response.
+
 Generate
    ↓
 Render
@@ -593,68 +907,162 @@ Persist
 Distribute
    ↓
 Track
-```
 
-The system is designed so rendering infrastructure can fail or be replaced without losing the completed artifact.
+This separation allows the rendering infrastructure to fail or be replaced without losing the application's durable understanding of the production.
 
----
+🗃️ Operational Memory
 
-# 🧩 Content Engines
+FactoryOS separates application state from operational intelligence.
 
-ShortForge is designed to support specialized production missions rather than one generic prompt.
+                     FACTORYOS
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+          Firestore              MongoDB
+              │                     │
+              ▼                     ▼
+       Application State      Operational State
+              │                     │
+         Users / RBAC          Worker Reports
+         Projects              Floor Executions
+         Video Jobs            Worker Health
+         API Config            Failures
+                               Metrics
+                               Events
+                               Overseer Memory
 
-Examples include:
+MongoDB was introduced as the operational intelligence layer rather than replacing the existing Firestore application architecture.
 
-```text
-Coding
-Facts
-History
-Motivation
-News
-Psychology
-Quiz
-```
+🔎 External Intelligence
 
-Each engine can define its own production characteristics while using the shared factory infrastructure.
+The broader FactoryOS architecture also leaves room for external research tooling.
 
-For example:
+Agent-Reach was considered as a unified interface for agent access to platforms such as:
 
-```text
-Quiz Engine
-  ├── topic
-  ├── difficulty
-  ├── audience
-  ├── voice
-  ├── visual style
-  └── publishing target
-```
+X
+Reddit
+YouTube
+GitHub
+LinkedIn
 
-The resulting workflow still passes through the same orchestration, rendering, validation and delivery layers.
+This creates a future research path:
 
----
+External Intelligence
+       ↓
+Research
+       ↓
+Overseer
+       ↓
+Content Engine
+       ↓
+Production
 
-# 🛠️ Technology Stack
+🧪 Engineering & Verification
 
-| Layer              | Technologies                                    |
-| ------------------ | ----------------------------------------------- |
-| Control Plane      | Next.js 16, React 19                            |
-| Language           | TypeScript                                      |
-| UI                 | Tailwind CSS, Framer Motion, Zustand            |
-| Backend APIs       | Next.js Route Handlers, FastAPI                 |
-| Rendering          | FFmpeg, Pillow                                  |
-| Voice              | edge-tts                                        |
-| Speech / subtitles | faster-whisper                                  |
-| AI                 | Vercel AI SDK, Groq, Gemini, FLUX, Transformers |
-| Data               | Firestore, MongoDB, SQLite                      |
-| Media              | Cloudinary                                      |
-| Worker execution   | GitHub Actions, external GPU workers            |
-| Infrastructure     | Docker, Firebase, Cloudflare, Render / Vercel   |
+The project uses multiple verification layers:
 
----
+Type Checking
+     +
+Unit Tests
+     +
+Integration Tests
+     +
+Security Checks
+     +
+Rendering Validation
+     +
+Callback Verification
+     +
+Production Builds
 
-# 📁 Repository Structure
+The architecture also emphasizes real-boundary verification.
 
-```text
+For infrastructure, simulated evidence is not enough.
+
+The intended acceptance path crosses the real boundary:
+
+FactoryOS
+   ↓
+Real backend
+   ↓
+Real database
+   ↓
+Real worker
+   ↓
+Real FFmpeg
+   ↓
+Real MP4
+   ↓
+Real storage
+   ↓
+Real callback
+   ↓
+Completed job
+
+🛠️ Technology Stack
+
+Layer
+
+Technology
+
+Control Plane
+
+Next.js 16, React 19
+
+Language
+
+TypeScript
+
+UI
+
+Tailwind CSS, Framer Motion, Zustand
+
+Backend APIs
+
+Next.js Route Handlers, FastAPI
+
+AI
+
+Vercel AI SDK, Groq, Gemini, FLUX, Transformers
+
+Rendering
+
+FFmpeg, Pillow
+
+Voice
+
+edge-tts + pluggable voice engines/providers
+
+Speech / Subtitles
+
+faster-whisper
+
+Application Data
+
+Firestore
+
+Operational Data
+
+MongoDB
+
+Local / Queue State
+
+SQLite
+
+Media
+
+Cloudinary
+
+Compute
+
+Lightning, Kaggle, GitHub Actions, Azure for isolated Admin workloads
+
+Infrastructure
+
+Docker, Firebase, Cloudflare, Render / Vercel
+
+📁 Repository Structure
+
 ShortForge/
 │
 ├── apps/
@@ -663,6 +1071,8 @@ ShortForge/
 │       │   ├── api/
 │       │   ├── dashboard/
 │       │   └── ...
+│       ├── content-engines/
+│       ├── factoryos/
 │       └── ...
 │
 ├── services/
@@ -688,259 +1098,289 @@ ShortForge/
 │   └── workflows/
 │
 └── CLAUDE.md
-```
 
----
+🏗️ End-to-End Production Example
 
-# 🔬 Engineering Focus
+User:
 
-The most interesting engineering problems in ShortForge are **systems problems**:
-
-```text
-AI
- +
-orchestration
- +
-distributed execution
- +
-state management
- +
-fault recovery
- +
-security
- +
-media processing
- +
-artifact lifecycle
- +
-multi-provider compute
-```
-
-The project therefore focuses not only on **what an AI model can generate**, but on:
-
-> **how an autonomous system coordinates unreliable computation into a dependable production workflow.**
-
----
-
-# 🚀 Example End-to-End Flow
-
-A user requests:
-
-```text
 "Create a Short explaining how black holes work."
-```
 
-The factory processes it as:
+FactoryOS:
 
-```text
-User Intent
-     ↓
-👁️ Overseer
-     ↓
-🛡️ Planning / Orchestration Guardian
-     ↓
-⚔️ Script Slayer
-     ↓
-⚔️ Voice Slayer
-     ↓
-⚔️ Visual Slayer
-     ↓
-⚔️ Subtitle Slayer
-     ↓
-🛡️ Rendering Guardian
-     ↓
-Render Queue
-     ↓
-Warm Worker / External Worker
-     ↓
-FFmpeg
-     ↓
-MP4 validation
-     ↓
-🛡️ Verification Guardian
-     ↓
-Artifact Manager
-     ├── Cloudinary
-     ├── Google Drive
-     └── ShortForge Library
-```
+                         USER
+                           │
+                           ▼
+                     👁️ OVERSEER
+                           │
+                           ▼
+                   Intent / Planning
+                           │
+                           ▼
+                  🧭 Orchestration
+                           │
+                           ▼
+                  🧠 Intelligence
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+           Script        Voice        Visuals
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                    🎬 Production
+                           │
+                           ▼
+                     Render Queue
+                           │
+                           ▼
+                  🎞️ Rendering
+                    │            │
+                    │            └── fallback
+                    ▼                 │
+                Warm Worker      External Worker
+                    │                 │
+                    └────────┬────────┘
+                             ▼
+                           MP4
+                             │
+                       Validation
+                             │
+                             ▼
+                   Verification Layer
+                             │
+                             ▼
+                     Artifact Manager
+                        │          │
+                        ▼          ▼
+                   Cloudinary   Drive
+                             │
+                             ▼
+                       ShortForge UI
 
-If something fails:
+When a stage fails:
 
-```text
-Slayer
+Worker
   ↓
 Failure
   ↓
 ❤️ Healer
   ↓
-Retry / Regenerate / Fallback
+Retry / Fallback / Repair
+  ↓
+ReMaker if reconstruction is required
   ↓
 Resume
-```
 
----
+🔬 Engineering Focus
 
-# 📈 Current Engineering Direction
+The project is primarily a systems-engineering exercise around AI workloads.
 
-ShortForge is evolving toward:
+The interesting problems are:
 
-```text
-Single AI application
-        ↓
-Multi-agent application
-        ↓
-Orchestrated production system
-        ↓
-Autonomous software factory
-```
+AI
+ +
+agent orchestration
+ +
+hierarchical control
+ +
+distributed execution
+ +
+persistent state
+ +
+worker scheduling
+ +
+fault recovery
+ +
+media processing
+ +
+security
+ +
+artifact lifecycle
+ +
+multi-provider compute
 
-The long-term architecture is centered on:
+Rather than treating AI generation as a single model call, FactoryOS treats it as a long-running, stateful production workflow.
 
-* autonomous orchestration
-* worker specialization
-* persistent operational state
-* intelligent compute routing
-* automatic recovery
-* infrastructure telemetry
-* secure multi-user isolation
-* artifact-centric delivery
+That distinction drives the architecture.
 
----
+📌 Architecture Principles
 
-# 🧪 Verification
+Separation of concerns
 
-The project uses:
+The control plane coordinates jobs; workers execute them.
 
-* Vitest
-* TypeScript type checking
-* production builds
-* API/integration tests
-* security checks
-* rendering validation
-* worker callback verification
-* CI workflows
+Bounded autonomy
 
-The repository also includes documented production acceptance gates covering user isolation, quotas, worker execution, rendering, artifact storage, callbacks, security, builds, and deployment configuration.
+Agents operate within explicit responsibilities.
 
----
+Observable execution
 
-# ▶️ Run Locally
+Production state is represented explicitly.
 
-### Control Plane
+Recovery by design
 
-```bash
+Failures are routed toward retry, fallback, repair or escalation.
+
+Provider independence
+
+Compute and AI providers are replaceable execution resources.
+
+Artifact ownership
+
+Workers produce artifacts; durable application state remains outside the worker.
+
+Evidence-based decisions
+
+The Overseer is intended to reason from factory state and reports rather than fabricate operational status.
+
+🚦 Project Status
+
+The project is intentionally being developed in stages.
+
+Current baseline
+
+✅ Floors 01–05 baseline
+✅ Core production pipeline
+✅ AI/content generation
+✅ Rendering engine
+✅ Warm Basic renderer
+✅ GitHub render fallback
+✅ Execution-token protection
+✅ Render queue
+✅ Artifact handling
+✅ Worker telemetry foundations
+✅ Resilient voice architecture
+
+In active evolution
+
+🚧 Public Lightning integration
+🚧 Multi-provider render routing
+🚧 Operational Overseer
+🚧 Persistent operational intelligence
+🚧 Floor 06 security/governance expansion
+🚧 Floor 07 verification/compliance
+🚧 Deeper autonomous orchestration
+🚧 Adaptive / recursive Overseer strategies
+
+▶️ Run Locally
+
+Control Plane
+
 cd apps/web
 
 npm install
 npm run dev
-```
 
 Open:
 
-```text
 http://localhost:3000
-```
 
-### Rendering Engine
+Rendering Engine
 
-```bash
 cd services/rendering-engine
 
 pip install -r requirements.txt
 
 python -m uvicorn main:app --port 8080
-```
 
-### Warm Basic Renderer
+Warm Basic Renderer
 
-```bash
 python -m uvicorn basic_render_api:app --port 8100
-```
 
-### Tests & Build
+Tests
 
-```bash
 cd apps/web
 
 npm run factoryos:test
 npm run factoryos:typecheck
 npm run build
-```
 
-FFmpeg must be available to the rendering environment.
+FFmpeg must be available in the rendering environment.
 
----
+🗺️ Where FactoryOS Is Going
 
-# 🗺️ Roadmap
+Single AI Application
+        ↓
+Multi-Agent Application
+        ↓
+Orchestrated Production System
+        ↓
+Autonomous Software Factory
+        ↓
+Adaptive Factory Intelligence
 
-```text
-                    SHORTFORGE
-                        │
-                        ▼
-                Seven-Floor Factory
-                        │
-          ┌─────────────┼─────────────┐
-          │             │             │
-          ▼             ▼             ▼
-       Autonomy     Reliability    Scalability
-          │             │             │
-          ▼             ▼             ▼
-      Overseer       Healers      Worker Fleet
-          │             │             │
-          └─────────────┼─────────────┘
-                        ▼
-              Multi-provider compute
-                        │
-                        ▼
-              Autonomous production
-```
+The long-term direction is:
 
-Planned evolution includes:
+User
+ ↓
+Overseer
+ ↓
+Adaptive decision-making
+ ↓
+Floor orchestration
+ ↓
+Specialized workers
+ ↓
+Distributed compute
+ ↓
+Automatic recovery
+ ↓
+Verification
+ ↓
+Artifact delivery
 
-* smarter render-provider selection
-* unified worker adapters
-* worker health and telemetry
-* queue-aware scheduling
-* stronger automated recovery
-* expanded production engines
-* deeper Overseer autonomy
+The factory should increasingly be able to determine:
 
----
+what needs to happen
+        ↓
+who should do it
+        ↓
+where it should execute
+        ↓
+whether it succeeded
+        ↓
+what to do when it fails
+        ↓
+when the result is safe to release
 
-# 🌐 Links
+🌐 Links
 
-**Live Product:**
+Live Product
+
 https://shortforge.gokul.software/
 
-**GitHub:**
+Source
+
 https://github.com/Gokul7904231/ShortForge
 
-**Architecture Documentation:**
-`docs/ARCHITECTURE.md`
+Architecture
 
-**Pipeline:**
-`services/pipeline/`
+docs/ARCHITECTURE.md
 
-**Rendering Engine:**
-`services/rendering-engine/`
+Pipeline
 
----
+services/pipeline/
 
-# 👤 Author
+Rendering Engine
 
-## Gokul
+services/rendering-engine/
+
+Workflows
+
+.github/workflows/
+
+👤 Author
+
+Gokul
 
 Computer Science student focused on:
 
-**AI / ML · LLMs · Agentic AI · AI Infrastructure · Distributed Systems**
+AI / ML · LLM Systems · Agentic AI · AI Infrastructure · Distributed Systems
 
-ShortForge is an ongoing attempt to answer a systems-level question:
+ShortForge is an ongoing engineering project exploring one question:
 
-> **What does it take to make software that can coordinate its own production work?**
+What would it take to make an AI system that can operate an entire production workflow rather than merely answer a prompt?
 
----
+📜 License
 
-# 📜 License
-
-MIT — see [`LICENSE`](LICENSE).
+MIT — see LICENSE.
